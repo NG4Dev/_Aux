@@ -1,4 +1,4 @@
-import express, {json, urlencoded} from 'express';
+import express, { json, urlencoded } from 'express';
 import productsRoutes from './routes/products/index';
 
 const app = express();
