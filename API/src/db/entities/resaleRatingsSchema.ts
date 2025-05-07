@@ -1,13 +1,11 @@
-import { pgTable, uuid, integer, text, foreignKey } from "drizzle-orm/pg-core";
-import { ticketResales } from "./ticketResalesSchema";
-import { users } from "./usersSchema";
+import { pgTable, uuid, integer, text } from "drizzle-orm/pg-core"; // Import numeric
+import { ticketResales } from "./ticketResalesSchema"; // Import ticketResales schema for FK
+import { profiles } from "./profilesSchema"; // Import profiles schema for FK
 
 export const resaleRatings = pgTable("resale_ratings", {
   id: uuid("id").primaryKey().defaultRandom(),
-  transactionId: uuid("transaction_id"),
-  raterId: uuid("rater_id").references(() => users.id),
+  resaleId: uuid("resale_id").notNull().references(() => ticketResales.id), // Changed column name and FK definition
+  reviewerId: uuid("reviewer_id").notNull().references(() => profiles.id), // Changed column name and FK reference
   rating: integer("rating").notNull(),
-  comment: text("comment"),
-}, (t) => ({
-  fk: foreignKey({ columns: [t.transactionId], foreignColumns: [ticketResales.id] }),
-}));
+  comment: text("comment"), // Added explicit nullable
+});

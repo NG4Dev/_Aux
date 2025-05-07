@@ -1,10 +1,10 @@
 import { pgTable, uuid, text, timestamp } from "drizzle-orm/pg-core";
-import { users } from "./usersSchema";
+import { businesses } from "./businessesSchema"; // Import businesses schema for FK
 
 export const events = pgTable("events", {
   id: uuid("id").primaryKey().defaultRandom(),
-  creatorId: uuid("creator_id").references(() => users.id),
+  organizationId: uuid("organization_id").notNull().references(() => businesses.id), // Changed FK to businesses
   name: text("name").notNull(),
   startTime: timestamp("start_time").notNull(),
-  endTime: timestamp("end_time").notNull(),
+  endTime: timestamp("end_time"), // Removed notNull to make it nullable
 });

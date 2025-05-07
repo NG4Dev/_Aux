@@ -1,5 +1,6 @@
 import * as usersSchema from "./entities/usersSchema";
 import * as profilesSchema from "./entities/profilesSchema";
+import { userStatusEnum } from "./entities/enums"; // Import the enum
 import * as businessesSchema from "./entities/businessesSchema";
 import * as productsSchema from "./entities/productsSchema";
 import * as promoCodesSchema from "./entities/promoCodesSchema";
@@ -46,4 +47,5 @@ export default {
   ...conversationsSchema,
   ...messagesSchema,
   ...attachmentsSchema,
+  userStatusEnum, // Export the enum
 };
