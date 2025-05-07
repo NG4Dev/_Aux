@@ -1,15 +1,15 @@
 import { Request, Response } from "express";
 import { db } from "../../db/index";
-import { productsTable } from "../../db/productsSchema";
+import { products } from "../../db/entities/productsSchema";
 import { eq } from "drizzle-orm";
 
 export async function listProducts(req: Request, res: Response) {
   try {
-    const products = await db
+    const productList = await db
     .select()
-    .from(productsTable);
+    .from(products);
 
-    res.json(products);
+    res.json(productList);
   } catch (e) {
     res.status(500).send(e);
   }
@@ -17,11 +17,11 @@ export async function listProducts(req: Request, res: Response) {
 
 export async function getProductById(req: Request, res: Response) {
   try {
-    const id = req.params ;
+    const id = req.params.id as string;
     const [product] = await db
       .select()
-      .from(productsTable)
-      .where(eq(productsTable.id, Number(id)));
+      .from(products)
+      .where(eq(products.id, id));
 
     if (!product){
         res.status(404).send({message: "Product not found"});
@@ -36,7 +36,7 @@ export async function getProductById(req: Request, res: Response) {
 export async function createProduct(req: Request, res: Response) {
   try {
     const [product] = await db
-      .insert(productsTable)
+      .insert(products)
       .values(req.body)
       .returning();
     res.status(201).json(product);
@@ -47,13 +47,13 @@ export async function createProduct(req: Request, res: Response) {
 
 export async function updateProduct(req: Request, res: Response) {
   try {
-    const id = Number(req.params.id);
+    const id = req.params.id as string;
     const updatedFields = req.body;
 
     const [product] = await db
-    .update(productsTable)
+    .update(products)
     .set(updatedFields)
-    .where(eq(productsTable.id, id))
+    .where(eq(products.id, id))
     .returning();
 
     if (product) {
@@ -68,10 +68,10 @@ export async function updateProduct(req: Request, res: Response) {
 
 export async function deleteProduct(req: Request, res: Response) {
   try {
-    const id = Number(req.params.id);
+    const id = req.params.id as string;
     const [deletedProduct] = await db
-    .delete(productsTable)
-    .where(eq(productsTable.id, id))
+    .delete(products)
+    .where(eq(products.id, id))
     .returning();
 
     if (deletedProduct) {
