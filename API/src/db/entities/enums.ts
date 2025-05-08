@@ -8,3 +8,4 @@ export const guestListStatusEnum = pgEnum("guest_list_status", ["confirmed", "pe
 export const qrScanResultEnum = pgEnum("qr_scan_result", ["success", "failure"]);
 export const conversationTypeEnum = pgEnum("conversation_type", ["one-on-one", "group"]);
 export const attachmentTypeEnum = pgEnum("attachment_type", ["image", "file", "video", "giphy", "audio", "url_preview"]);
+export const subscriptionStatusEnum = pgEnum("subscription_status", ["active", "cancelled", "expired"]);

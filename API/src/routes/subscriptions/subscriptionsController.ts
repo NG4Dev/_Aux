@@ -1,7 +1,9 @@
 import { Request, Response } from "express";
 import { db } from "../../db/index";
 import { subscriptions } from "../../db/entities/subscriptionsSchema";
-import { eq } from "drizzle-orm";
+import { users } from "../../db/entities/usersSchema"; // Import users schema for FK reference in queries
+import { businesses } from "../../db/entities/businessesSchema"; // Import businesses schema for FK reference in queries
+import { eq, and, or } from "drizzle-orm"; // Import eq, and, or for query conditions
 
 export async function listSubscriptions(req: Request, res: Response) {
   try {
@@ -35,10 +37,20 @@ export async function getSubscriptionById(req: Request, res: Response) {
 
 export async function createSubscription(req: Request, res: Response) {
   try {
-    // Basic validation/typing might be needed for req.body
+    // Expecting req.body to contain planType, startDate, and either userId or businessId
+    const { userId, businessId, planType, startDate, endDate } = req.body;
+
+    if (!planType || !startDate || (!userId && !businessId)) {
+        return res.status(400).send({ message: "Invalid request body" });
+    }
+
+    if (userId && businessId) {
+         return res.status(400).send({ message: "Cannot subscribe both a user and a business in one subscription" });
+    }
+
     const [subscription] = await db
       .insert(subscriptions)
-      .values(req.body) // Assuming req.body matches the subscriptions schema structure
+      .values({ userId, businessId, planType, startDate, endDate })
       .returning();
     res.status(201).json(subscription);
   } catch (e) {
