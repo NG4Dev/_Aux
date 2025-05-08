@@ -1,12 +1,13 @@
 import { Router } from "express";
 import { listLikes, getLikeById, createLike, updateLike, deleteLike } from "./likesController";
+import { RequestHandler } from 'express'; // Import RequestHandler
 
 const router = Router();
 
-router.get("/", listLikes);
-router.get("/:id", getLikeById);
-router.post("/", createLike);
-router.put("/:id", updateLike);
-router.delete("/:id", deleteLike);
+router.get("/", listLikes as RequestHandler);
+router.get("/:id", getLikeById as RequestHandler);
+router.post("/", createLike as RequestHandler);
+router.put("/:id", updateLike as RequestHandler);
+router.delete("/:id", deleteLike as RequestHandler);
 
 export default router;

@@ -21,6 +21,10 @@ import subscriptionsRoutes from './routes/subscriptions/index'; // Added import 
 import conversationsRoutes from './routes/conversations/index';
 import messagesRoutes from './routes/messages/index';
 import attachmentsRoutes from './routes/attachments/index';
+import guestUsersRoutes from './routes/guest-users/index'; // Added import for guest-users route
+import postMediaRoutes from './routes/post-media/index'; // Added import for post-media route
+import productCategoriesRoutes from './routes/product-categories/index'; // Added import for product-categories route
+import eventCategoriesRoutes from './routes/event-categories/index'; // Added import for event-categories route
 
 const app = express();
 const port = 3000;
@@ -55,6 +59,10 @@ app.use('/subscriptions', subscriptionsRoutes); // App subscriptions
 app.use('/conversations', conversationsRoutes); //between users for resale or for merchants (support) or drivers or app for support
 app.use('/messages', messagesRoutes); //between users for resale or for merchants (support) or drivers or app for support
 app.use('/attachments', attachmentsRoutes); //between users for resale or for merchants (support) or for support
+app.use('/guest-users', guestUsersRoutes); // Guest users route
+app.use('/post-media', postMediaRoutes); // Post media route
+app.use('/product-categories', productCategoriesRoutes); // Product categories route
+app.use('/event-categories', eventCategoriesRoutes); // Event categories route
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
