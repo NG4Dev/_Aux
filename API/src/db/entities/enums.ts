@@ -9,3 +9,4 @@ export const qrScanResultEnum = pgEnum("qr_scan_result", ["success", "failure"])
 export const conversationTypeEnum = pgEnum("conversation_type", ["one-on-one", "group"]);
 export const attachmentTypeEnum = pgEnum("attachment_type", ["image", "file", "video", "giphy", "audio", "url_preview"]);
 export const subscriptionStatusEnum = pgEnum("subscription_status", ["active", "cancelled", "expired"]);
+export const refundPolicyEnum = pgEnum("refund_policy", ["standard", "custom", "no_refunds"]);

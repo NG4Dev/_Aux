@@ -1,5 +1,6 @@
 import * as usersSchema from "./entities/usersSchema";
 import * as sandboxUserSchema from "./entities/sandboxUserSchema";
+import * as guestUserSchema from "./entities/guestUserSchema"; // Added import for guestUserSchema
 import { userStatusEnum, subscriptionStatusEnum } from "./entities/enums"; // Import the enums
 import * as businessesSchema from "./entities/businessesSchema";
 import * as productsSchema from "./entities/productsSchema";
@@ -23,10 +24,13 @@ import * as conversationsSchema from "./entities/conversationsSchema";
 import * as messagesSchema from "./entities/messagesSchema";
 import * as attachmentsSchema from "./entities/attachmentsSchema";
 import * as postMediaSchema from "./entities/postMediaSchema"; // Added import for postMediaSchema
+import * as productCategoriesSchema from "./entities/productCategoriesSchema"; // Added import for productCategoriesSchema
+import * as eventCategoriesSchema from "./entities/eventCategoriesSchema"; // Added import for eventCategoriesSchema
 
 export default {
   ...usersSchema,
   ...sandboxUserSchema,
+  ...guestUserSchema, // Added export for guestUserSchema
   ...businessesSchema,
   ...productsSchema,
   ...promoCodesSchema,
@@ -49,5 +53,7 @@ export default {
   ...messagesSchema,
   ...attachmentsSchema,
   ...postMediaSchema, // Added export for postMediaSchema
+  ...productCategoriesSchema, // Added export for productCategoriesSchema
+  ...eventCategoriesSchema, // Added export for eventCategoriesSchema
   subscriptionStatusEnum, // Export the new enum
 };
