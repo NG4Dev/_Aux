@@ -1,9 +1,11 @@
 import { pgTable, uuid, text, varchar } from "drizzle-orm/pg-core";
 import { guestUsers } from "./guestUserSchema"; // Import guestUser schema for FK
+import { users } from "./usersSchema"; // Import users schema for FK
 
 export const businesses = pgTable("businesses", {
   id: uuid("id").primaryKey().defaultRandom(),
-  ownerId: uuid("owner_id").notNull().references(() => guestUsers.id), // Changed FK to guestUser
+  ownerId: uuid("owner_id").notNull().references(() => guestUsers.id), // FK to guestUser (initial creator)
+  userId: uuid("user_id").references(() => users.id), // FK to users (real user owner), nullable initially
   name: text("name").notNull(),
   description: text("description"),
   category: text("category"),

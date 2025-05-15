@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { db } from "../../db/index";
 import { businesses } from "../../db/entities/businessesSchema";
+import { guestUsers } from "../../db/entities/guestUserSchema";
 import { eq } from "drizzle-orm";
 
 export async function listBusinesses(req: Request, res: Response) {
@@ -35,13 +36,50 @@ export async function getBusinessById(req: Request, res: Response) {
 
 export async function createBusiness(req: Request, res: Response) {
   try {
-    // Basic validation/typing might be needed for req.body
-    const [business] = await db
+    // Expecting req.body to contain business details and the guestUserId
+    const { guestUserId, name, description, category, email, tagline, tradingHours, address, phoneNumber, logoUrl } = req.body;
+
+    if (!guestUserId || !name || !email) {
+        return res.status(400).send({ message: "guestUserId, name, and email are required" });
+    }
+
+    // Check if the guest user exists
+    const [guestUser] = await db.select().from(guestUsers).where(eq(guestUsers.id, guestUserId));
+    if (!guestUser) {
+        return res.status(404).send({ message: "Guest user not found" });
+    }
+
+    // 1. Create the business record
+    const [newBusiness] = await db
       .insert(businesses)
-      .values(req.body) // Assuming req.body matches the business schema structure
+      .values({
+        ownerId: guestUserId, // Link to the guest user who created it
+        name,
+        description,
+        category,
+        email,
+        tagline,
+        tradingHours,
+        address,
+        phoneNumber,
+        logoUrl,
+        // userId will be set later when the real user account is created
+      })
       .returning();
-    res.status(201).json(business);
+
+    if (!newBusiness) {
+        return res.status(500).send({ message: "Failed to create business" });
+    }
+
+    // 2. Update the guest user's isOnboarded status
+    await db.update(guestUsers)
+      .set({ isOnboarded: true })
+      .where(eq(guestUsers.id, guestUserId))
+      .execute();
+
+    res.status(201).json(newBusiness);
   } catch (e) {
+    console.error("Error creating business:", e);
     res.status(500).send(e);
   }
 }
