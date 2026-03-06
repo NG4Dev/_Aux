@@ -4,19 +4,25 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@assets/*": ["assets/*"],
-      "@constants/*": ["constants/*"],
-      "@videos/*": ["assets/videos/*"]
+      "@/*": [
+        "src/*"
+      ],
+      "@assets/*": [
+        "assets/*"
+      ],
+      "@constants/*": [
+        "constants/*"
+      ],
+      "@videos/*": [
+        "assets/videos/*"
+      ]
     }
   },
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
     "constants/**/*.ts",
-    "assets/**/*",
-    ".expo/types/**/*.ts",
-    "expo-env.d.ts"
+    "assets/**/*"
   ],
   "exclude": [
     "node_modules",

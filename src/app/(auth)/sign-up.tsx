@@ -71,7 +71,7 @@ export default function SignUpScreen() {
       // Prepare the verification (this triggers the email)
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
 
-      router.push('/(auth)/verify');
+      router.push("/(auth)/verify");
     } catch (err) {
       if (isClerkAPIResponseError(err)) {
         // Clear any existing errors first

@@ -13,7 +13,7 @@ import CustomButton from "@/components/CustomButton";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link } from "expo-router";
+import { Link, router } from "expo-router";
 import { useState, useEffect } from "react";
 import { useSignUp } from "@clerk/clerk-expo";
 import { isClerkAPIResponseError, useSignIn } from "@clerk/clerk-expo";
@@ -61,7 +61,8 @@ export default function VerifyScreen() {
       });
 
       if (signUpAttempt.status === 'complete') {
-        setActive({ session: signUpAttempt.createdSessionId });
+        await setActive({ session: signUpAttempt.createdSessionId });
+        router.replace("/(onboarding)/success");
       } else {
         console.log('Verification failed');
         console.log(signUpAttempt);
@@ -142,9 +143,9 @@ export default function VerifyScreen() {
 
       <CustomButton text="Verify" onPress={handleSubmit(onVerify)} />
 
-      {/* <Link href="/(auth)/sign-in" style={styles.link}>
+      <Link href="/(auth)/sign-in" style={styles.link}>
         Didn't receive the code? Press here to resend
-      </Link> */}
+      </Link>
 
     </ScrollView>
   );
@@ -174,10 +175,10 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "600",
   },
-  // link: {
-  //   color: "blue",
-  //   fontWeight: "600",
-  //   textAlign: "center",
-  //   marginTop: 15,
-  // },
+  link: {
+    color: "blue",
+    fontWeight: "600",
+    textAlign: "center",
+    marginTop: 15,
+  },
 });

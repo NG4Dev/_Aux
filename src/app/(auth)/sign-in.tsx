@@ -14,7 +14,7 @@ import CustomButton from "@/components/CustomButton";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link } from "expo-router";
+import { Link, router } from "expo-router";
 import { useState, useEffect } from "react";
 import { isClerkAPIResponseError, useSignIn } from "@clerk/clerk-expo";
 import SignInWith from "@/components/SignInWith";
@@ -71,7 +71,8 @@ export default function SignInScreen() {
       });
 
       if (signInAttempt.status === "complete") {
-        setActive({ session: signInAttempt.createdSessionId });
+        await setActive({ session: signInAttempt.createdSessionId });
+        router.replace("/(onboarding)/success");
       } else {
         console.log("Sign in failed");
         setError('root', { message: 'Sign in could not be completed' });
