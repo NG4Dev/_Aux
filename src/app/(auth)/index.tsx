@@ -29,13 +29,13 @@ export default function AuthSplashScreen() {
         <CustomButton
           text="Sign in"
           style={styles.purpleButton}
-          onPress={() => router.push("/(auth)/selection")}
+          onPress={() => router.push("/(auth)/selection?mode=signin")}
         />
 
         <CustomButton
           text="Create account"
           style={styles.greenButton}
-          onPress={() => router.push("/(auth)/sign-up")}
+          onPress={() => router.push("/(auth)/selection?mode=signup")}
         />
 
         <CustomButton

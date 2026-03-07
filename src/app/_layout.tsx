@@ -19,6 +19,7 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="(onboarding)" />
+          <Stack.Screen name="wallet" options={{ presentation: 'modal', headerShown: false }} />
         </Stack>
       </ClerkLoaded>
     </ClerkProvider>

@@ -13,39 +13,39 @@ This plan tracks the steps required to overhaul the `Aux` app's routing architec
 ## Step-by-Step Implementation Roadmap
 
 ### Phase 1: Establish the Root Architecture
-- [ ] **Modify `app/_layout.tsx`:** 
+- [x] **Modify `app/_layout.tsx`:** 
   - Wrap the app in a `<Stack>`.
   - Add `<Stack.Screen name="(tabs)" options={{ headerShown: false }}/>`.
   - Ensure the Clerk provider wraps this stack.
-- [ ] **Create `app/index.tsx`:** 
+- [x] **Create `app/index.tsx`:** 
   - Add a redirect component depending on Clerk state:
     - If `isSignedIn === false`, check if they've seen the splash screen before (we can route them to `/(auth)` index first to see the video, from where they click "Continue as guest").
     - "Continue as guest" will simply `router.push('/(tabs)/home')`.
 
 ### Phase 2: Implement the Main App Hub (`(tabs)`)
-- [ ] **Create `app/(tabs)/_layout.tsx`:** 
+- [x] **Create `app/(tabs)/_layout.tsx`:** 
   - Implement the `<Tabs>` navigator.
   - Define the screens: `home`, `discover`, `library`, and `pay`.
   - Add the custom "fog type appearance" UI for the tab bar.
-- [ ] **Create Tab Screens:**
+- [x] **Create Tab Screens:**
   - Create `app/(tabs)/home.tsx` (migrating logic from `homepage.tsx`).
   - Create `app/(tabs)/discover.tsx`.
-- [ ] **Create Nested Stacks inside Tabs:**
+- [x] **Create Nested Stacks inside Tabs:**
   - Create `app/(tabs)/pay/_layout.tsx` and `index.tsx`.
   - Create `app/(tabs)/library/_layout.tsx` and `index.tsx`.
 
 ### Phase 3: Set up Protected Routing Logic
-- [ ] **Implement Auth Guards:** 
+- [x] **Implement Auth Guards:** 
   - We need to ensure that when a guest user clicks on the `Pay` or `Library` tabs, they are intercepted.
   - *Implementation Details:* We can either use Expo Router's `useSegments` in an effect (to check if `segment === 'pay'` and `!isSignedIn`, then redirect to `/(auth)`), OR we can handle this via custom Tab Bar buttons that check Auth before routing. 
 
 ### Phase 4: Sibling Root Modals
-- [ ] **Create Sibling Screens in Root `app/wallet/`:**
+- [x] **Create Sibling Screens in Root `app/wallet/`:**
   - `configureWallet.tsx`
   - `manageWallet.tsx`
   - `disableWallet.tsx`
   - Add these screens to the root `app/_layout.tsx` stack with presentation options like `presentation: 'modal'`.
 
 ### Phase 5: Cleanup
-- [ ] Delete the orphaned `app/homepage.tsx` file once its contents are moved to `app/(tabs)/home.tsx`.
-- [ ] Verify the whole stack starts gracefully, video splash plays, and guest/authenticated transitions feel native.
+- [x] **Delete the orphaned `app/homepage.tsx` file once its contents are moved to `app/(tabs)/home.tsx`.**
+- [ ] **Verify the whole stack starts gracefully, video splash plays, and guest/authenticated transitions feel native.**

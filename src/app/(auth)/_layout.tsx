@@ -19,7 +19,7 @@ export default function AuthLayout() {
       />
       <Stack.Screen
         name="sign-up"
-        options={{ headerShown: true, title: 'Create account', headerStyle: { backgroundColor: '#000' }, headerTintColor: '#fff' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="verify"

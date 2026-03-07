@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import {
   StyleSheet,
   Text,
@@ -139,38 +140,56 @@ export default function SignInScreen() {
     >
       {/* Sticky Header */}
       <View style={styles.header}>
+        <Ionicons name="arrow-back" size={24} color="#fff" onPress={() => router.back()} />
         <Text style={styles.title}>Sign in</Text>
       </View>
 
       <View style={styles.form}>
+        <Text style={styles.label}>Email</Text>
         <CustomTextInput
           control={control}
           name="email"
-          placeholder="Email"
+          placeholder=""
           autoFocus
           autoCapitalize="none"
           keyboardType="email-address"
           autoComplete="email"
         />
+        <Text style={styles.helperText}>This is the email from the root user, it will be used for any communications.</Text>
 
+        <Text style={styles.label}>Password</Text>
         <CustomTextInput
           control={control}
           name="password"
-          placeholder="Password"
+          placeholder=""
           secureTextEntry
         />
+        {/* TODO: Add password strength bar if needed, currently not in figma except for signup */}
 
         <Text style={styles.error}>{errors?.root?.message}</Text>
       </View>
 
 
-      <CustomButton text="Sign in" onPress={handleSubmit(onSignIn)} />
+      <CustomButton text="Sign In" onPress={handleSubmit(onSignIn)} style={styles.signInButton} />
+
+      <Link href="/" asChild>
+          <Text style={styles.passwordlessText}>Sign in without password</Text>
+      </Link>
+
+      {/* Spacer */}
+      <View style={{ flex: 1 }} />
 
       <Link href="/(auth)/sign-up" style={styles.link}>
         Don't have an account? Sign up
       </Link>
 
-      <SignInWith />
+      <CustomButton
+        text="Sign In with Google"
+        style={styles.googleButton}
+        icon="logo-google"
+        iconColor="#000"
+        onPress={() => { /* TODO */ }}
+      />
     </ScrollView>
   );
 }
@@ -178,34 +197,65 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#000",
   },
   contentContainer: {
     flexGrow: 1,
-    justifyContent: "center",
-    padding: 10,
+    padding: 20,
     gap: 15,
   },
   header: {
-    backgroundColor: "#fff",
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: "#000",
     paddingVertical: 10,
-    borderBottomColor: "#ccc",
-  },
-  error: {
-    color: 'crimson',
-  },
-  form: {
-    gap: 10,
-    marginVertical: 20,
+    gap: 20,
   },
   title: {
     fontSize: 20,
     fontWeight: "600",
+    color: "#fff",
+  },
+  label: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 5,
+    marginTop: 10,
+  },
+  helperText: {
+    color: '#1D8954', // Green
+    fontSize: 12,
+    marginTop: 5,
+  },
+  error: {
+    color: 'crimson',
+    marginTop: 10,
+  },
+  form: {
+    marginVertical: 10,
+  },
+  signInButton: {
+    backgroundColor: '#1D8954', // Green
+    width: '100%',
+    borderRadius: 5, // Rectangular with slight radius
+  },
+  passwordlessText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontSize: 14,
+    marginTop: 10,
+    textDecorationLine: 'underline',
   },
   link: {
-    color: "blue",
+    color: "#fff", 
     fontWeight: "600",
     textAlign: "center",
     marginTop: 15,
+    marginBottom: 20,
+  },
+  googleButton: {
+    backgroundColor: '#fff',
+    marginBottom: 20,
   }
 });

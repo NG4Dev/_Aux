@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Image } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { router } from "expo-router";
 import CustomButton from "@/components/CustomButton";
 
@@ -18,7 +18,9 @@ export default function NotificationsScreen() {
       <View style={styles.content}>
         {/* Notification icon placeholder */}
         <View style={styles.iconContainer}>
-          <Text style={styles.bellIcon}>🔔</Text>
+            <View style={styles.iconCircle}>
+                <Text style={styles.bellIcon}>🔔</Text>
+            </View>
         </View>
 
         <Text style={styles.title}>Turn on notifications</Text>
@@ -33,9 +35,9 @@ export default function NotificationsScreen() {
             onPress={handleEnable}
           />
 
-          <Text style={styles.dismissText} onPress={handleDismiss}>
-            Not now
-          </Text>
+          <Pressable onPress={handleDismiss} style={styles.dismissButton}>
+            <Text style={styles.dismissText}>Not now</Text>
+          </Pressable>
         </View>
 
         <Text style={styles.footnote}>
@@ -49,51 +51,67 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#111",
+    backgroundColor: "#121212", // Dark background
     justifyContent: "center",
     paddingHorizontal: 30,
   },
   content: {
     alignItems: "center",
-    gap: 16,
+    gap: 20,
   },
   iconContainer: {
-    marginBottom: 10,
+    marginBottom: 20,
+  },
+  iconCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#333',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   bellIcon: {
     fontSize: 48,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "700",
+    fontSize: 28,
+    fontWeight: "800",
     color: "#fff",
     textAlign: "center",
   },
   description: {
-    fontSize: 14,
-    color: "#999",
+    fontSize: 16,
+    color: "#ccc",
     textAlign: "center",
-    lineHeight: 20,
+    lineHeight: 24,
+    maxWidth: 300,
   },
   buttonContainer: {
     width: "100%",
     gap: 16,
-    marginTop: 10,
+    marginTop: 20,
+    alignItems: 'center',
   },
   enableButton: {
     backgroundColor: "#fff",
-    borderRadius: 25,
+    width: "100%", // Full width within container
+  },
+  dismissButton: {
+    padding: 10,
   },
   dismissText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "500",
+    fontWeight: "700",
     textAlign: "center",
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   footnote: {
     color: "#666",
     fontSize: 12,
     textAlign: "center",
-    marginTop: 20,
+    marginTop: 40,
+    maxWidth: 250,
   },
 });

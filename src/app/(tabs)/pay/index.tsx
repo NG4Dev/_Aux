@@ -1,29 +1,15 @@
-import { Text, StyleSheet, View } from "react-native";
+import { View } from 'react-native'
+import React from 'react'
+import { Link } from 'expo-router'
 
-export default function PayScreen() {
+const Pay = () => {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Pay</Text>
-      <Text style={styles.subtitle}>Manage your payments</Text>
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 20 }}>
+      <Link href="/wallet/configureWallet">Configure wallet page</Link>
+      <Link href="/(tabs)/pay/manageWallet">Manage wallet page</Link>
+      <Link href="/wallet/disableWallet">Disable wallet page</Link>
     </View>
-  );
+  )
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#000",
-    gap: 12,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#fff",
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "#888",
-  },
-});
+export default Pay

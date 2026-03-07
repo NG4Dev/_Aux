@@ -27,7 +27,9 @@ export default function SuccessScreen() {
       {showSpinner ? (
         <ActivityIndicator size="large" color="#2ECDA7" />
       ) : (
-        <Text style={styles.checkmark}>✅</Text>
+        <View style={styles.checkmarkContainer}>
+            <Text style={styles.checkmark}>✓</Text>
+        </View>
       )}
     </View>
   );
@@ -40,7 +42,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#000",
   },
+  checkmarkContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#1D8954', // Spotify Green
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   checkmark: {
-    fontSize: 80,
+    fontSize: 40,
+    fontWeight: 'bold',
+    color: '#000', // Black checkmark
   },
 });
