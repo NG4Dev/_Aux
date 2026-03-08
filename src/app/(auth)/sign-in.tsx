@@ -19,6 +19,42 @@ import { Link, router } from "expo-router";
 import { useState, useEffect } from "react";
 import { isClerkAPIResponseError, useSignIn } from "@clerk/clerk-expo";
 import SignInWith from "@/components/SignInWith";
+import { useHeaderHeight } from '@react-navigation/elements';
+import Svg, { Circle } from 'react-native-svg';
+
+const ProgressCircle = ({ progress }: { progress: number }) => {
+  const size = 24;
+  const strokeWidth = 2.5;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const offset = circumference - progress * circumference;
+
+  return (
+    <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+      <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#222"
+          strokeWidth={strokeWidth}
+          fill="none"
+        />
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#1DB954"
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+        />
+      </Svg>
+    </View>
+  );
+};
 
 const signInSchema = z.object({
   email: z.string({ message: "Email is required" }).email("Invalid email"),
@@ -63,6 +99,7 @@ export default function SignInScreen() {
   
   const { signIn, isLoaded, setActive } = useSignIn();
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const headerHeight = useHeaderHeight();
 
   useEffect(() => {
     const showSubscription = Keyboard.addListener(
@@ -141,6 +178,11 @@ export default function SignInScreen() {
           headerTintColor: '#fff',
           headerShadowVisible: false,
           headerBackTitleVisible: false,
+          headerRight: () => (
+            <View style={{ marginRight: 15 }}>
+              <ProgressCircle progress={1} />
+            </View>
+          ),
         }} 
       />
       <View style={{ flex: 1, paddingBottom: keyboardHeight }}>

@@ -17,7 +17,42 @@ import { Link, router, Stack } from "expo-router";
 import { useState, useEffect } from "react";
 import { useSignUp } from "@clerk/clerk-expo";
 import { isClerkAPIResponseError, useSignIn } from "@clerk/clerk-expo";
+import { useHeaderHeight } from '@react-navigation/elements';
+import Svg, { Circle } from 'react-native-svg';
 
+const ProgressCircle = ({ progress }: { progress: number }) => {
+  const size = 24;
+  const strokeWidth = 2.5;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const offset = circumference - progress * circumference;
+
+  return (
+    <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+      <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#222"
+          strokeWidth={strokeWidth}
+          fill="none"
+        />
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#1DB954"
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+        />
+      </Svg>
+    </View>
+  );
+};
 
 const verifySchema = z.object({
   code: z.string({ message: "Code is required" }).length(6, 'Invalid code'),
@@ -130,6 +165,11 @@ export default function VerifyScreen() {
           headerTintColor: '#fff',
           headerShadowVisible: false,
           headerBackTitleVisible: false,
+          headerRight: () => (
+            <View style={{ marginRight: 15 }}>
+              <ProgressCircle progress={0.9} />
+            </View>
+          ),
         }} 
       />
       <View style={{ flex: 1, paddingBottom: keyboardHeight }}>

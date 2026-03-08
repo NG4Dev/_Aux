@@ -9,19 +9,20 @@ import {
   UIManager,
   Pressable,
   KeyboardAvoidingView,
+  BackHandler,
 } from "react-native";
 import CustomTextInput from "@/components/CustomTextInput";
 import CustomButton from "@/components/CustomButton";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link, router, Stack } from "expo-router";
-import { useState, useEffect, useCallback } from "react";
+import { Link, router, Stack, useNavigation } from "expo-router";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSignUp } from "@clerk/clerk-expo";
 import { isClerkAPIResponseError } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { useHeaderHeight } from '@react-navigation/elements';
+import { useHeaderHeight } from "@react-navigation/elements";
+import Svg, { Circle } from "react-native-svg";
 
 const signUpSchema = z.object({
   email: z.string().email("Invalid email"),
@@ -33,11 +34,58 @@ const signUpSchema = z.object({
 
 type SignUpFields = z.infer<typeof signUpSchema>;
 
+const ProgressCircle = ({ step }: { step: number }) => {
+  const size = 24; // Smaller to match Figma
+  const strokeWidth = 2.5;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const progress = step / 4;
+  const offset = circumference - progress * circumference;
+
+  return (
+    <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+      <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#222"
+          strokeWidth={strokeWidth}
+          fill="none"
+        />
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#1DB954"
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+        />
+      </Svg>
+    </View>
+  );
+};
+
 export default function SignUpScreen() {
   const [step, setStep] = useState(1);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const headerHeight = useHeaderHeight();
+  const navigation = useNavigation();
+
+  // Intercept system back gestures (iOS swipe & Android back)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (step > 1) {
+        e.preventDefault();
+        setStep(prev => prev - 1);
+      }
+    });
+    return unsubscribe;
+  }, [navigation, step]);
 
   const {
     control,
@@ -144,6 +192,106 @@ export default function SignUpScreen() {
     });
   };
 
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const years = Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - i);
+  const days = Array.from({ length: 31 }, (_, i) => i + 1);
+
+  const CustomWheelPicker = () => {
+    const currentYear = dob.getFullYear();
+    const currentMonth = dob.getMonth();
+    const currentDay = dob.getDate();
+
+    const updateDate = (type: 'day' | 'month' | 'year', value: number) => {
+      const newDate = new Date(dob);
+      if (type === 'day') {
+        const lastDay = new Date(newDate.getFullYear(), newDate.getMonth() + 1, 0).getDate();
+        newDate.setDate(Math.min(value, lastDay));
+      }
+      if (type === 'month') {
+        newDate.setMonth(value);
+        const lastDay = new Date(newDate.getFullYear(), value + 1, 0).getDate();
+        if (newDate.getDate() > lastDay) newDate.setDate(lastDay);
+      }
+      if (type === 'year') newDate.setFullYear(value);
+      setValue('dob', newDate, { shouldValidate: true });
+    };
+
+    const WheelColumn = ({ 
+      data, 
+      currentValue, 
+      type,
+      isMonth = false 
+    }: { 
+      data: (string | number)[], 
+      currentValue: number, 
+      type: 'day' | 'month' | 'year',
+      isMonth?: boolean
+    }) => {
+      const scrollViewRef = useRef<ScrollView>(null);
+      const ITEM_HEIGHT = 50; // Increased for better readability
+
+      useEffect(() => {
+        const index = isMonth ? currentValue : data.indexOf(currentValue);
+        if (index !== -1) {
+          // Use a slight delay to ensure the layout is ready and prevent glitchy snaps
+          const timer = setTimeout(() => {
+            scrollViewRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: false });
+          }, 10);
+          return () => clearTimeout(timer);
+        }
+      }, [currentValue]); // Respond to external changes (validation snaps)
+
+      return (
+        <View style={styles.wheelColumn}>
+          <ScrollView 
+            ref={scrollViewRef}
+            showsVerticalScrollIndicator={false} 
+            snapToInterval={ITEM_HEIGHT}
+            decelerationRate="fast"
+            contentContainerStyle={{ paddingVertical: ITEM_HEIGHT * 2 }} 
+            onMomentumScrollEnd={(e) => {
+              const index = Math.round(e.nativeEvent.contentOffset.y / ITEM_HEIGHT);
+              const val = isMonth ? index : Number(data[index]);
+              if (data[index] !== undefined && val !== currentValue) {
+                updateDate(type, val);
+              }
+            }}
+          >
+            {data.map((item, i) => {
+              const val = isMonth ? i : item;
+              const isActive = currentValue === val;
+              return (
+                <View key={`${type}-${item}`} style={[styles.wheelItem, { height: ITEM_HEIGHT }]}>
+                  <Text style={[
+                    styles.wheelText, 
+                    isActive && styles.activeWheelText,
+                    !isActive && { opacity: 0.25 }
+                  ]}>
+                    {item}
+                  </Text>
+                </View>
+              );
+            })}
+          </ScrollView>
+          {/* Individual column dividers to match Figma */}
+          <View style={styles.columnDividerContainer} pointerEvents="none">
+            <View style={styles.columnDivider} />
+            <View style={styles.columnDivider} />
+          </View>
+        </View>
+      );
+    };
+
+    return (
+      <View style={styles.wheelContainer}>
+        <View style={styles.wheelBackground} />
+        <WheelColumn data={days} currentValue={currentDay} type="day" />
+        <WheelColumn data={months} currentValue={currentMonth} type="month" isMonth />
+        <WheelColumn data={years} currentValue={currentYear} type="year" />
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Stack.Screen 
@@ -155,10 +303,16 @@ export default function SignUpScreen() {
           headerTintColor: '#fff',
           headerShadowVisible: false,
           headerBackTitleVisible: false,
+          gestureEnabled: step === 1, // Disable swipe back gesture during flow
           headerLeft: () => (
             <Pressable onPress={handleBack} style={{ padding: 12 }}>
               <Ionicons name="chevron-back" size={28} color="#fff" />
             </Pressable>
+          ),
+          headerRight: () => (
+            <View style={{ marginRight: 15 }}>
+              <ProgressCircle step={step} />
+            </View>
           ),
         }} 
       />
@@ -209,23 +363,7 @@ export default function SignUpScreen() {
           {step === 3 && (
               <View style={styles.stepContainer}>
                   <Text style={styles.stepTitle}>What's your date of birth?</Text>
-                  <View style={styles.dateDisplayContainer}>
-                      <Text style={styles.dateDisplayText}>{formatDate(dob || new Date())}</Text>
-                  </View>
-                  <View style={styles.datePickerContainer}>
-                      <DateTimePicker
-                          value={dob || new Date()}
-                          mode="date"
-                          display="spinner"
-                          themeVariant="dark"
-                          onChange={(event, selectedDate) => {
-                              if (selectedDate) setValue('dob', selectedDate, { shouldValidate: true });
-                          }}
-                          style={{ height: 200, width: '100%' }}
-                          textColor="#fff"
-                      />
-                  </View>
-                  <Text style={styles.helperText}>Selection and editing are on the same screen for easy UX.</Text>
+                  <CustomWheelPicker />
               </View>
           )}
 
@@ -376,14 +514,49 @@ const styles = StyleSheet.create({
       backgroundColor: '#1DB954', // Match the splash screen green
   },
   // Step 3 specifics
-  dateDisplayContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 30,
-    backgroundColor: '#1A1A1A',
-    borderRadius: 16,
-    padding: 10,
+  wheelContainer: {
+    flexDirection: 'row',
     height: 250,
+    marginTop: 40,
+    position: 'relative',
+    backgroundColor: '#000',
+    overflow: 'hidden',
+  },
+  wheelBackground: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+  },
+  wheelColumn: {
+    flex: 1,
+    position: 'relative',
+  },
+  wheelItem: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  wheelText: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '400',
+  },
+  activeWheelText: {
+    color: '#fff',
+    fontSize: 26, // Increased for focus
+    fontWeight: '700',
+  },
+  columnDividerContainer: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -25, // Half of ITEM_HEIGHT
+    left: 15,
+    right: 15,
+    height: 50, // Matches ITEM_HEIGHT
+    justifyContent: 'space-between',
+  },
+  columnDivider: {
+    height: 2, // Slightly bolder for clarity
+    backgroundColor: '#fff',
+    width: '100%',
   },
   // Step 4 specifics
   termsContainer: {
