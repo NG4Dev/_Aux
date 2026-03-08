@@ -54,14 +54,38 @@ export default function SignInScreen() {
     control, 
     handleSubmit, 
     setError,
-    formState: { errors},
+    formState: { errors, isValid },
   } = useForm<SignInFields>({
     resolver: zodResolver(signInSchema),
+    mode: 'onChange',
   });
 
   
   const { signIn, isLoaded, setActive } = useSignIn();
-  
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    );
+    const hideSubscription = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
+
   const onSignIn = async (data: SignInFields) => {
     if (!isLoaded) return;
 
@@ -106,91 +130,64 @@ export default function SignInScreen() {
     }
   };
 
-  const [keyboardPadding, setKeyboardPadding] = useState(0);
-
-  useEffect(() => {
-    const onKeyboardShow = (event: any) => {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setKeyboardPadding(event.endCoordinates.height);
-    };
-    const onKeyboardHide = () => {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setKeyboardPadding(0);
-    };
-
-    const showSub = Keyboard.addListener("keyboardDidShow", onKeyboardShow);
-    const hideSub = Keyboard.addListener("keyboardDidHide", onKeyboardHide);
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[
-        styles.contentContainer,
-        { paddingBottom: keyboardPadding + 20 },
-      ]}
-      keyboardShouldPersistTaps="handled"
-      stickyHeaderIndices={[0]}
-      scrollEnabled={false}
-    >
-      {/* Sticky Header */}
-      <View style={styles.header}>
-        <Ionicons name="arrow-back" size={24} color="#fff" onPress={() => router.back()} />
-        <Text style={styles.title}>Sign in</Text>
-      </View>
-
-      <View style={styles.form}>
-        <Text style={styles.label}>Email</Text>
-        <CustomTextInput
-          control={control}
-          name="email"
-          placeholder=""
-          autoFocus
-          autoCapitalize="none"
-          keyboardType="email-address"
-          autoComplete="email"
-        />
-        <Text style={styles.helperText}>This is the email from the root user, it will be used for any communications.</Text>
-
-        <Text style={styles.label}>Password</Text>
-        <CustomTextInput
-          control={control}
-          name="password"
-          placeholder=""
-          secureTextEntry
-        />
-        {/* TODO: Add password strength bar if needed, currently not in figma except for signup */}
-
-        <Text style={styles.error}>{errors?.root?.message}</Text>
-      </View>
-
-
-      <CustomButton text="Sign In" onPress={handleSubmit(onSignIn)} style={styles.signInButton} />
-
-      <Link href="/" asChild>
-          <Text style={styles.passwordlessText}>Sign in without password</Text>
-      </Link>
-
-      {/* Spacer */}
-      <View style={{ flex: 1 }} />
-
-      <Link href="/(auth)/sign-up" style={styles.link}>
-        Don't have an account? Sign up
-      </Link>
-
-      <CustomButton
-        text="Sign In with Google"
-        style={styles.googleButton}
-        icon="logo-google"
-        iconColor="#000"
-        onPress={() => { /* TODO */ }}
+    <View style={styles.container}>
+      <Stack.Screen 
+        options={{
+          headerShown: true,
+          title: 'Sign in',
+          headerTitleAlign: 'center',
+          headerStyle: { backgroundColor: '#000' },
+          headerTintColor: '#fff',
+          headerShadowVisible: false,
+          headerBackTitleVisible: false,
+        }} 
       />
-    </ScrollView>
+      <View style={{ flex: 1, paddingBottom: keyboardHeight }}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.contentContainer}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.form}>
+            <Text style={styles.label}>Email</Text>
+            <CustomTextInput
+              control={control}
+              name="email"
+              placeholder="Enter your email"
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+
+            <Text style={styles.label}>Password</Text>
+            <CustomTextInput
+              control={control}
+              name="password"
+              placeholder="Enter your password"
+              secureTextEntry
+            />
+
+            <Link href="/(auth)/sign-up" asChild>
+              <Text style={styles.forgotPassword}>Forgot password?</Text>
+            </Link>
+          </View>
+
+          <SignInWith />
+        </ScrollView>
+
+        <View style={styles.footer}>
+          <CustomButton
+            text="Sign in"
+            onPress={handleSubmit(onSignIn)}
+            style={[
+              styles.signInButton,
+              { opacity: isValid ? 1 : 0.5 }
+            ]}
+            disabled={!isValid}
+          />
+        </View>
+      </View>
+    </View>
   );
 }
 
@@ -200,62 +197,28 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
   contentContainer: {
-    flexGrow: 1,
-    padding: 20,
-    gap: 15,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: "#000",
-    paddingVertical: 10,
-    gap: 20,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#fff",
-  },
-  label: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 5,
-    marginTop: 10,
-  },
-  helperText: {
-    color: '#1D8954', // Green
-    fontSize: 12,
-    marginTop: 5,
-  },
-  error: {
-    color: 'crimson',
-    marginTop: 10,
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
   form: {
-    marginVertical: 10,
+    gap: 15,
+  },
+  label: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  forgotPassword: {
+    color: "#A881E6",
+    textAlign: "right",
+    fontSize: 14,
+  },
+  footer: {
+    padding: 20,
+    backgroundColor: "#000",
   },
   signInButton: {
-    backgroundColor: '#1D8954', // Green
-    width: '100%',
-    borderRadius: 5, // Rectangular with slight radius
+    backgroundColor: "#A881E6",
+    width: "100%",
   },
-  passwordlessText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontSize: 14,
-    marginTop: 10,
-    textDecorationLine: 'underline',
-  },
-  link: {
-    color: "#fff", 
-    fontWeight: "600",
-    textAlign: "center",
-    marginTop: 15,
-    marginBottom: 20,
-  },
-  googleButton: {
-    backgroundColor: '#fff',
-    marginBottom: 20,
-  }
 });

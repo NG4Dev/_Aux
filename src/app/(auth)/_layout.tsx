@@ -1,5 +1,6 @@
 import { useAuth } from '@clerk/clerk-expo';
-import { Redirect, Stack } from 'expo-router';
+import { Redirect, Stack, router } from 'expo-router';
+import { Ionicons } from "@expo/vector-icons";
 
 export default function AuthLayout() {
   const { isSignedIn } = useAuth();
@@ -19,7 +20,23 @@ export default function AuthLayout() {
       />
       <Stack.Screen
         name="sign-up"
-        options={{ headerShown: false }}
+        options={{ 
+          headerShown: true, 
+          title: 'Create account', 
+          headerTitleAlign: 'center',
+          headerStyle: { backgroundColor: '#000' }, 
+          headerTintColor: '#fff',
+          headerBackTitleVisible: false,
+          headerLeft: () => (
+            <Ionicons 
+              name="arrow-back" 
+              size={24} 
+              color="#fff" 
+              style={{ marginLeft: 10 }} 
+              onPress={() => router.back()} 
+            />
+          ),
+        }}
       />
       <Stack.Screen
         name="verify"

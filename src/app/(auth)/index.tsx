@@ -66,7 +66,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#A881E6",
   },
   greenButton: {
-    backgroundColor: "#1D8954",
+    backgroundColor: "#1DB954",
   },
   transparentButton: {
     backgroundColor: "transparent",

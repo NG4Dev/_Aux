@@ -39,13 +39,15 @@ const styles = StyleSheet.create ({
     },
     input: {
     borderWidth: 1,
-    padding: 14,
-    borderRadius: 5,
-    backgroundColor: '#333', // Dark background for input
-    color: '#fff', // White text
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: '#2A2A2A', // Match the new gray
+    color: '#fff', 
     fontSize: 16,
     },
     error: {
         color: 'crimson',
+        fontSize: 12,
+        marginTop: 4,
     },
 })

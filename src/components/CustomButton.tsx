@@ -18,10 +18,16 @@ const CustomButton = forwardRef<typeof Pressable, CustomButtonProps>(({
     iconColor = "#000",
     ...props
 }, ref) => {
-    const isTransparent = style && (style as any).backgroundColor === 'transparent';
-    const isGreen = style && (style as any).backgroundColor === '#1D8954'; // Spotify Green
-    const isBlue = style && (style as any).backgroundColor === '#1877F2';
-    const isBlack = style && (style as any).backgroundColor === '#000';
+    // Flatten style array to correctly detect colors
+    const flatStyle = StyleSheet.flatten(style || {});
+    const bgColor = flatStyle.backgroundColor?.toString().toLowerCase();
+    
+    // Support multiple color codes that might be used for the same color
+    const isGreen = bgColor === '#1d8954' || bgColor === '#1db954'; 
+    const isPurple = bgColor === '#a881e6';
+    const isBlue = bgColor === '#1877f2';
+    const isBlack = bgColor === '#000' || bgColor === '#000000' || bgColor === 'black';
+    const isTransparent = bgColor === 'transparent';
     
     return (
         <Pressable 
@@ -31,16 +37,14 @@ const CustomButton = forwardRef<typeof Pressable, CustomButtonProps>(({
             disabled={loading || props.disabled}
         >
             {loading ? (
-                <ActivityIndicator color={isTransparent ? "#fff" : "#000"} />
+                <ActivityIndicator color={(isGreen || isPurple || isBlue || isBlack) ? "#fff" : "#000"} />
             ) : (
                 <View style={styles.content}>
-                    {icon && <Ionicons name={icon} size={20} color={iconColor} style={styles.icon} />}
+                    {icon && <Ionicons name={icon} size={20} color={isGreen || isPurple || isBlue || isBlack ? "#fff" : iconColor} style={styles.icon} />}
                     <Text style={[
                         styles.buttonText, 
                         isTransparent && styles.transparentButtonText,
-                        isGreen && styles.greenButtonText,
-                        isBlue && styles.whiteText,
-                        isBlack && styles.whiteText
+                        (isGreen || isPurple || isBlue || isBlack) && styles.whiteText,
                     ]}>{text}</Text>
                 </View>
             )}
@@ -55,12 +59,19 @@ export default CustomButton;
 const styles = StyleSheet.create({
     button:{
       backgroundColor: '#fff',
-      paddingVertical: 14,
-      borderRadius: 3, // Rectangular with slight radius
+      height: 56, 
+      borderRadius: 6, // Perfect pill shape
       alignItems: 'center',
       justifyContent: 'center',
       minWidth: 150,
       flexDirection: 'row',
+      paddingHorizontal: 30,
+      // Subtle shadow for premium feel
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
     },
     content: {
         flexDirection: 'row',
@@ -72,16 +83,14 @@ const styles = StyleSheet.create({
     },
     buttonText:{
       color: '#000',
-      fontSize: 16,
+      fontSize: 17,
       fontWeight: '700',
+      letterSpacing: 0.5,
     },
     transparentButtonText: {
       color: '#fff', 
       fontSize: 14,
       fontWeight: '600',
-    },
-    greenButtonText: {
-        color: '#000',
     },
     whiteText: {
         color: '#fff',
