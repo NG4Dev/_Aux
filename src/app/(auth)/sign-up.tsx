@@ -13,6 +13,7 @@ import {
   BackHandler,
   Animated,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import CustomTextInput from "@/components/CustomTextInput";
 import CustomButton from "@/components/CustomButton";
 import { useForm } from "react-hook-form";
@@ -74,7 +75,7 @@ const ProgressCircle = ({ step }: { step: number }) => {
   );
 };
 
-const ITEM_HEIGHT = 52;
+const ITEM_HEIGHT = 64;
 const VISIBLE_ITEMS = 5;
 const LIST_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS;
 
@@ -94,14 +95,16 @@ const WheelItem = React.memo(({
   index: number; 
   scrollY: Animated.Value 
 }) => {
-  // Use UI-thread interpolation for highlighting instead of state
+  // Refined interpolation to match Image 2
   const opacity = scrollY.interpolate({
     inputRange: [
+      (index - 2) * ITEM_HEIGHT,
       (index - 1) * ITEM_HEIGHT,
       index * ITEM_HEIGHT,
       (index + 1) * ITEM_HEIGHT,
+      (index + 2) * ITEM_HEIGHT,
     ],
-    outputRange: [0.3, 1, 0.3],
+    outputRange: [0.1, 0.4, 1, 0.4, 0.1],
     extrapolate: 'clamp',
   });
 
@@ -111,7 +114,7 @@ const WheelItem = React.memo(({
       index * ITEM_HEIGHT,
       (index + 1) * ITEM_HEIGHT,
     ],
-    outputRange: [0.9, 1.1, 0.9],
+    outputRange: [0.85, 1.1, 0.85],
     extrapolate: 'clamp',
   });
 
@@ -143,17 +146,33 @@ const WheelColumn = React.memo(({
   const scrollY = useRef(new Animated.Value(selectedIndex * ITEM_HEIGHT)).current;
   const isUserInteracting = useRef(false);
   const currentSelection = useRef(selectedIndex);
+  const isMounted = useRef(false);
 
-  // Sync scroll position when state changes externally (e.g. Feb 31 -> 28)
+  // Sync scroll position when state changes externally or on mount
   useEffect(() => {
     if (!listRef.current || data.length === 0) return;
     const safeIndex = clamp(selectedIndex, 0, data.length - 1);
 
-    // Strict Guard: Only sync if the user isn't touching it and the internal ref differs
-    if (!isUserInteracting.current && safeIndex !== currentSelection.current) {
+    const performSync = (animated = true) => {
+        if (!listRef.current) return;
         currentSelection.current = safeIndex;
-        listRef.current?.scrollToOffset({ offset: safeIndex * ITEM_HEIGHT, animated: true });
+        listRef.current.scrollToOffset({ 
+            offset: safeIndex * ITEM_HEIGHT, 
+            animated
+        });
         scrollY.setValue(safeIndex * ITEM_HEIGHT);
+    };
+
+    if (!isMounted.current) {
+        // Initial Mount Sync - longer delay to guarantee FlatList is fully laid out
+        const timer = setTimeout(() => {
+            performSync(false);
+            isMounted.current = true;
+        }, 150);
+        return () => clearTimeout(timer);
+    } else if (!isUserInteracting.current && safeIndex !== currentSelection.current) {
+        // External Update Sync
+        performSync(true);
     }
   }, [selectedIndex, data.length]);
 
@@ -173,7 +192,7 @@ const WheelColumn = React.memo(({
         onSelect(index);
       }
       
-      // Release interaction guard immediately so useEffect sync can happen if needed (clamping)
+      // Release interaction guard immediately
       isUserInteracting.current = false;
     },
     [data.length, onSelect]
@@ -223,6 +242,16 @@ const WheelColumn = React.memo(({
       <View style={styles.selectionOverlay} pointerEvents="none">
         <View style={[styles.selectionLine, { top: (LIST_HEIGHT - ITEM_HEIGHT) / 2 }]} />
         <View style={[styles.selectionLine, { top: (LIST_HEIGHT + ITEM_HEIGHT) / 2 }]} />
+        
+        {/* Fade Overlays */}
+        <LinearGradient
+          colors={['rgba(0,0,0,1)', 'rgba(0,0,0,0.85)', 'rgba(0,0,0,0)']}
+          style={[styles.gradientOverlay, { top: 0, height: (LIST_HEIGHT - ITEM_HEIGHT) / 2 }]}
+        />
+        <LinearGradient
+          colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.85)', 'rgba(0,0,0,1)']}
+          style={[styles.gradientOverlay, { bottom: 0, height: (LIST_HEIGHT - ITEM_HEIGHT) / 2 }]}
+        />
       </View>
     </View>
   );
@@ -391,7 +420,6 @@ export default function SignUpScreen() {
           headerStyle: { backgroundColor: '#000' },
           headerTintColor: '#fff',
           headerShadowVisible: false,
-          headerBackTitleVisible: false,
           gestureEnabled: step === 1, // Disable swipe back gesture during flow
           headerLeft: () => (
             <Pressable onPress={handleBack} style={{ padding: 12 }}>
@@ -418,11 +446,13 @@ export default function SignUpScreen() {
                     selectedIndex={currentMonth}
                     onSelect={(idx) => updateDate('month', idx)}
                   />
+                  <View style={styles.wheelColumnDivider} />
                   <WheelColumn
                     data={daysArray}
                     selectedIndex={Math.min(currentDay - 1, daysInMonth - 1)}
                     onSelect={(idx) => updateDate('day', idx + 1)}
                   />
+                  <View style={styles.wheelColumnDivider} />
                   <WheelColumn
                     data={yearList}
                     selectedIndex={yearList.indexOf(currentYear)}
@@ -626,12 +656,12 @@ const styles = StyleSheet.create({
   // Step 3 specifics
   wheelContainer: {
     flexDirection: 'row',
-    height: 260, // LIST_HEIGHT
+    height: LIST_HEIGHT,
     marginTop: 40,
     position: 'relative',
     backgroundColor: '#000',
-    overflow: 'hidden',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
   wheelBackground: {
     ...StyleSheet.absoluteFillObject,
@@ -641,35 +671,51 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     position: 'relative',
+    marginHorizontal: 4,
+  },
+  wheelColumnDivider: {
+    width: 1,
+    height: '40%',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignSelf: 'center',
   },
   wheelItem: {
-    height: 52, // ITEM_HEIGHT
+    height: ITEM_HEIGHT,
     width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'visible',
   },
   wheelText: {
     color: '#fff',
     fontSize: 22,
     fontWeight: '700',
-    lineHeight: 52,
     textAlign: 'center',
-    textAlignVertical: 'center',
+    width: '100%',
     includeFontPadding: false,
+    height: ITEM_HEIGHT,
+    lineHeight: ITEM_HEIGHT,
+    paddingHorizontal: 12,
+    overflow: 'visible',
   },
-  // Selection logic removed from Text styles as it's now handled by Animated
   selectionOverlay: {
     position: 'absolute',
     left: 0,
     right: 0,
-    height: 260, // LIST_HEIGHT
+    height: LIST_HEIGHT,
   },
   selectionLine: {
     position: 'absolute',
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  gradientOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 1,
   },
   // Step 4 specifics
   termsContainer: {
