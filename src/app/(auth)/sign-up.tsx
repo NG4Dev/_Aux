@@ -110,11 +110,17 @@ const WheelColumn = ({
     }
   }, [selectedIndex, data.length]);
 
+  const snapOffsets = useMemo(() => data.map((_, i) => i * ITEM_HEIGHT), [data]);
+
   const handleScrollEnd = useCallback(
     (event: any) => {
       isScrolling.current = false;
       const y = event.nativeEvent.contentOffset.y;
       const index = clamp(Math.round(y / ITEM_HEIGHT), 0, data.length - 1);
+      
+      // Force an exact offset snap. Sometimes Android resting positions are slightly off.
+      listRef.current?.scrollToOffset({ offset: index * ITEM_HEIGHT, animated: true });
+
       if (index !== lastReportedIndex.current) {
         lastReportedIndex.current = index;
         onSelect(index);
@@ -125,8 +131,11 @@ const WheelColumn = ({
 
   const renderItem = useCallback(
     ({ item, index }: { item: string | number; index: number }) => (
-      <View style={styles.wheelItem}>
-        <Text style={[styles.wheelText, index === selectedIndex && styles.wheelTextSelected]}>
+      <View key={`item-${index}-${item}`} style={styles.wheelItem}>
+        <Text 
+          style={[styles.wheelText, index === selectedIndex && styles.wheelTextSelected]}
+          allowFontScaling={false}
+        >
           {item}
         </Text>
       </View>
@@ -143,11 +152,17 @@ const WheelColumn = ({
         renderItem={renderItem}
         getItemLayout={(_, index) => ({ length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index })}
         showsVerticalScrollIndicator={false}
-        snapToInterval={ITEM_HEIGHT}
+        snapToOffsets={snapOffsets}
         decelerationRate="fast"
         snapToAlignment="start"
         onScrollBeginDrag={() => { isScrolling.current = true; }}
         onMomentumScrollEnd={handleScrollEnd}
+        onScrollEndDrag={(e) => {
+          // If the user drags and releases very slowly, momentum might not trigger
+          if (e.nativeEvent.velocity && Math.abs(e.nativeEvent.velocity.y) < 0.1) {
+            handleScrollEnd(e);
+          }
+        }}
         contentContainerStyle={{ paddingVertical: (LIST_HEIGHT - ITEM_HEIGHT) / 2 }}
         style={{ height: LIST_HEIGHT }}
       />
@@ -581,11 +596,17 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.5)',
     fontSize: 22,
     fontWeight: '600',
+    lineHeight: 52,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   wheelTextSelected: {
     color: '#fff',
     fontSize: 26,
     fontWeight: '700',
+    lineHeight: 52,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   selectionOverlay: {
     position: 'absolute',
