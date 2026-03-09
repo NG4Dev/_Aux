@@ -11,6 +11,7 @@ import {
   Pressable,
   KeyboardAvoidingView,
   BackHandler,
+  Animated,
 } from "react-native";
 import CustomTextInput from "@/components/CustomTextInput";
 import CustomButton from "@/components/CustomButton";
@@ -18,12 +19,15 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, router, Stack, useNavigation } from "expo-router";
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useSignUp } from "@clerk/clerk-expo";
 import { isClerkAPIResponseError } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import { useHeaderHeight } from "@react-navigation/elements";
 import Svg, { Circle } from "react-native-svg";
+
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const YEAR_LIST = Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - i);
 
 const signUpSchema = z.object({
   email: z.string().email("Invalid email"),
@@ -80,7 +84,53 @@ const getDaysInMonth = (monthIndex: number, year: number) => {
   return new Date(year, monthIndex + 1, 0).getDate();
 };
 
-const WheelColumn = ({
+// Optimized WheelItem to prevent massive re-renders
+const WheelItem = React.memo(({ 
+  item, 
+  index, 
+  scrollY 
+}: { 
+  item: string | number; 
+  index: number; 
+  scrollY: Animated.Value 
+}) => {
+  // Use UI-thread interpolation for highlighting instead of state
+  const opacity = scrollY.interpolate({
+    inputRange: [
+      (index - 1) * ITEM_HEIGHT,
+      index * ITEM_HEIGHT,
+      (index + 1) * ITEM_HEIGHT,
+    ],
+    outputRange: [0.3, 1, 0.3],
+    extrapolate: 'clamp',
+  });
+
+  const scale = scrollY.interpolate({
+    inputRange: [
+      (index - 1) * ITEM_HEIGHT,
+      index * ITEM_HEIGHT,
+      (index + 1) * ITEM_HEIGHT,
+    ],
+    outputRange: [0.9, 1.1, 0.9],
+    extrapolate: 'clamp',
+  });
+
+  return (
+    <View style={styles.wheelItem}>
+      <Animated.Text 
+        style={[
+          styles.wheelText, 
+          { opacity, transform: [{ scale }] }
+        ]}
+        allowFontScaling={false}
+      >
+        {item}
+      </Animated.Text>
+    </View>
+  );
+});
+
+const WheelColumn = React.memo(({
   data,
   selectedIndex,
   onSelect,
@@ -90,77 +140,75 @@ const WheelColumn = ({
   onSelect: (index: number) => void;
 }) => {
   const listRef = useRef<FlatList<any>>(null);
+  const scrollY = useRef(new Animated.Value(selectedIndex * ITEM_HEIGHT)).current;
+  const isUserInteracting = useRef(false);
   const currentSelection = useRef(selectedIndex);
-  const isScrolling = useRef(false);
 
-  // Sync scroll position when index or data changes externally
+  // Sync scroll position when state changes externally (e.g. Feb 31 -> 28)
   useEffect(() => {
     if (!listRef.current || data.length === 0) return;
     const safeIndex = clamp(selectedIndex, 0, data.length - 1);
 
-    // Initial sync
-    if (currentSelection.current === -1) {
+    // Strict Guard: Only sync if the user isn't touching it and the internal ref differs
+    if (!isUserInteracting.current && safeIndex !== currentSelection.current) {
         currentSelection.current = safeIndex;
-        setTimeout(() => {
-            listRef.current?.scrollToOffset({ offset: safeIndex * ITEM_HEIGHT, animated: false });
-        }, 50);
-        return;
-    }
-
-    // Only scroll programmatically if the change came from outside (not a scroll event we just finished)
-    if (safeIndex !== currentSelection.current && !isScrolling.current) {
-      currentSelection.current = safeIndex;
-      listRef.current?.scrollToOffset({ offset: safeIndex * ITEM_HEIGHT, animated: true });
+        listRef.current?.scrollToOffset({ offset: safeIndex * ITEM_HEIGHT, animated: true });
+        scrollY.setValue(safeIndex * ITEM_HEIGHT);
     }
   }, [selectedIndex, data.length]);
 
   const handleScrollEnd = useCallback(
     (event: any) => {
-      isScrolling.current = false;
       const y = event.nativeEvent.contentOffset.y;
       const index = clamp(Math.round(y / ITEM_HEIGHT), 0, data.length - 1);
+      const targetOffset = index * ITEM_HEIGHT;
       
-      // Force exact alignment
-      listRef.current?.scrollToOffset({ offset: index * ITEM_HEIGHT, animated: true });
+      // Force exact alignment snap only if necessary to avoid recursive events
+      if (Math.abs(y - targetOffset) > 0.5) {
+        listRef.current?.scrollToOffset({ offset: targetOffset, animated: true });
+      }
 
       if (index !== currentSelection.current) {
         currentSelection.current = index;
         onSelect(index);
       }
+      
+      // Release interaction guard immediately so useEffect sync can happen if needed (clamping)
+      isUserInteracting.current = false;
     },
     [data.length, onSelect]
   );
 
   const renderItem = useCallback(
     ({ item, index }: { item: string | number; index: number }) => (
-      <View key={`item-${index}-${item}`} style={styles.wheelItem}>
-        <Text 
-          style={[styles.wheelText, index === selectedIndex && styles.wheelTextSelected]}
-          allowFontScaling={false}
-        >
-          {item}
-        </Text>
-      </View>
+      <WheelItem item={item} index={index} scrollY={scrollY} />
     ),
-    [selectedIndex]
+    [data]
   );
 
   return (
     <View style={styles.wheelColumn}>
-      <FlatList
-        ref={listRef}
+      <Animated.FlatList
+        ref={listRef as any}
         data={data}
         keyExtractor={(item, index) => `wheel-${item}-${index}`}
         renderItem={renderItem}
         getItemLayout={(_, index) => ({ length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index })}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={false} 
         snapToInterval={ITEM_HEIGHT}
         decelerationRate="fast"
         snapToAlignment="start"
-        onScrollBeginDrag={() => { isScrolling.current = true; }}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: true }
+        )}
+        onScrollBeginDrag={() => { isUserInteracting.current = true; }}
+        onMomentumScrollBegin={() => { isUserInteracting.current = true; }}
         onMomentumScrollEnd={handleScrollEnd}
         onScrollEndDrag={(e) => {
-            if (Math.abs(e.nativeEvent.velocity?.y || 0) < 0.1) {
+            const velocity = e.nativeEvent.velocity?.y || 0;
+            if (Math.abs(velocity) < 0.1) {
                 handleScrollEnd(e);
             }
         }}
@@ -178,7 +226,7 @@ const WheelColumn = ({
       </View>
     </View>
   );
-};
+});
 
 export default function SignUpScreen() {
   const [step, setStep] = useState(1);
@@ -204,6 +252,7 @@ export default function SignUpScreen() {
     setError,
     watch,
     setValue,
+    getValues,
     trigger,
     formState: { errors, isValid },
   } = useForm<SignUpFields>({
@@ -302,34 +351,35 @@ export default function SignUpScreen() {
     });
   };
 
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const years = Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - i);
-  
   const dob = watch('dob') || new Date();
   const currentYear = dob.getFullYear();
   const currentMonth = dob.getMonth();
   const currentDay = dob.getDate();
 
+  // Memoize data lists for all columns to ensure stability
+  const monthList = useMemo(() => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], []);
+  const yearList = useMemo(() => Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - i), []);
   const daysInMonth = useMemo(() => getDaysInMonth(currentMonth, currentYear), [currentMonth, currentYear]);
   const daysArray = useMemo(() => Array.from({ length: daysInMonth }, (_, i) => i + 1), [daysInMonth]);
 
   const updateDate = useCallback((type: 'day' | 'month' | 'year', value: number) => {
-    const newDate = new Date(dob);
-    if (type === 'day') {
-      newDate.setDate(Math.min(value, daysInMonth));
-    }
-    if (type === 'month') {
-      newDate.setMonth(value);
-      const lastDay = getDaysInMonth(value, newDate.getFullYear());
-      if (newDate.getDate() > lastDay) newDate.setDate(lastDay);
-    }
-    if (type === 'year') {
-      newDate.setFullYear(value);
-      const lastDay = getDaysInMonth(newDate.getMonth(), value);
-      if (newDate.getDate() > lastDay) newDate.setDate(lastDay);
-    }
+    // Read the current form value directly to ensure we have the latest source of truth
+    const currentDob = getValues('dob') || new Date();
+    let year = currentDob.getFullYear();
+    let month = currentDob.getMonth();
+    let day = currentDob.getDate();
+
+    if (type === 'day') day = value;
+    else if (type === 'month') month = value;
+    else if (type === 'year') year = value;
+
+    // Defensive clamping to prevent invalid dates (e.g., Feb 31)
+    const lastDay = getDaysInMonth(month, year);
+    if (day > lastDay) day = lastDay;
+
+    const newDate = new Date(year, month, day);
     setValue('dob', newDate, { shouldValidate: true });
-  }, [dob, daysInMonth, setValue]);
+  }, [getValues, setValue]);
 
   return (
     <View style={styles.container}>
@@ -364,7 +414,7 @@ export default function SignUpScreen() {
                 <View style={styles.wheelContainer}>
                   <View style={styles.wheelBackground} />
                   <WheelColumn
-                    data={months}
+                    data={monthList}
                     selectedIndex={currentMonth}
                     onSelect={(idx) => updateDate('month', idx)}
                   />
@@ -374,9 +424,9 @@ export default function SignUpScreen() {
                     onSelect={(idx) => updateDate('day', idx + 1)}
                   />
                   <WheelColumn
-                    data={years}
-                    selectedIndex={years.indexOf(currentYear)}
-                    onSelect={(idx) => updateDate('year', years[idx])}
+                    data={yearList}
+                    selectedIndex={yearList.indexOf(currentYear)}
+                    onSelect={(idx) => updateDate('year', yearList[idx])}
                   />
                 </View>
 
@@ -599,23 +649,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   wheelText: {
-    color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: 22,
-    fontWeight: '600',
-    lineHeight: 52,
-    textAlign: 'center',
-    textAlignVertical: 'center',
-    includeFontPadding: false,
-  },
-  wheelTextSelected: {
     color: '#fff',
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '700',
     lineHeight: 52,
     textAlign: 'center',
     textAlignVertical: 'center',
     includeFontPadding: false,
   },
+  // Selection logic removed from Text styles as it's now handled by Animated
   selectionOverlay: {
     position: 'absolute',
     left: 0,
