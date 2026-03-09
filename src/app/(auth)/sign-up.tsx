@@ -3,6 +3,7 @@ import {
   Text,
   View,
   ScrollView,
+  FlatList,
   Platform,
   Keyboard,
   LayoutAnimation,
@@ -17,7 +18,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, router, Stack, useNavigation } from "expo-router";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useSignUp } from "@clerk/clerk-expo";
 import { isClerkAPIResponseError } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
@@ -65,6 +66,96 @@ const ProgressCircle = ({ step }: { step: number }) => {
           strokeLinecap="round"
         />
       </Svg>
+    </View>
+  );
+};
+
+const ITEM_HEIGHT = 52;
+const VISIBLE_ITEMS = 5;
+const LIST_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS;
+
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+const getDaysInMonth = (monthIndex: number, year: number) => {
+  return new Date(year, monthIndex + 1, 0).getDate();
+};
+
+const WheelColumn = ({
+  data,
+  selectedIndex,
+  onSelect,
+}: {
+  data: Array<string | number>;
+  selectedIndex: number;
+  onSelect: (index: number) => void;
+}) => {
+  const listRef = useRef<FlatList<any>>(null);
+  const isMounted = useRef(false);
+  const lastReportedIndex = useRef(selectedIndex);
+  const isScrolling = useRef(false);
+
+  useEffect(() => {
+    if (!listRef.current || data.length === 0) return;
+    const safeIndex = clamp(selectedIndex, 0, data.length - 1);
+
+    if (!isMounted.current) {
+      setTimeout(() => {
+        listRef.current?.scrollToOffset({ offset: safeIndex * ITEM_HEIGHT, animated: false });
+      }, 0);
+      isMounted.current = true;
+    } else if (selectedIndex !== lastReportedIndex.current && !isScrolling.current) {
+      // Only scroll programmatically if the change came from outside (e.g., clamping days)
+      listRef.current?.scrollToOffset({ offset: safeIndex * ITEM_HEIGHT, animated: true });
+      lastReportedIndex.current = safeIndex;
+    }
+  }, [selectedIndex, data.length]);
+
+  const handleScrollEnd = useCallback(
+    (event: any) => {
+      isScrolling.current = false;
+      const y = event.nativeEvent.contentOffset.y;
+      const index = clamp(Math.round(y / ITEM_HEIGHT), 0, data.length - 1);
+      if (index !== lastReportedIndex.current) {
+        lastReportedIndex.current = index;
+        onSelect(index);
+      }
+    },
+    [data.length, onSelect]
+  );
+
+  const renderItem = useCallback(
+    ({ item, index }: { item: string | number; index: number }) => (
+      <View style={styles.wheelItem}>
+        <Text style={[styles.wheelText, index === selectedIndex && styles.wheelTextSelected]}>
+          {item}
+        </Text>
+      </View>
+    ),
+    [selectedIndex]
+  );
+
+  return (
+    <View style={styles.wheelColumn}>
+      <FlatList
+        ref={listRef}
+        data={data}
+        keyExtractor={(item, index) => `${item}-${index}`}
+        renderItem={renderItem}
+        getItemLayout={(_, index) => ({ length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index })}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={ITEM_HEIGHT}
+        decelerationRate="fast"
+        snapToAlignment="start"
+        onScrollBeginDrag={() => { isScrolling.current = true; }}
+        onMomentumScrollEnd={handleScrollEnd}
+        contentContainerStyle={{ paddingVertical: (LIST_HEIGHT - ITEM_HEIGHT) / 2 }}
+        style={{ height: LIST_HEIGHT }}
+      />
+
+      <View style={styles.selectionOverlay} pointerEvents="none">
+        <View style={[styles.selectionLine, { top: (LIST_HEIGHT - ITEM_HEIGHT) / 2 }]} />
+        <View style={[styles.selectionLine, { top: (LIST_HEIGHT + ITEM_HEIGHT) / 2 }]} />
+      </View>
     </View>
   );
 };
@@ -130,7 +221,6 @@ export default function SignUpScreen() {
   // Watch values for progressive validation
   const email = watch('email');
   const password = watch('password');
-  const dob = watch('dob');
   const firstName = watch('firstName');
   const lastName = watch('lastName');
 
@@ -194,103 +284,32 @@ export default function SignUpScreen() {
 
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const years = Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - i);
-  const days = Array.from({ length: 31 }, (_, i) => i + 1);
+  
+  const dob = watch('dob') || new Date();
+  const currentYear = dob.getFullYear();
+  const currentMonth = dob.getMonth();
+  const currentDay = dob.getDate();
 
-  const CustomWheelPicker = () => {
-    const currentYear = dob.getFullYear();
-    const currentMonth = dob.getMonth();
-    const currentDay = dob.getDate();
+  const daysInMonth = useMemo(() => getDaysInMonth(currentMonth, currentYear), [currentMonth, currentYear]);
+  const daysArray = useMemo(() => Array.from({ length: daysInMonth }, (_, i) => i + 1), [daysInMonth]);
 
-    const updateDate = (type: 'day' | 'month' | 'year', value: number) => {
-      const newDate = new Date(dob);
-      if (type === 'day') {
-        const lastDay = new Date(newDate.getFullYear(), newDate.getMonth() + 1, 0).getDate();
-        newDate.setDate(Math.min(value, lastDay));
-      }
-      if (type === 'month') {
-        newDate.setMonth(value);
-        const lastDay = new Date(newDate.getFullYear(), value + 1, 0).getDate();
-        if (newDate.getDate() > lastDay) newDate.setDate(lastDay);
-      }
-      if (type === 'year') newDate.setFullYear(value);
-      setValue('dob', newDate, { shouldValidate: true });
-    };
-
-    const WheelColumn = ({ 
-      data, 
-      currentValue, 
-      type,
-      isMonth = false 
-    }: { 
-      data: (string | number)[], 
-      currentValue: number, 
-      type: 'day' | 'month' | 'year',
-      isMonth?: boolean
-    }) => {
-      const scrollViewRef = useRef<ScrollView>(null);
-      const ITEM_HEIGHT = 50; // Increased for better readability
-
-      useEffect(() => {
-        const index = isMonth ? currentValue : data.indexOf(currentValue);
-        if (index !== -1) {
-          // Use a slight delay to ensure the layout is ready and prevent glitchy snaps
-          const timer = setTimeout(() => {
-            scrollViewRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: false });
-          }, 10);
-          return () => clearTimeout(timer);
-        }
-      }, [currentValue]); // Respond to external changes (validation snaps)
-
-      return (
-        <View style={styles.wheelColumn}>
-          <ScrollView 
-            ref={scrollViewRef}
-            showsVerticalScrollIndicator={false} 
-            snapToInterval={ITEM_HEIGHT}
-            decelerationRate="fast"
-            contentContainerStyle={{ paddingVertical: ITEM_HEIGHT * 2 }} 
-            onMomentumScrollEnd={(e) => {
-              const index = Math.round(e.nativeEvent.contentOffset.y / ITEM_HEIGHT);
-              const val = isMonth ? index : Number(data[index]);
-              if (data[index] !== undefined && val !== currentValue) {
-                updateDate(type, val);
-              }
-            }}
-          >
-            {data.map((item, i) => {
-              const val = isMonth ? i : item;
-              const isActive = currentValue === val;
-              return (
-                <View key={`${type}-${item}`} style={[styles.wheelItem, { height: ITEM_HEIGHT }]}>
-                  <Text style={[
-                    styles.wheelText, 
-                    isActive && styles.activeWheelText,
-                    !isActive && { opacity: 0.25 }
-                  ]}>
-                    {item}
-                  </Text>
-                </View>
-              );
-            })}
-          </ScrollView>
-          {/* Individual column dividers to match Figma */}
-          <View style={styles.columnDividerContainer} pointerEvents="none">
-            <View style={styles.columnDivider} />
-            <View style={styles.columnDivider} />
-          </View>
-        </View>
-      );
-    };
-
-    return (
-      <View style={styles.wheelContainer}>
-        <View style={styles.wheelBackground} />
-        <WheelColumn data={days} currentValue={currentDay} type="day" />
-        <WheelColumn data={months} currentValue={currentMonth} type="month" isMonth />
-        <WheelColumn data={years} currentValue={currentYear} type="year" />
-      </View>
-    );
-  };
+  const updateDate = useCallback((type: 'day' | 'month' | 'year', value: number) => {
+    const newDate = new Date(dob);
+    if (type === 'day') {
+      newDate.setDate(Math.min(value, daysInMonth));
+    }
+    if (type === 'month') {
+      newDate.setMonth(value);
+      const lastDay = getDaysInMonth(value, newDate.getFullYear());
+      if (newDate.getDate() > lastDay) newDate.setDate(lastDay);
+    }
+    if (type === 'year') {
+      newDate.setFullYear(value);
+      const lastDay = getDaysInMonth(newDate.getMonth(), value);
+      if (newDate.getDate() > lastDay) newDate.setDate(lastDay);
+    }
+    setValue('dob', newDate, { shouldValidate: true });
+  }, [dob, daysInMonth, setValue]);
 
   return (
     <View style={styles.container}>
@@ -317,91 +336,112 @@ export default function SignUpScreen() {
         }} 
       />
       <View style={{ flex: 1, paddingBottom: keyboardHeight }}>
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={styles.contentContainer}
-          keyboardShouldPersistTaps="handled"
-          automaticallyAdjustContentInsets={false}
-        >
-          {step === 1 && (
-              <View style={styles.stepContainer}>
-                  <Text style={styles.stepTitle}>Enter your email address</Text>
-                  <CustomTextInput
-                      control={control}
-                      name="email"
-                      placeholder=""
-                      autoFocus
-                      autoCapitalize="none"
-                      keyboardType="email-address"
-                      style={styles.input}
+          {step === 3 ? (
+          <View style={[styles.contentContainer, { flex: 1 }]}>
+            <View style={styles.stepContainer}>
+                <Text style={styles.stepTitle}>What's your date of birth?</Text>
+                
+                <View style={styles.wheelContainer}>
+                  <View style={styles.wheelBackground} />
+                  <WheelColumn
+                    data={months}
+                    selectedIndex={currentMonth}
+                    onSelect={(idx) => updateDate('month', idx)}
                   />
-                  <Text style={styles.helperText}>We will send you an email with a code, so you verify the account</Text>
-              </View>
-          )}
-
-          {step === 2 && (
-              <View style={styles.stepContainer}>
-                  <Text style={styles.stepTitle}>Create a password</Text>
-                  <CustomTextInput
-                      control={control}
-                      name="password"
-                      placeholder=""
-                      secureTextEntry
-                      autoFocus
-                      style={styles.input}
+                  <WheelColumn
+                    data={daysArray}
+                    selectedIndex={Math.min(currentDay - 1, daysInMonth - 1)}
+                    onSelect={(idx) => updateDate('day', idx + 1)}
                   />
-                  <View style={styles.passwordStrength}>
-                      <View style={[styles.strengthBar, password?.length > 0 ? styles.activeBar : {}]} />
-                      <View style={[styles.strengthBar, password?.length > 4 ? styles.activeBar : {}]} />
-                      <View style={[styles.strengthBar, password?.length > 8 ? styles.activeBar : {}]} />
-                      <View style={[styles.strengthBar, password?.length > 10 ? styles.activeBar : {}]} />
-                  </View>
-                  <Text style={styles.helperText}>Your password is exceptional and exceeds minimum standards</Text>
-              </View>
-          )}
-
-          {step === 3 && (
-              <View style={styles.stepContainer}>
-                  <Text style={styles.stepTitle}>What's your date of birth?</Text>
-                  <CustomWheelPicker />
-              </View>
-          )}
-
-          {step === 4 && (
-              <View style={styles.stepContainer}>
-                  <Text style={styles.label}>First Name</Text>
-                  <CustomTextInput
-                      control={control}
-                      name="firstName"
-                      placeholder=""
-                      style={styles.input}
+                  <WheelColumn
+                    data={years}
+                    selectedIndex={years.indexOf(currentYear)}
+                    onSelect={(idx) => updateDate('year', years[idx])}
                   />
-                  <Text style={styles.fieldHelper}>Insert your first name in the input field above.</Text>
+                </View>
 
-                  <Text style={styles.label}>Last Name</Text>
-                  <CustomTextInput
-                      control={control}
-                      name="lastName"
-                      placeholder=""
-                      style={styles.input}
-                  />
-                  <Text style={styles.fieldHelper}>Insert your last name in the input field above.</Text>
+            </View>
+          </View>
+        ) : (
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.contentContainer}
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustContentInsets={false}
+          >
+            {step === 1 && (
+                <View style={styles.stepContainer}>
+                    <Text style={styles.stepTitle}>Enter your email address</Text>
+                    <CustomTextInput
+                        control={control}
+                        name="email"
+                        placeholder=""
+                        autoFocus
+                        autoCapitalize="none"
+                        keyboardType="email-address"
+                        style={styles.input}
+                    />
+                    <Text style={styles.helperText}>We will send you an email with a code, so you verify the account</Text>
+                </View>
+            )}
 
-                  <Pressable 
-                    onPress={() => setAgreedToTerms(prev => !prev)}
-                    style={styles.termsContainer}
-                    hitSlop={20}
-                  >
-                    <View style={[styles.checkbox, agreedToTerms && styles.checkboxActive]}>
-                      {agreedToTerms && <Ionicons name="checkmark" size={16} color="#000" />}
+            {step === 2 && (
+                <View style={styles.stepContainer}>
+                    <Text style={styles.stepTitle}>Create a password</Text>
+                    <CustomTextInput
+                        control={control}
+                        name="password"
+                        placeholder=""
+                        secureTextEntry
+                        autoFocus
+                        style={styles.input}
+                    />
+                    <View style={styles.passwordStrength}>
+                        <View style={[styles.strengthBar, password?.length > 0 ? styles.activeBar : {}]} />
+                        <View style={[styles.strengthBar, password?.length > 4 ? styles.activeBar : {}]} />
+                        <View style={[styles.strengthBar, password?.length > 8 ? styles.activeBar : {}]} />
+                        <View style={[styles.strengthBar, password?.length > 10 ? styles.activeBar : {}]} />
                     </View>
-                    <Text style={styles.termsText}>
-                        I agree with [Insert Company Name] Terms of Service, Payments Terms of Service & Privacy Policy
-                    </Text>
-                  </Pressable>
-              </View>
-          )}
-        </ScrollView>
+                    <Text style={styles.helperText}>Your password is exceptional and exceeds minimum standards</Text>
+                </View>
+            )}
+
+            {step === 4 && (
+                <View style={styles.stepContainer}>
+                    <Text style={styles.label}>First Name</Text>
+                    <CustomTextInput
+                        control={control}
+                        name="firstName"
+                        placeholder=""
+                        style={styles.input}
+                    />
+                    <Text style={styles.fieldHelper}>Insert your first name in the input field above.</Text>
+
+                    <Text style={styles.label}>Last Name</Text>
+                    <CustomTextInput
+                        control={control}
+                        name="lastName"
+                        placeholder=""
+                        style={styles.input}
+                    />
+                    <Text style={styles.fieldHelper}>Insert your last name in the input field above.</Text>
+
+                    <Pressable 
+                      onPress={() => setAgreedToTerms(prev => !prev)}
+                      style={styles.termsContainer}
+                      hitSlop={20}
+                    >
+                      <View style={[styles.checkbox, agreedToTerms && styles.checkboxActive]}>
+                        {agreedToTerms && <Ionicons name="checkmark" size={16} color="#000" />}
+                      </View>
+                      <Text style={styles.termsText}>
+                          I agree with [Insert Company Name] Terms of Service, Payments Terms of Service & Privacy Policy
+                      </Text>
+                    </Pressable>
+                </View>
+            )}
+          </ScrollView>
+        )}
 
         <View style={[
           styles.footer,
@@ -516,11 +556,12 @@ const styles = StyleSheet.create({
   // Step 3 specifics
   wheelContainer: {
     flexDirection: 'row',
-    height: 250,
+    height: 260, // LIST_HEIGHT
     marginTop: 40,
     position: 'relative',
     backgroundColor: '#000',
     overflow: 'hidden',
+    justifyContent: 'space-between',
   },
   wheelBackground: {
     ...StyleSheet.absoluteFillObject,
@@ -528,35 +569,36 @@ const styles = StyleSheet.create({
   },
   wheelColumn: {
     flex: 1,
+    alignItems: 'center',
     position: 'relative',
   },
   wheelItem: {
+    height: 52, // ITEM_HEIGHT
     justifyContent: 'center',
     alignItems: 'center',
   },
   wheelText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: '400',
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 22,
+    fontWeight: '600',
   },
-  activeWheelText: {
+  wheelTextSelected: {
     color: '#fff',
-    fontSize: 26, // Increased for focus
+    fontSize: 26,
     fontWeight: '700',
   },
-  columnDividerContainer: {
+  selectionOverlay: {
     position: 'absolute',
-    top: '50%',
-    marginTop: -25, // Half of ITEM_HEIGHT
-    left: 15,
-    right: 15,
-    height: 50, // Matches ITEM_HEIGHT
-    justifyContent: 'space-between',
+    left: 0,
+    right: 0,
+    height: 260, // LIST_HEIGHT
   },
-  columnDivider: {
-    height: 2, // Slightly bolder for clarity
-    backgroundColor: '#fff',
-    width: '100%',
+  selectionLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
   },
   // Step 4 specifics
   termsContainer: {
