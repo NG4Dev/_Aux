@@ -90,27 +90,29 @@ const WheelColumn = ({
   onSelect: (index: number) => void;
 }) => {
   const listRef = useRef<FlatList<any>>(null);
-  const isMounted = useRef(false);
-  const lastReportedIndex = useRef(selectedIndex);
+  const currentSelection = useRef(selectedIndex);
   const isScrolling = useRef(false);
 
+  // Sync scroll position when index or data changes externally
   useEffect(() => {
     if (!listRef.current || data.length === 0) return;
     const safeIndex = clamp(selectedIndex, 0, data.length - 1);
 
-    if (!isMounted.current) {
-      setTimeout(() => {
-        listRef.current?.scrollToOffset({ offset: safeIndex * ITEM_HEIGHT, animated: false });
-      }, 0);
-      isMounted.current = true;
-    } else if (selectedIndex !== lastReportedIndex.current && !isScrolling.current) {
-      // Only scroll programmatically if the change came from outside (e.g., clamping days)
+    // Initial sync
+    if (currentSelection.current === -1) {
+        currentSelection.current = safeIndex;
+        setTimeout(() => {
+            listRef.current?.scrollToOffset({ offset: safeIndex * ITEM_HEIGHT, animated: false });
+        }, 50);
+        return;
+    }
+
+    // Only scroll programmatically if the change came from outside (not a scroll event we just finished)
+    if (safeIndex !== currentSelection.current && !isScrolling.current) {
+      currentSelection.current = safeIndex;
       listRef.current?.scrollToOffset({ offset: safeIndex * ITEM_HEIGHT, animated: true });
-      lastReportedIndex.current = safeIndex;
     }
   }, [selectedIndex, data.length]);
-
-  const snapOffsets = useMemo(() => data.map((_, i) => i * ITEM_HEIGHT), [data]);
 
   const handleScrollEnd = useCallback(
     (event: any) => {
@@ -118,11 +120,11 @@ const WheelColumn = ({
       const y = event.nativeEvent.contentOffset.y;
       const index = clamp(Math.round(y / ITEM_HEIGHT), 0, data.length - 1);
       
-      // Force an exact offset snap. Sometimes Android resting positions are slightly off.
+      // Force exact alignment
       listRef.current?.scrollToOffset({ offset: index * ITEM_HEIGHT, animated: true });
 
-      if (index !== lastReportedIndex.current) {
-        lastReportedIndex.current = index;
+      if (index !== currentSelection.current) {
+        currentSelection.current = index;
         onSelect(index);
       }
     },
@@ -148,23 +150,26 @@ const WheelColumn = ({
       <FlatList
         ref={listRef}
         data={data}
-        keyExtractor={(item, index) => `${item}-${index}`}
+        keyExtractor={(item, index) => `wheel-${item}-${index}`}
         renderItem={renderItem}
         getItemLayout={(_, index) => ({ length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index })}
         showsVerticalScrollIndicator={false}
-        snapToOffsets={snapOffsets}
+        snapToInterval={ITEM_HEIGHT}
         decelerationRate="fast"
         snapToAlignment="start"
         onScrollBeginDrag={() => { isScrolling.current = true; }}
         onMomentumScrollEnd={handleScrollEnd}
         onScrollEndDrag={(e) => {
-          // If the user drags and releases very slowly, momentum might not trigger
-          if (e.nativeEvent.velocity && Math.abs(e.nativeEvent.velocity.y) < 0.1) {
-            handleScrollEnd(e);
-          }
+            if (Math.abs(e.nativeEvent.velocity?.y || 0) < 0.1) {
+                handleScrollEnd(e);
+            }
         }}
         contentContainerStyle={{ paddingVertical: (LIST_HEIGHT - ITEM_HEIGHT) / 2 }}
         style={{ height: LIST_HEIGHT }}
+        initialNumToRender={data.length}
+        maxToRenderPerBatch={data.length}
+        windowSize={5}
+        removeClippedSubviews={false}
       />
 
       <View style={styles.selectionOverlay} pointerEvents="none">
@@ -589,6 +594,7 @@ const styles = StyleSheet.create({
   },
   wheelItem: {
     height: 52, // ITEM_HEIGHT
+    width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -597,6 +603,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '600',
     lineHeight: 52,
+    textAlign: 'center',
     textAlignVertical: 'center',
     includeFontPadding: false,
   },
@@ -605,6 +612,7 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '700',
     lineHeight: 52,
+    textAlign: 'center',
     textAlignVertical: 'center',
     includeFontPadding: false,
   },
