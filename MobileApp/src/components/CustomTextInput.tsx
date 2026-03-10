@@ -22,8 +22,14 @@ export default function CustomTextInput <T extends FieldValues>({control, name, 
                     style={[
                         styles.input, 
                         props.style,
+<<<<<<< HEAD
                         { borderColor: error ? 'crimson' : 'gray'},
                     ]}  
+=======
+                        { borderColor: error ? 'crimson' : 'transparent'},
+                    ]}
+                    placeholderTextColor="#666"  
+>>>>>>> app-routing
                 />
                 <Text style={styles.error}>{error?.message}</Text>
              </View> 
@@ -38,11 +44,24 @@ const styles = StyleSheet.create ({
     },
     input: {
     borderWidth: 1,
+<<<<<<< HEAD
     padding: 10,
     borderRadius: 3,
     borderColor: '#777',
     },
     error: {
         color: 'crimson',
+=======
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: '#2A2A2A', // Match the new gray
+    color: '#fff', 
+    fontSize: 16,
+    },
+    error: {
+        color: 'crimson',
+        fontSize: 12,
+        marginTop: 4,
+>>>>>>> app-routing
     },
 })
