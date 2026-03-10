@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-=======
 import { Ionicons } from "@expo/vector-icons";
->>>>>>> app-routing
 import {
   StyleSheet,
   Text,
@@ -11,31 +8,27 @@ import {
   Keyboard,
   LayoutAnimation,
   UIManager,
-  Alert,
+  Pressable,
 } from "react-native";
 import CustomTextInput from "@/components/CustomTextInput";
 import CustomButton from "@/components/CustomButton";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-<<<<<<< HEAD
-import { Link } from "expo-router";
-import { useState, useEffect } from "react";
-import { isClerkAPIResponseError, useSignIn } from "@clerk/clerk-expo";
-import SignInWith from "@/components/SignInWith";
-=======
-import { Link, router } from "expo-router";
-import { useState, useEffect } from "react";
+import { Link, router, Stack } from "expo-router";
+import { useState, useEffect, useCallback } from "react";
 import { isClerkAPIResponseError, useSignIn } from "@clerk/clerk-expo";
 import SignInWith from "@/components/SignInWith";
 import { useHeaderHeight } from '@react-navigation/elements';
 import Svg, { Circle } from 'react-native-svg';
+import { Toast } from "@/components/Toast";
 
-const ProgressCircle = ({ progress }: { progress: number }) => {
+const ProgressCircle = ({ step }: { step: number }) => {
   const size = 24;
   const strokeWidth = 2.5;
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
+  const progress = step / 2;
   const offset = circumference - progress * circumference;
 
   return (
@@ -64,28 +57,16 @@ const ProgressCircle = ({ progress }: { progress: number }) => {
     </View>
   );
 };
->>>>>>> app-routing
 
 const signInSchema = z.object({
   email: z.string({ message: "Email is required" }).email("Invalid email"),
   password: z
-    .string({ message: "Password is required" })
-    .min(8, "Password should be at least 8 characters long"),
+    .string()
+    .min(8, "Password should be at least 8 characters long")
+    .optional(),
 });
 
 type SignInFields = z.infer<typeof signInSchema>;
-
-const mapClerkErrorToFormField = (error: any) => {
-
-  switch(error.meta?.paramName) {
-    case 'identifier':
-      return'email';
-    case 'password':
-      return 'password';
-    default:
-      return 'root';
-  }
-};
 
 // Enable LayoutAnimation on Android
 if (
@@ -96,29 +77,26 @@ if (
 }
 
 export default function SignInScreen() {
+  const [step, setStep] = useState(1);
+  const [isMagicLinkSent, setIsMagicLinkSent] = useState(false);
+  const [errorToast, setErrorToast] = useState<{ message: string; code?: string; stepToNavigate?: number } | null>(null);
+
   const { 
     control, 
     handleSubmit, 
     setError,
-<<<<<<< HEAD
-    formState: { errors},
-  } = useForm<SignInFields>({
-    resolver: zodResolver(signInSchema),
-=======
-    formState: { errors, isValid },
+    watch,
+    trigger,
+    formState: { errors },
   } = useForm<SignInFields>({
     resolver: zodResolver(signInSchema),
     mode: 'onChange',
->>>>>>> app-routing
   });
 
-  
   const { signIn, isLoaded, setActive } = useSignIn();
-<<<<<<< HEAD
-  
-=======
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const headerHeight = useHeaderHeight();
+  const email = watch('email');
+  const password = watch('password');
 
   useEffect(() => {
     const showSubscription = Keyboard.addListener(
@@ -142,7 +120,26 @@ export default function SignInScreen() {
     };
   }, []);
 
->>>>>>> app-routing
+  const handleNext = async () => {
+    Keyboard.dismiss();
+    if (step === 1) {
+      const isEmailValid = await trigger('email');
+      if (isEmailValid) {
+        setStep(2);
+      }
+    } else {
+      handleSubmit(onSignIn)();
+    }
+  };
+
+  const handleBack = useCallback(() => {
+    if (step > 1) {
+      setStep(prev => prev - 1);
+    } else {
+      router.back();
+    }
+  }, [step]);
+
   const onSignIn = async (data: SignInFields) => {
     if (!isLoaded) return;
 
@@ -153,113 +150,63 @@ export default function SignInScreen() {
       });
 
       if (signInAttempt.status === "complete") {
-<<<<<<< HEAD
-        setActive({ session: signInAttempt.createdSessionId });
-=======
         await setActive({ session: signInAttempt.createdSessionId });
-        router.replace("/(onboarding)/success");
->>>>>>> app-routing
+        router.replace("/(onboarding)/notifications");
       } else {
-        console.log("Sign in failed");
-        setError('root', { message: 'Sign in could not be completed' });
+        setErrorToast({ message: "Sign in could not be completed", code: "STATUS_" + signInAttempt.status });
       }
     } catch (err) {
       if (isClerkAPIResponseError(err)) {
-        // Clear any existing errors first
-        setError('root', { message: '' });
-        setError('email', { message: '' });
-        setError('password', { message: '' });
+        const error = err.errors[0];
+        // Map common errors to steps
+        let stepToNavigate = undefined;
+        if (error.code === 'form_identifier_not_found' || error.meta?.paramName === 'identifier') {
+          stepToNavigate = 1;
+        } else if (error.code === 'form_password_incorrect' || error.meta?.paramName === 'password') {
+          stepToNavigate = 2;
+        }
 
-        // Set new errors
-        err.errors.forEach((error) => {
-          const fieldName = mapClerkErrorToFormField(error);
-          setError(fieldName, {
-            message: error.longMessage,
-          });
-          
-          // Log only the current error
-          console.log('Errors:', JSON.stringify({
-            [fieldName]: {
-              message: error.longMessage
-            }
-          }, null, 2));
+        setErrorToast({ 
+          message: error.longMessage || "An error occurred", 
+          code: error.code,
+          stepToNavigate 
         });
-
       } else {
-        setError('root', { message: 'Unknown error' });
+        setErrorToast({ message: "Unknown error" });
       }
     }
   };
 
-<<<<<<< HEAD
-  const [keyboardPadding, setKeyboardPadding] = useState(0);
+  const onSendMagicLink = async () => {
+    if (!isLoaded || !email) return;
 
-  useEffect(() => {
-    const onKeyboardShow = (event: any) => {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setKeyboardPadding(event.endCoordinates.height);
-    };
-    const onKeyboardHide = () => {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setKeyboardPadding(0);
-    };
+    try {
+      const signInResult = await signIn.create({
+        identifier: email,
+      });
 
-    const showSub = Keyboard.addListener("keyboardDidShow", onKeyboardShow);
-    const hideSub = Keyboard.addListener("keyboardDidHide", onKeyboardHide);
+      const emailLinkFactor = signInResult.supportedFirstFactors?.find(
+        (f: any) => f.strategy === "email_link"
+      );
 
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
+      if (emailLinkFactor) {
+        await signIn.prepareFirstFactor({
+          strategy: "email_link",
+          emailAddressId: (emailLinkFactor as any).emailAddressId,
+          redirectUrl: 'aux://post-auth', // This should match your deep link config
+        });
+        setIsMagicLinkSent(true);
+      }
+    } catch (err) {
+      if (isClerkAPIResponseError(err)) {
+        setErrorToast({ 
+          message: err.errors[0]?.longMessage || "An error occurred", 
+          code: err.errors[0]?.code 
+        });
+      }
+    }
+  };
 
-  return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[
-        styles.contentContainer,
-        { paddingBottom: keyboardPadding + 20 },
-      ]}
-      keyboardShouldPersistTaps="handled"
-      stickyHeaderIndices={[0]}
-      scrollEnabled={false}
-    >
-      {/* Sticky Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Sign in</Text>
-      </View>
-
-      <View style={styles.form}>
-        <CustomTextInput
-          control={control}
-          name="email"
-          placeholder="Email"
-          autoFocus
-          autoCapitalize="none"
-          keyboardType="email-address"
-          autoComplete="email"
-        />
-
-        <CustomTextInput
-          control={control}
-          name="password"
-          placeholder="Password"
-          secureTextEntry
-        />
-
-        <Text style={styles.error}>{errors?.root?.message}</Text>
-      </View>
-
-
-      <CustomButton text="Sign in" onPress={handleSubmit(onSignIn)} />
-
-      <Link href="/(auth)/sign-up" style={styles.link}>
-        Don't have an account? Sign up
-      </Link>
-
-      <SignInWith />
-    </ScrollView>
-=======
   return (
     <View style={styles.container}>
       <Stack.Screen 
@@ -270,10 +217,14 @@ export default function SignInScreen() {
           headerStyle: { backgroundColor: '#000' },
           headerTintColor: '#fff',
           headerShadowVisible: false,
-          headerBackTitleVisible: false,
+          headerLeft: () => (
+            <Pressable onPress={handleBack} style={{ padding: 12 }}>
+              <Ionicons name="chevron-back" size={28} color="#fff" />
+            </Pressable>
+          ),
           headerRight: () => (
             <View style={{ marginRight: 15 }}>
-              <ProgressCircle progress={1} />
+              <ProgressCircle step={step} />
             </View>
           ),
         }} 
@@ -284,97 +235,127 @@ export default function SignInScreen() {
           contentContainerStyle={styles.contentContainer}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.form}>
-            <Text style={styles.label}>Email</Text>
-            <CustomTextInput
-              control={control}
-              name="email"
-              placeholder="Enter your email"
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
+          {step === 1 && (
+            <View style={styles.stepContainer}>
+              <Text style={styles.stepTitle}>Enter your email address</Text>
+              <CustomTextInput
+                control={control}
+                name="email"
+                placeholder=""
+                autoFocus
+                autoCapitalize="none"
+                keyboardType="email-address"
+                style={styles.input}
+              />
+              <Text style={styles.helperText}>We will send you an email with a link, so you verify the account</Text>
+              
+              <SignInWith />
+            </View>
+          )}
 
-            <Text style={styles.label}>Password</Text>
-            <CustomTextInput
-              control={control}
-              name="password"
-              placeholder="Enter your password"
-              secureTextEntry
-            />
+          {step === 2 && !isMagicLinkSent && (
+            <View style={styles.stepContainer}>
+              <Text style={styles.stepTitle}>Enter your password</Text>
+              <CustomTextInput
+                control={control}
+                name="password"
+                placeholder=""
+                secureTextEntry
+                autoFocus
+                style={styles.input}
+              />
+              <Pressable onPress={onSendMagicLink}>
+                <Text style={styles.magicLinkText}>Sign in with Magic Link instead</Text>
+              </Pressable>
 
-            <Link href="/(auth)/sign-up" asChild>
-              <Text style={styles.forgotPassword}>Forgot password?</Text>
-            </Link>
-          </View>
+              <Link href="/(auth)/sign-up" asChild>
+                <Text style={styles.forgotPassword}>Forgot password?</Text>
+              </Link>
+            </View>
+          )}
 
-          <SignInWith />
+          {isMagicLinkSent && (
+            <View style={styles.stepContainer}>
+              <Text style={styles.stepTitle}>Check your email</Text>
+              <Text style={styles.helperText}>A magic link has been sent to {email}. Please click the link to sign in.</Text>
+              <Pressable onPress={() => setIsMagicLinkSent(false)}>
+                <Text style={styles.magicLinkText}>Back to password</Text>
+              </Pressable>
+            </View>
+          )}
         </ScrollView>
 
-        <View style={styles.footer}>
-          <CustomButton
-            text="Sign in"
-            onPress={handleSubmit(onSignIn)}
-            style={[
-              styles.signInButton,
-              { opacity: isValid ? 1 : 0.5 }
-            ]}
-            disabled={!isValid}
-          />
+        <View style={[
+          styles.footer,
+          keyboardHeight > 0 && { paddingBottom: 10 }
+        ]}>
+          {!isMagicLinkSent && (
+            <CustomButton
+              text={step === 1 ? "Next" : "Sign in"}
+              onPress={handleNext}
+              style={[
+                styles.nextButton,
+                { opacity: (step === 1 ? (email && !errors.email) : (password && !errors.password)) ? 1 : 0.5 }
+              ]}
+              disabled={step === 1 ? !(email && !errors.email) : !(password && !errors.password)}
+            />
+          )}
         </View>
       </View>
+
+      {errorToast && (
+        <Toast
+          message={errorToast.message}
+          code={errorToast.code}
+          onAction={errorToast.stepToNavigate ? () => {
+            setStep(errorToast.stepToNavigate!);
+            setErrorToast(null);
+          } : undefined}
+          actionText={errorToast.stepToNavigate ? `Go to Page` : undefined}
+          onHide={() => setErrorToast(null)}
+        />
+      )}
     </View>
->>>>>>> app-routing
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-<<<<<<< HEAD
-    backgroundColor: "#fff",
-  },
-  contentContainer: {
-    flexGrow: 1,
-    justifyContent: "center",
-    padding: 10,
-    gap: 15,
-  },
-  header: {
-    backgroundColor: "#fff",
-    paddingVertical: 10,
-    borderBottomColor: "#ccc",
-  },
-  error: {
-    color: 'crimson',
-  },
-  form: {
-    gap: 10,
-    marginVertical: 20,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: "600",
-  },
-  link: {
-    color: "blue",
-    fontWeight: "600",
-    textAlign: "center",
-    marginTop: 15,
-  }
-=======
     backgroundColor: "#000",
   },
   contentContainer: {
+    flexGrow: 1,
     paddingHorizontal: 20,
-    paddingTop: 20,
   },
-  form: {
+  stepContainer: {
     gap: 15,
+    marginTop: 20,
   },
-  label: {
+  stepTitle: {
+    fontSize: 24,
+    fontWeight: "700",
     color: "#fff",
+    marginBottom: 10,
+  },
+  input: {
+    backgroundColor: '#2A2A2A',
+    borderColor: 'transparent',
+    color: '#fff',
+    padding: 16,
+    borderRadius: 8,
+    fontSize: 16,
+  },
+  helperText: {
+    color: '#9D7BFF',
+    fontSize: 13,
+    marginTop: 8,
+  },
+  magicLinkText: {
+    color: '#1DB954',
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: '600',
+    marginTop: 10,
   },
   forgotPassword: {
     color: "#A881E6",
@@ -382,12 +363,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   footer: {
-    padding: 20,
-    backgroundColor: "#000",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#000',
   },
-  signInButton: {
-    backgroundColor: "#A881E6",
+  nextButton: {
+    backgroundColor: '#1DB954',
     width: "100%",
   },
->>>>>>> app-routing
+  label: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
 });

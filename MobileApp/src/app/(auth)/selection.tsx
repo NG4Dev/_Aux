@@ -21,6 +21,7 @@ export default function SelectionScreen() {
       });
       if (createdSessionId) {
         setActive!({ session: createdSessionId });
+        router.replace('/(auth)/post-auth');
       }
     } catch (err) {
       console.error(JSON.stringify(err, null, 2));

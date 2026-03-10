@@ -14,18 +14,15 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ng4.AppFT"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-<<<<<<< HEAD
       "package": "com.ng4.AppFT"
-=======
-      "package": "com.ng4.RNAuth"
->>>>>>> app-routing
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -34,12 +31,9 @@
     "plugins": [
       "expo-router",
       "expo-video",
-<<<<<<< HEAD
-      "./plugins/withCustomIcons.js"
-=======
       "expo-font",
-      "@react-native-community/datetimepicker"
->>>>>>> app-routing
+      "@react-native-community/datetimepicker",
+      "./plugins/withCustomIcons.js"
     ]
   }
 }

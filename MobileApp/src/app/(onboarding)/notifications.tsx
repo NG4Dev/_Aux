@@ -1,15 +1,31 @@
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { router } from "expo-router";
 import CustomButton from "@/components/CustomButton";
+import * as SecureStore from 'expo-secure-store';
+import { useEffect } from 'react';
+
+const NOTIFICATIONS_KEY = 'user_notifications_handled';
 
 export default function NotificationsScreen() {
+  useEffect(() => {
+    checkIfHandled();
+  }, []);
+
+  const checkIfHandled = async () => {
+    const handled = await SecureStore.getItemAsync(NOTIFICATIONS_KEY);
+    if (handled === 'true') {
+      router.replace("/(tabs)/home");
+    }
+  };
+
   const handleEnable = async () => {
     // TODO: Request push notification permissions here
-    // For now, just navigate to the dashboard
+    await SecureStore.setItemAsync(NOTIFICATIONS_KEY, 'true');
     router.replace("/(tabs)/home");
   };
 
-  const handleDismiss = () => {
+  const handleDismiss = async () => {
+    await SecureStore.setItemAsync(NOTIFICATIONS_KEY, 'true');
     router.replace("/(tabs)/home");
   };
 
@@ -51,7 +67,7 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#121212", // Dark background
+    backgroundColor: "#000", // Dark background to match Figma
     justifyContent: "center",
     paddingHorizontal: 30,
   },
@@ -66,7 +82,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#333',
+    backgroundColor: '#1A1A1A',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -93,8 +109,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   enableButton: {
-    backgroundColor: "#fff",
-    width: "100%", // Full width within container
+    backgroundColor: "#1D8954", // Teal/Green to match create account flow
+    width: "100%",
   },
   dismissButton: {
     padding: 10,

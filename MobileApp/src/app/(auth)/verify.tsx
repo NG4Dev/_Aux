@@ -7,25 +7,18 @@ import {
   Keyboard,
   LayoutAnimation,
   UIManager,
+  Pressable,
 } from "react-native";
 import CustomTextInput from "@/components/CustomTextInput";
 import CustomButton from "@/components/CustomButton";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-<<<<<<< HEAD
-import { Link } from "expo-router";
+import { router, Stack } from "expo-router";
 import { useState, useEffect } from "react";
-import { useSignUp } from "@clerk/clerk-expo";
-import { isClerkAPIResponseError, useSignIn } from "@clerk/clerk-expo";
-
-=======
-import { Link, router, Stack } from "expo-router";
-import { useState, useEffect } from "react";
-import { useSignUp } from "@clerk/clerk-expo";
-import { isClerkAPIResponseError, useSignIn } from "@clerk/clerk-expo";
-import { useHeaderHeight } from '@react-navigation/elements';
+import { useSignUp, isClerkAPIResponseError } from "@clerk/clerk-expo";
 import Svg, { Circle } from 'react-native-svg';
+import { Ionicons } from "@expo/vector-icons";
 
 const ProgressCircle = ({ progress }: { progress: number }) => {
   const size = 24;
@@ -60,7 +53,6 @@ const ProgressCircle = ({ progress }: { progress: number }) => {
     </View>
   );
 };
->>>>>>> app-routing
 
 const verifySchema = z.object({
   code: z.string({ message: "Code is required" }).length(6, 'Invalid code'),
@@ -69,7 +61,6 @@ const verifySchema = z.object({
 type VerifyFields = z.infer<typeof verifySchema>;
 
 const mapClerkErrorToFormField = (error: any) => {
-
   switch(error.meta?.paramName) {
     case 'code':
       return 'code';
@@ -88,14 +79,6 @@ export default function VerifyScreen() {
     control,
     handleSubmit,
     setError,
-<<<<<<< HEAD
-    formState: { errors },
-  } = useForm<VerifyFields>({
-    resolver: zodResolver(verifySchema),
-  });
-
-  const { signUp, isLoaded, setActive } = useSignUp(); 
-=======
     formState: { errors, isValid },
   } = useForm<VerifyFields>({
     resolver: zodResolver(verifySchema),
@@ -126,7 +109,6 @@ export default function VerifyScreen() {
       hideSubscription.remove();
     };
   }, []);
->>>>>>> app-routing
 
   const onVerify = async ({code}: VerifyFields) => {
     if (!isLoaded) return;
@@ -137,99 +119,22 @@ export default function VerifyScreen() {
       });
 
       if (signUpAttempt.status === 'complete') {
-<<<<<<< HEAD
-        setActive({ session: signUpAttempt.createdSessionId });
-=======
         await setActive({ session: signUpAttempt.createdSessionId });
         router.replace("/(onboarding)/success");
->>>>>>> app-routing
       } else {
-        console.log('Verification failed');
-        console.log(signUpAttempt);
+        console.log('Verification failed', signUpAttempt.status);
         setError('root', { message: 'Could not complete signing up' });
       }
 
     } catch (error) {
       if (isClerkAPIResponseError(error)) {
-        // Clear any existing errors first
-        setError('root', { message: '' });
-        setError('code', { message: '' });
-
-        // Set new errors
-        error.errors.forEach((err) => {
-          const fieldName = mapClerkErrorToFormField(err);
-          setError(fieldName, {
-            message: err.longMessage,
-          });
-          
-          // Log only the current error
-          console.log('Errors:', JSON.stringify({
-            [fieldName]: {
-              message: err.longMessage
-            }
-          }, null, 2));
-        });
+        setError('root', { message: error.errors[0]?.longMessage || 'An error occurred' });
       } else {
         setError('root', { message: 'Unknown error' });
       }
     }
   };
 
-<<<<<<< HEAD
-  const [keyboardPadding, setKeyboardPadding] = useState(0);
-
-  useEffect(() => {
-    const onKeyboardShow = (event: any) => {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setKeyboardPadding(event.endCoordinates.height);
-    };
-    const onKeyboardHide = () => {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setKeyboardPadding(0);
-    };
-
-    const showSub = Keyboard.addListener('keyboardDidShow', onKeyboardShow);
-    const hideSub = Keyboard.addListener('keyboardDidHide', onKeyboardHide);
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
-  return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[styles.contentContainer, { paddingBottom: keyboardPadding + 20 }]}
-      keyboardShouldPersistTaps="handled"
-      stickyHeaderIndices={[0]}
-      scrollEnabled={false} 
-    >
-      {/* Sticky Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Verify your email</Text>
-      </View>
-
-      <View style={styles.form}>
-        <CustomTextInput
-          control={control}
-          name="code"
-          placeholder="123456"
-          autoFocus
-          autoCapitalize='none'
-          keyboardType='number-pad'
-          autoComplete='one-time-code'
-        />
-      </View>
-
-      <CustomButton text="Verify" onPress={handleSubmit(onVerify)} />
-
-      {/* <Link href="/(auth)/sign-in" style={styles.link}>
-        Didn't receive the code? Press here to resend
-      </Link> */}
-
-    </ScrollView>
-=======
   return (
     <View style={styles.container}>
       <Stack.Screen 
@@ -240,7 +145,11 @@ export default function VerifyScreen() {
           headerStyle: { backgroundColor: '#000' },
           headerTintColor: '#fff',
           headerShadowVisible: false,
-          headerBackTitleVisible: false,
+          headerLeft: () => (
+            <Pressable onPress={() => router.back()} style={{ padding: 12 }}>
+              <Ionicons name="chevron-back" size={28} color="#fff" />
+            </Pressable>
+          ),
           headerRight: () => (
             <View style={{ marginRight: 15 }}>
               <ProgressCircle progress={0.9} />
@@ -255,19 +164,26 @@ export default function VerifyScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.form}>
-            <Text style={styles.label}>Verification Code</Text>
+            <Text style={styles.stepTitle}>Verify your email</Text>
             <CustomTextInput
               control={control}
               name="code"
-              placeholder="Enter 6-digit code"
-              keyboardType="number-pad"
+              placeholder="123456"
+              autoFocus
+              autoCapitalize='none'
+              keyboardType='number-pad'
+              autoComplete='one-time-code'
               maxLength={6}
+              style={styles.input}
             />
             <Text style={styles.helperText}>Enter the code we sent to your email.</Text>
           </View>
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View style={[
+          styles.footer,
+          keyboardHeight > 0 && { paddingBottom: 10 }
+        ]}>
           <CustomButton
             text="Verify"
             onPress={handleSubmit(onVerify)}
@@ -280,42 +196,12 @@ export default function VerifyScreen() {
         </View>
       </View>
     </View>
->>>>>>> app-routing
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-<<<<<<< HEAD
-    backgroundColor: "#fff",
-  },
-  contentContainer: {
-    flexGrow: 1,
-    justifyContent: "center",
-    padding: 10,
-    gap: 15,
-  },
-  header: {
-    backgroundColor: "#fff",
-    paddingVertical: 10,
-    borderBottomColor: "#ccc",
-  },
-  form: {
-    gap: 10,
-    marginVertical: 20,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: "600",
-  },
-  // link: {
-  //   color: "blue",
-  //   fontWeight: "600",
-  //   textAlign: "center",
-  //   marginTop: 15,
-  // },
-=======
     backgroundColor: "#000",
   },
   contentContainer: {
@@ -325,22 +211,32 @@ const styles = StyleSheet.create({
   form: {
     gap: 15,
   },
-  label: {
+  stepTitle: {
+    fontSize: 24,
+    fontWeight: "700",
     color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
+    marginBottom: 10,
+  },
+  input: {
+    backgroundColor: '#2A2A2A',
+    borderColor: 'transparent',
+    color: '#fff',
+    padding: 16,
+    borderRadius: 8,
+    fontSize: 16,
   },
   helperText: {
     color: "#A881E6",
     fontSize: 13,
+    marginTop: 8,
   },
   footer: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     backgroundColor: "#000",
   },
   verifyButton: {
     backgroundColor: "#1DB954",
     width: "100%",
   },
->>>>>>> app-routing
 });

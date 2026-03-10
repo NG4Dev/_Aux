@@ -1,28 +1,4 @@
 import { useAuth } from '@clerk/clerk-expo';
-<<<<<<< HEAD
-import { Redirect, Stack } from 'expo-router';
-
-export default function AuthLayout() {
-    console.log ('Auth layout')
-
-    const { isSignedIn } = useAuth();
-    
-    if (isSignedIn) {
-        return <Redirect href={"/homepage"} />
-    } 
-
-    return(
-    <Stack>
-      <Stack.Screen name='index' options={{ headerShown: false, title: 'splash'}} />
-      <Stack.Screen name='sign-in' options={{ title: 'Sign in' }} />
-      <Stack.Screen name='sign-up' options={{ title: 'Sign up' }} />
-      <Stack.Screen name='verify' options={'Verify account'}/>
-    </Stack>
-
-    );
-}
-
-=======
 import { Redirect, Stack, router } from 'expo-router';
 import { Ionicons } from "@expo/vector-icons";
 
@@ -31,6 +7,7 @@ export default function AuthLayout() {
 
   // If user is already signed in, skip auth entirely
   if (isSignedIn) {
+    // Note: In a real app, we might want to check if onboarding is complete
     return <Redirect href="/(tabs)/home" />;
   }
 
@@ -40,7 +17,14 @@ export default function AuthLayout() {
       <Stack.Screen name="selection" options={{ title: 'Get Started' }} />
       <Stack.Screen
         name="sign-in"
-        options={{ headerShown: true, title: 'Sign in', headerStyle: { backgroundColor: '#000' }, headerTintColor: '#fff' }}
+        options={{ 
+          headerShown: true, 
+          title: 'Sign in', 
+          headerStyle: { backgroundColor: '#000' }, 
+          headerTintColor: '#fff',
+          headerTitleAlign: 'center',
+          headerShadowVisible: false,
+        }}
       />
       <Stack.Screen
         name="sign-up"
@@ -50,23 +34,38 @@ export default function AuthLayout() {
           headerTitleAlign: 'center',
           headerStyle: { backgroundColor: '#000' }, 
           headerTintColor: '#fff',
-          headerBackTitleVisible: false,
-          headerLeft: () => (
-            <Ionicons 
-              name="arrow-back" 
-              size={24} 
-              color="#fff" 
-              style={{ marginLeft: 10 }} 
-              onPress={() => router.back()} 
-            />
-          ),
+          headerShadowVisible: false,
         }}
       />
       <Stack.Screen
         name="verify"
-        options={{ headerShown: true, title: 'Verify', headerStyle: { backgroundColor: '#000' }, headerTintColor: '#fff' }}
+        options={{ 
+          headerShown: true, 
+          title: 'Verify', 
+          headerStyle: { backgroundColor: '#000' }, 
+          headerTintColor: '#fff',
+          headerTitleAlign: 'center',
+          headerShadowVisible: false,
+        }}
+      />
+      <Stack.Screen
+        name="post-auth"
+        options={{ 
+          headerShown: false,
+          title: "You're in!",
+        }}
+      />
+      <Stack.Screen
+        name="reset-password"
+        options={{ 
+          headerShown: true, 
+          title: 'Create account', 
+          headerStyle: { backgroundColor: '#000' }, 
+          headerTintColor: '#fff',
+          headerTitleAlign: 'center',
+          headerShadowVisible: false,
+        }}
       />
     </Stack>
   );
 }
->>>>>>> app-routing

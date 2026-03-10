@@ -1,13 +1,5 @@
-<<<<<<< HEAD
-import { Pressable, Text, StyleSheet, PressableProps } from "react-native";
-import { forwardRef } from "react";
-
-type CustomButtonProps = {
-    text: string;
-=======
 import { Pressable, Text, StyleSheet, PressableProps, ActivityIndicator, View } from "react-native";
 import { forwardRef } from "react";
-import Constants from "@/constants/Colors";
 import { Ionicons } from "@expo/vector-icons";
 
 type CustomButtonProps = {
@@ -15,24 +7,11 @@ type CustomButtonProps = {
     loading?: boolean;
     icon?: keyof typeof Ionicons.glyphMap;
     iconColor?: string;
->>>>>>> app-routing
 } & PressableProps
 
 const CustomButton = forwardRef<typeof Pressable, CustomButtonProps>(({
     text, 
     style,
-<<<<<<< HEAD
-    ...props
-}, ref) => {
-    const isTransparent = style && (style as any).backgroundColor === 'transparent';
-    
-    return (
-        <Pressable ref={ref as any} {...props} style={[styles.button, style as any]}>
-            <Text style={[
-                styles.buttonText, 
-                isTransparent && styles.transparentButtonText
-            ]}>{text}</Text>
-=======
     loading,
     icon,
     iconColor = "#000",
@@ -40,7 +19,7 @@ const CustomButton = forwardRef<typeof Pressable, CustomButtonProps>(({
 }, ref) => {
     // Flatten style array to correctly detect colors
     const flatStyle = StyleSheet.flatten(style || {});
-    const bgColor = flatStyle.backgroundColor?.toString().toLowerCase();
+    const bgColor = (flatStyle as any).backgroundColor?.toString().toLowerCase();
     
     // Support multiple color codes that might be used for the same color
     const isGreen = bgColor === '#1d8954' || bgColor === '#1db954'; 
@@ -60,7 +39,7 @@ const CustomButton = forwardRef<typeof Pressable, CustomButtonProps>(({
                 <ActivityIndicator color={(isGreen || isPurple || isBlue || isBlack) ? "#fff" : "#000"} />
             ) : (
                 <View style={styles.content}>
-                    {icon && <Ionicons name={icon} size={20} color={isGreen || isPurple || isBlue || isBlack ? "#fff" : iconColor} style={styles.icon} />}
+                    {icon && <Ionicons name={icon} size={20} color={(isGreen || isPurple || isBlue || isBlack) ? "#fff" : iconColor} style={styles.icon} />}
                     <Text style={[
                         styles.buttonText, 
                         isTransparent && styles.transparentButtonText,
@@ -68,7 +47,6 @@ const CustomButton = forwardRef<typeof Pressable, CustomButtonProps>(({
                     ]}>{text}</Text>
                 </View>
             )}
->>>>>>> app-routing
         </Pressable>
     );
 });
@@ -79,20 +57,6 @@ export default CustomButton;
 
 const styles = StyleSheet.create({
     button:{
-<<<<<<< HEAD
-      backgroundColor: 'blue',
-      padding: 10,
-      borderRadius: 3,
-      alignItems: 'center',
-    },
-    buttonText:{
-      color: 'white',
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    transparentButtonText: {
-      color: '#A881E6', // Using the purple color from your theme
-=======
       backgroundColor: '#fff',
       height: 56, 
       borderRadius: 6, // Perfect pill shape
@@ -129,6 +93,5 @@ const styles = StyleSheet.create({
     },
     whiteText: {
         color: '#fff',
->>>>>>> app-routing
     }
 });
