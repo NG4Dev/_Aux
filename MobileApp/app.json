@@ -14,15 +14,14 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.ng4.AppFT"
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.ng4.AppFT"
+      "package": "com.ng4.RNAuth"
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -32,8 +31,7 @@
       "expo-router",
       "expo-video",
       "expo-font",
-      "@react-native-community/datetimepicker",
-      "./plugins/withCustomIcons.js"
+      "@react-native-community/datetimepicker"
     ]
   }
 }

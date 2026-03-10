@@ -4,18 +4,11 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-<<<<<<< HEAD
-      "@/*": ["src/*"],
-      "@assets/*": ["assets/*"],
-      "@store/*": ["store/*"],
-      "@utils/*": ["utils/*"]
-    },
-    "jsx": "react-native",
-    "types": ["react-native"]
-  }
-=======
       "@/*": [
         "src/*"
+      ],
+      "@store/*": [
+        "store/*"
       ],
       "@assets/*": [
         "assets/*"
@@ -40,5 +33,4 @@
     "metro.config.js",
     "jest.config.js"
   ]
->>>>>>> app-routing
 }

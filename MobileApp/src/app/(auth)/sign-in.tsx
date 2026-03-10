@@ -68,17 +68,13 @@ const signInSchema = z.object({
 
 type SignInFields = z.infer<typeof signInSchema>;
 
-// Enable LayoutAnimation on Android
-if (
-  Platform.OS === "android" &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+// LayoutAnimation is enabled by default in the New Architecture,
+// so we don't need to call setLayoutAnimationEnabledExperimental anymore.
 
 export default function SignInScreen() {
   const [step, setStep] = useState(1);
   const [isMagicLinkSent, setIsMagicLinkSent] = useState(false);
+  const [isMagicLinkLoading, setIsMagicLinkLoading] = useState(false);
   const [errorToast, setErrorToast] = useState<{ message: string; code?: string; stepToNavigate?: number } | null>(null);
 
   const { 
@@ -181,29 +177,47 @@ export default function SignInScreen() {
     if (!isLoaded || !email) return;
 
     try {
+      setIsMagicLinkLoading(true);
+      console.log('Starting magic link flow for:', email);
+      
       const signInResult = await signIn.create({
         identifier: email,
       });
+
+      console.log('Sign in created, supported factors:', JSON.stringify(signInResult.supportedFirstFactors));
 
       const emailLinkFactor = signInResult.supportedFirstFactors?.find(
         (f: any) => f.strategy === "email_link"
       );
 
       if (emailLinkFactor) {
+        console.log('Sending email link to factor:', (emailLinkFactor as any).emailAddressId);
         await signIn.prepareFirstFactor({
           strategy: "email_link",
           emailAddressId: (emailLinkFactor as any).emailAddressId,
-          redirectUrl: 'aux://post-auth', // This should match your deep link config
+          // Use Auth.post-auth to correctly map inside the Expo Router scheme
+          redirectUrl: 'aux://post-auth', 
         });
+        console.log('Magic link prepared and sent successfully');
         setIsMagicLinkSent(true);
+      } else {
+        console.warn('No email_link strategy found for this user');
+        setErrorToast({
+          message: "Email link sign-in is not enabled for your account.",
+        });
       }
-    } catch (err) {
+    } catch (err: any) {
+      console.error('Magic link error:', JSON.stringify(err, null, 2));
       if (isClerkAPIResponseError(err)) {
         setErrorToast({ 
           message: err.errors[0]?.longMessage || "An error occurred", 
           code: err.errors[0]?.code 
         });
+      } else {
+        setErrorToast({ message: "An unexpected error occurred." });
       }
+    } finally {
+      setIsMagicLinkLoading(false);
     }
   };
 
@@ -248,8 +262,9 @@ export default function SignInScreen() {
                 style={styles.input}
               />
               <Text style={styles.helperText}>We will send you an email with a link, so you verify the account</Text>
-              
-              <SignInWith />
+              <View style={styles.signInWithContainer}>
+                <SignInWith />
+              </View>
             </View>
           )}
 
@@ -264,8 +279,10 @@ export default function SignInScreen() {
                 autoFocus
                 style={styles.input}
               />
-              <Pressable onPress={onSendMagicLink}>
-                <Text style={styles.magicLinkText}>Sign in with Magic Link instead</Text>
+              <Pressable onPress={onSendMagicLink} disabled={isMagicLinkLoading}>
+                <Text style={[styles.magicLinkText, isMagicLinkLoading && { opacity: 0.5 }]}>
+                  {isMagicLinkLoading ? "Sending link..." : "Sign in with Magic Link instead"}
+                </Text>
               </Pressable>
 
               <Link href="/(auth)/sign-up" asChild>
@@ -352,15 +369,18 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   magicLinkText: {
-    color: '#1DB954',
+    color: '#fff',
     fontSize: 14,
-    fontWeight: '600',
-    marginTop: 10,
+    fontWeight: '500',
+    marginTop: 20,
+    textAlign: 'center',
   },
   forgotPassword: {
     color: "#A881E6",
     textAlign: "right",
     fontSize: 14,
+    marginTop: 20,
+    fontWeight: "500",
   },
   footer: {
     paddingHorizontal: 20,
@@ -370,6 +390,9 @@ const styles = StyleSheet.create({
   nextButton: {
     backgroundColor: '#1DB954',
     width: "100%",
+  },
+  signInWithContainer: {
+    marginTop: 40,
   },
   label: {
     color: "#fff",

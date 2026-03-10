@@ -21,15 +21,21 @@ function InitialLayout() {
     if (!isLoaded) return;
 
     const inAuthGroup = segments[0] === '(auth)';
-    const inProtectedGroup = segments[0] === '(protected)';
+    
+    // Identify protected paths
+    const segmentArray = segments as string[];
+    const segmentOne = segmentArray.length > 1 ? segmentArray[1] : null;
+    const inProtectedRoute = 
+      (segmentArray[0] === '(tabs)' && (segmentOne === 'pay' || segmentOne === 'library')) ||
+      segmentArray[0] === 'wallet';
 
     if (isSignedIn && inAuthGroup) {
       // If user is signed in and in auth group, they should probably be elsewhere
       // But we might want them to finish onboarding first
       // For now, let's just let the layouts handle it or redirect to home
       // router.replace('/(tabs)/home');
-    } else if (!isSignedIn && !inAuthGroup && segments[0] !== 'index') {
-      // If user is not signed in and not in auth group, redirect to auth
+    } else if (!isSignedIn && inProtectedRoute) {
+      // If user is not signed in and tries to access a protected route, redirect to auth
       router.replace('/(auth)');
     }
   }, [isSignedIn, segments, isLoaded]);

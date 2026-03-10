@@ -26,9 +26,7 @@ const passwordSchema = z.object({
 
 type PasswordFields = z.infer<typeof passwordSchema>;
 
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+// Layout animation is enabled by default in new arch
 
 export default function ResetPasswordScreen() {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -141,7 +139,7 @@ export default function ResetPasswordScreen() {
           keyboardHeight > 0 && { paddingBottom: 10 }
         ]}>
           <CustomButton
-            text="NEXT"
+            text="Next"
             onPress={handleSubmit(onReset)}
             style={[
               styles.nextButton,
@@ -210,8 +208,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#1DB954",
   },
   helperText: {
-    color: "#ccc",
-    fontSize: 13,
+    color: "#fff",
+    fontSize: 10,
     marginTop: 8,
   },
   footer: {
@@ -220,7 +218,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
   nextButton: {
-    backgroundColor: "#1D8954",
+    backgroundColor: "#1DB954",
     width: "100%",
   },
 });
