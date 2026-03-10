@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+import { Ionicons } from "@expo/vector-icons";
+>>>>>>> app-routing
 import {
   StyleSheet,
   Text,
@@ -14,10 +18,53 @@ import CustomButton from "@/components/CustomButton";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+<<<<<<< HEAD
 import { Link } from "expo-router";
 import { useState, useEffect } from "react";
 import { isClerkAPIResponseError, useSignIn } from "@clerk/clerk-expo";
 import SignInWith from "@/components/SignInWith";
+=======
+import { Link, router } from "expo-router";
+import { useState, useEffect } from "react";
+import { isClerkAPIResponseError, useSignIn } from "@clerk/clerk-expo";
+import SignInWith from "@/components/SignInWith";
+import { useHeaderHeight } from '@react-navigation/elements';
+import Svg, { Circle } from 'react-native-svg';
+
+const ProgressCircle = ({ progress }: { progress: number }) => {
+  const size = 24;
+  const strokeWidth = 2.5;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const offset = circumference - progress * circumference;
+
+  return (
+    <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+      <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#222"
+          strokeWidth={strokeWidth}
+          fill="none"
+        />
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#1DB954"
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+        />
+      </Svg>
+    </View>
+  );
+};
+>>>>>>> app-routing
 
 const signInSchema = z.object({
   email: z.string({ message: "Email is required" }).email("Invalid email"),
@@ -53,14 +100,49 @@ export default function SignInScreen() {
     control, 
     handleSubmit, 
     setError,
+<<<<<<< HEAD
     formState: { errors},
   } = useForm<SignInFields>({
     resolver: zodResolver(signInSchema),
+=======
+    formState: { errors, isValid },
+  } = useForm<SignInFields>({
+    resolver: zodResolver(signInSchema),
+    mode: 'onChange',
+>>>>>>> app-routing
   });
 
   
   const { signIn, isLoaded, setActive } = useSignIn();
+<<<<<<< HEAD
   
+=======
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const headerHeight = useHeaderHeight();
+
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    );
+    const hideSubscription = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
+
+>>>>>>> app-routing
   const onSignIn = async (data: SignInFields) => {
     if (!isLoaded) return;
 
@@ -71,7 +153,12 @@ export default function SignInScreen() {
       });
 
       if (signInAttempt.status === "complete") {
+<<<<<<< HEAD
         setActive({ session: signInAttempt.createdSessionId });
+=======
+        await setActive({ session: signInAttempt.createdSessionId });
+        router.replace("/(onboarding)/success");
+>>>>>>> app-routing
       } else {
         console.log("Sign in failed");
         setError('root', { message: 'Sign in could not be completed' });
@@ -104,6 +191,7 @@ export default function SignInScreen() {
     }
   };
 
+<<<<<<< HEAD
   const [keyboardPadding, setKeyboardPadding] = useState(0);
 
   useEffect(() => {
@@ -171,12 +259,78 @@ export default function SignInScreen() {
 
       <SignInWith />
     </ScrollView>
+=======
+  return (
+    <View style={styles.container}>
+      <Stack.Screen 
+        options={{
+          headerShown: true,
+          title: 'Sign in',
+          headerTitleAlign: 'center',
+          headerStyle: { backgroundColor: '#000' },
+          headerTintColor: '#fff',
+          headerShadowVisible: false,
+          headerBackTitleVisible: false,
+          headerRight: () => (
+            <View style={{ marginRight: 15 }}>
+              <ProgressCircle progress={1} />
+            </View>
+          ),
+        }} 
+      />
+      <View style={{ flex: 1, paddingBottom: keyboardHeight }}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.contentContainer}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.form}>
+            <Text style={styles.label}>Email</Text>
+            <CustomTextInput
+              control={control}
+              name="email"
+              placeholder="Enter your email"
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+
+            <Text style={styles.label}>Password</Text>
+            <CustomTextInput
+              control={control}
+              name="password"
+              placeholder="Enter your password"
+              secureTextEntry
+            />
+
+            <Link href="/(auth)/sign-up" asChild>
+              <Text style={styles.forgotPassword}>Forgot password?</Text>
+            </Link>
+          </View>
+
+          <SignInWith />
+        </ScrollView>
+
+        <View style={styles.footer}>
+          <CustomButton
+            text="Sign in"
+            onPress={handleSubmit(onSignIn)}
+            style={[
+              styles.signInButton,
+              { opacity: isValid ? 1 : 0.5 }
+            ]}
+            disabled={!isValid}
+          />
+        </View>
+      </View>
+    </View>
+>>>>>>> app-routing
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+<<<<<<< HEAD
     backgroundColor: "#fff",
   },
   contentContainer: {
@@ -207,4 +361,33 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 15,
   }
+=======
+    backgroundColor: "#000",
+  },
+  contentContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  form: {
+    gap: 15,
+  },
+  label: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  forgotPassword: {
+    color: "#A881E6",
+    textAlign: "right",
+    fontSize: 14,
+  },
+  footer: {
+    padding: 20,
+    backgroundColor: "#000",
+  },
+  signInButton: {
+    backgroundColor: "#A881E6",
+    width: "100%",
+  },
+>>>>>>> app-routing
 });

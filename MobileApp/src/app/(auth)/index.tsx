@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React from "react";
 import { StyleSheet, View, Text, Button } from "react-native";
 import { router } from "expo-router";
@@ -26,6 +27,14 @@ export default function Index() {
 
   // Initialize the video player:
   // The callback sets the video to loop, mutes it, and starts playing immediately.
+=======
+import { StyleSheet, View } from "react-native";
+import { router } from "expo-router";
+import CustomButton from "@/components/CustomButton";
+import { useVideoPlayer, VideoView } from "expo-video";
+
+export default function AuthSplashScreen() {
+>>>>>>> app-routing
   const player = useVideoPlayer(
     require("@assets/videos/welcome-bg-video.mp4"),
     (player) => {
@@ -37,11 +46,14 @@ export default function Index() {
 
   return (
     <View style={styles.container}>
+<<<<<<< HEAD
       {/* Background Video:
           - Fills the container using StyleSheet.absoluteFill.
           - pointerEvents is set to "none" so that any taps won't affect the video or show controls.
           - nativeControls is explicitly disabled.
       */}
+=======
+>>>>>>> app-routing
       <VideoView
         player={player}
         style={[StyleSheet.absoluteFill, { pointerEvents: "none" }]}
@@ -49,28 +61,45 @@ export default function Index() {
         nativeControls={false}
       />
 
+<<<<<<< HEAD
       {/* Your foreground content remains unchanged */}
       <View style={styles.content}>
         {/* Place your logo or any other overlay content here */}
       </View>
+=======
+      {/* Spacer to push buttons to bottom */}
+      <View style={styles.content} />
+>>>>>>> app-routing
 
       <View style={styles.buttonContainer}>
         <CustomButton
           text="Sign in"
           style={styles.purpleButton}
+<<<<<<< HEAD
           onPress={() => router.push("/(auth)/sign-in")}
+=======
+          onPress={() => router.push("/(auth)/selection?mode=signin")}
+>>>>>>> app-routing
         />
 
         <CustomButton
           text="Create account"
           style={styles.greenButton}
+<<<<<<< HEAD
           onPress={() => router.push("/(auth)/sign-up")}
+=======
+          onPress={() => router.push("/(auth)/selection?mode=signup")}
+>>>>>>> app-routing
         />
 
         <CustomButton
           text="Continue as guest"
           style={styles.transparentButton}
+<<<<<<< HEAD
           onPress={() => router.push("/homepage")}
+=======
+          onPress={() => router.replace("/(tabs)/home")}
+>>>>>>> app-routing
         />
       </View>
     </View>
@@ -95,10 +124,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#A881E6",
   },
   greenButton: {
+<<<<<<< HEAD
     backgroundColor: "#1D8954",
+=======
+    backgroundColor: "#1DB954",
+>>>>>>> app-routing
   },
   transparentButton: {
     backgroundColor: "transparent",
   },
+<<<<<<< HEAD
 });
 
+=======
+});
+>>>>>>> app-routing
