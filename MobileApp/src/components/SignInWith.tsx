@@ -3,8 +3,11 @@ import * as WebBrowser from "expo-web-browser";
 import { useEffect, useCallback } from "react";
 import { useSSO } from '@clerk/clerk-expo'
 import * as AuthSession from 'expo-auth-session'
+<<<<<<< HEAD
 import { router } from "expo-router";
 import { Alert, Platform } from "react-native";
+=======
+>>>>>>> app-routing
 
 export const useWarmUpBrowser = () => {
   useEffect(() => {
@@ -29,6 +32,7 @@ export default function SignInWith() {
 
   const onPress = useCallback(async () => {
     try {
+<<<<<<< HEAD
       console.log("Starting SSO flow with Google...");
       
       // Create a proper redirect URL with scheme
@@ -113,10 +117,30 @@ export default function SignInWith() {
           "Unable to complete sign-in with Google. Please try again or use email sign-in.",
           [{ text: "OK" }]
         );
+=======
+      // Start the authentication process by calling `startSSOFlow()`
+      const { createdSessionId, setActive, signIn, signUp } = await startSSOFlow({
+        strategy: 'oauth_google',
+        // For web, defaults to current path
+        // For native, you must pass a scheme, like AuthSession.makeRedirectUri({ scheme, path })
+        // For more info, see https://docs.expo.dev/versions/latest/sdk/auth-session/#authsessionmakeredirecturioptions
+        redirectUrl: AuthSession.makeRedirectUri(),
+      })
+
+      // If sign in was successful, set the active session
+      if (createdSessionId) {
+        setActive!({ session: createdSessionId })
+      } else {
+        // If there is no `createdSessionId`,
+        // there are missing requirements, such as MFA
+        // Use the `signIn` or `signUp` returned from `startSSOFlow`
+        // to handle next steps
+>>>>>>> app-routing
       }
     } catch (err) {
       // See https://clerk.com/docs/custom-flows/error-handling
       // for more info on error handling
+<<<<<<< HEAD
       console.error("SSO error:", JSON.stringify(err, null, 2));
       Alert.alert(
         "Authentication Error",
@@ -126,5 +150,10 @@ export default function SignInWith() {
     }
   }, []);
   
+=======
+      console.error(JSON.stringify(err, null, 2))
+    }
+  }, [])
+>>>>>>> app-routing
   return <CustomButton text="Sign in with Google" onPress={onPress} />;
 }

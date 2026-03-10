@@ -1,0 +1,13 @@
+{
+    "chat.mcp.serverSampling": {
+        "_Aux/.vscode/mcp.json: clerk": {
+            "allowedModels": [
+                "copilot/auto",
+                "copilotcli/claude-sonnet-4.6",
+                "claude-code/claude-sonnet-4.6",
+                "gemini/Gemini/models/gemini-3-flash-preview",
+                "gemini/Gemini/models/gemini-3-pro-preview"
+            ]
+        }
+    }
+}
