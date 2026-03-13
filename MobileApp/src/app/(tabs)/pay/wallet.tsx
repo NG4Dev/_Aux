@@ -10,7 +10,7 @@ export default function WalletScreen() {
 
   React.useEffect(() => {
     if (!isEnabled) {
-      router.push('/(protected)/wallet-modals/enableWallet');
+      router.push('/wallet/enableWallet');
     }
   }, [isEnabled]);
 
