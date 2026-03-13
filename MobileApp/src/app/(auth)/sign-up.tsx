@@ -3,43 +3,21 @@ import {
   Text,
   View,
   ScrollView,
-<<<<<<< HEAD
-=======
   FlatList,
->>>>>>> app-routing
   Platform,
   Keyboard,
   LayoutAnimation,
   UIManager,
-<<<<<<< HEAD
-} from "react-native";
-=======
   Pressable,
-  KeyboardAvoidingView,
   BackHandler,
   Animated,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
->>>>>>> app-routing
 import CustomTextInput from "@/components/CustomTextInput";
 import CustomButton from "@/components/CustomButton";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-<<<<<<< HEAD
-import { Link, router } from "expo-router";
-import { useState, useEffect } from "react";
-import { useSignUp } from "@clerk/clerk-expo";
-import { isClerkAPIResponseError } from "@clerk/clerk-expo";
-
-const signUpSchema = z.object({
-  email: z
-    .string({ message: "Email is required" })
-    .email("Invalid email"),
-  password: z
-    .string({ message: "Password is required" })
-    .min(8, "Password should be at least 8 characters long"),
-=======
 import { Link, router, Stack, useNavigation } from "expo-router";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useSignUp } from "@clerk/clerk-expo";
@@ -47,6 +25,7 @@ import { isClerkAPIResponseError } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import { useHeaderHeight } from "@react-navigation/elements";
 import Svg, { Circle } from "react-native-svg";
+import { Toast } from "@/components/Toast";
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const YEAR_LIST = Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - i);
@@ -57,31 +36,10 @@ const signUpSchema = z.object({
   dob: z.date({ required_error: "Date of birth is required" }),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
->>>>>>> app-routing
 });
 
 type SignUpFields = z.infer<typeof signUpSchema>;
 
-<<<<<<< HEAD
-const mapClerkErrorToFormField = (error: any) => {
-
-  switch(error.meta?.paramName) {
-    case 'email_address':
-      return'email';
-    case 'password':
-      return 'password';
-    default:
-      return 'root';
-  }
-};
-
-// Enable LayoutAnimation on Android
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-export default function SignUpScreen() {
-=======
 const ProgressCircle = ({ step }: { step: number }) => {
   const size = 24; // Smaller to match Figma
   const strokeWidth = 2.5;
@@ -127,7 +85,6 @@ const getDaysInMonth = (monthIndex: number, year: number) => {
   return new Date(year, monthIndex + 1, 0).getDate();
 };
 
-// Optimized WheelItem to prevent massive re-renders
 const WheelItem = React.memo(({ 
   item, 
   index, 
@@ -137,7 +94,6 @@ const WheelItem = React.memo(({
   index: number; 
   scrollY: Animated.Value 
 }) => {
-  // Refined interpolation to match Image 2
   const opacity = scrollY.interpolate({
     inputRange: [
       (index - 2) * ITEM_HEIGHT,
@@ -190,31 +146,28 @@ const WheelColumn = React.memo(({
   const currentSelection = useRef(selectedIndex);
   const isMounted = useRef(false);
 
-  // Sync scroll position when state changes externally or on mount
   useEffect(() => {
     if (!listRef.current || data.length === 0) return;
     const safeIndex = clamp(selectedIndex, 0, data.length - 1);
 
     const performSync = (animated = true) => {
-        if (!listRef.current) return;
-        currentSelection.current = safeIndex;
-        listRef.current.scrollToOffset({ 
-            offset: safeIndex * ITEM_HEIGHT, 
-            animated
-        });
-        scrollY.setValue(safeIndex * ITEM_HEIGHT);
+      if (!listRef.current) return;
+      currentSelection.current = safeIndex;
+      listRef.current.scrollToOffset({ 
+        offset: safeIndex * ITEM_HEIGHT, 
+        animated
+      });
+      scrollY.setValue(safeIndex * ITEM_HEIGHT);
     };
 
     if (!isMounted.current) {
-        // Initial Mount Sync - longer delay to guarantee FlatList is fully laid out
-        const timer = setTimeout(() => {
-            performSync(false);
-            isMounted.current = true;
-        }, 150);
-        return () => clearTimeout(timer);
+      const timer = setTimeout(() => {
+        performSync(false);
+        isMounted.current = true;
+      }, 150);
+      return () => clearTimeout(timer);
     } else if (!isUserInteracting.current && safeIndex !== currentSelection.current) {
-        // External Update Sync
-        performSync(true);
+      performSync(true);
     }
   }, [selectedIndex, data.length]);
 
@@ -224,7 +177,6 @@ const WheelColumn = React.memo(({
       const index = clamp(Math.round(y / ITEM_HEIGHT), 0, data.length - 1);
       const targetOffset = index * ITEM_HEIGHT;
       
-      // Force exact alignment snap only if necessary to avoid recursive events
       if (Math.abs(y - targetOffset) > 0.5) {
         listRef.current?.scrollToOffset({ offset: targetOffset, animated: true });
       }
@@ -234,7 +186,6 @@ const WheelColumn = React.memo(({
         onSelect(index);
       }
       
-      // Release interaction guard immediately
       isUserInteracting.current = false;
     },
     [data.length, onSelect]
@@ -261,17 +212,17 @@ const WheelColumn = React.memo(({
         snapToAlignment="start"
         scrollEventThrottle={16}
         onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-            { useNativeDriver: true }
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
         )}
         onScrollBeginDrag={() => { isUserInteracting.current = true; }}
         onMomentumScrollBegin={() => { isUserInteracting.current = true; }}
         onMomentumScrollEnd={handleScrollEnd}
         onScrollEndDrag={(e) => {
-            const velocity = e.nativeEvent.velocity?.y || 0;
-            if (Math.abs(velocity) < 0.1) {
-                handleScrollEnd(e);
-            }
+          const velocity = e.nativeEvent.velocity?.y || 0;
+          if (Math.abs(velocity) < 0.1) {
+            handleScrollEnd(e);
+          }
         }}
         contentContainerStyle={{ paddingVertical: (LIST_HEIGHT - ITEM_HEIGHT) / 2 }}
         style={{ height: LIST_HEIGHT }}
@@ -285,7 +236,6 @@ const WheelColumn = React.memo(({
         <View style={[styles.selectionLine, { top: (LIST_HEIGHT - ITEM_HEIGHT) / 2 }]} />
         <View style={[styles.selectionLine, { top: (LIST_HEIGHT + ITEM_HEIGHT) / 2 }]} />
         
-        {/* Fade Overlays */}
         <LinearGradient
           colors={['rgba(0,0,0,1)', 'rgba(0,0,0,0.85)', 'rgba(0,0,0,0)']}
           style={[styles.gradientOverlay, { top: 0, height: (LIST_HEIGHT - ITEM_HEIGHT) / 2 }]}
@@ -303,10 +253,10 @@ export default function SignUpScreen() {
   const [step, setStep] = useState(1);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [errorToast, setErrorToast] = useState<{ message: string; code?: string; stepToNavigate?: number } | null>(null);
   const headerHeight = useHeaderHeight();
   const navigation = useNavigation();
 
-  // Intercept system back gestures (iOS swipe & Android back)
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
       if (step > 1) {
@@ -317,29 +267,20 @@ export default function SignUpScreen() {
     return unsubscribe;
   }, [navigation, step]);
 
->>>>>>> app-routing
   const {
     control,
     handleSubmit,
     setError,
-<<<<<<< HEAD
-    formState: { errors },
-  } = useForm<SignUpFields>({
-    resolver: zodResolver(signUpSchema),
-  });
-
-  const { signUp, isLoaded } = useSignUp(); 
-=======
     watch,
     setValue,
     getValues,
     trigger,
-    formState: { errors, isValid },
+    formState: { errors },
   } = useForm<SignUpFields>({
     resolver: zodResolver(signUpSchema),
     mode: "onChange",
     defaultValues: {
-        dob: new Date(),
+      dob: new Date(),
     }
   });
 
@@ -367,52 +308,15 @@ export default function SignUpScreen() {
     };
   }, []);
 
-  // Watch values for progressive validation
   const email = watch('email');
   const password = watch('password');
   const firstName = watch('firstName');
   const lastName = watch('lastName');
->>>>>>> app-routing
 
   const onSignUp = async (data: SignUpFields) => {
     if (!isLoaded) return;
 
     try {
-<<<<<<< HEAD
-      // Create the user
-      await signUp.create({
-        emailAddress: data.email,
-        password: data.password,
-      });
-
-      // Prepare the verification (this triggers the email)
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
-
-      router.push('/(auth)/verify');
-    } catch (err) {
-      if (isClerkAPIResponseError(err)) {
-        // Clear any existing errors first
-        setError('root', { message: '' });
-        setError('email', { message: '' });
-        setError('password', { message: '' });
-
-        // Set new errors
-        err.errors.forEach((error) => {
-          const fieldName = mapClerkErrorToFormField(error);
-          setError(fieldName, {
-            message: error.longMessage,
-          });
-          
-          // Log only the current error
-          console.log('Errors:', JSON.stringify({
-            [fieldName]: {
-              message: error.longMessage
-            }
-          }, null, 2));
-        });
-      } else {
-        setError('root', { message: 'Unknown error' });
-=======
       await signUp.create({
         emailAddress: data.email,
         password: data.password,
@@ -427,82 +331,24 @@ export default function SignUpScreen() {
       router.push("/(auth)/verify");
     } catch (err) {
       if (isClerkAPIResponseError(err)) {
-        console.error("Clerk Error:", err.errors);
-        setError('root', { message: err.errors[0]?.longMessage || 'An error occurred' });
->>>>>>> app-routing
+        const error = err.errors[0];
+        let stepToNavigate = undefined;
+        if (error.meta?.paramName === 'email_address') stepToNavigate = 1;
+        else if (error.meta?.paramName === 'password') stepToNavigate = 2;
+        else if (error.meta?.paramName === 'first_name' || error.meta?.paramName === 'last_name') stepToNavigate = 4;
+
+        setErrorToast({ 
+          message: error.longMessage || "An error occurred", 
+          code: error.code,
+          stepToNavigate 
+        });
       }
     }
   };
 
-<<<<<<< HEAD
-  const [keyboardPadding, setKeyboardPadding] = useState(0);
-
-  useEffect(() => {
-    const onKeyboardShow = (event: any) => {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setKeyboardPadding(event.endCoordinates.height);
-    };
-    const onKeyboardHide = () => {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setKeyboardPadding(0);
-    };
-
-    const showSub = Keyboard.addListener('keyboardDidShow', onKeyboardShow);
-    const hideSub = Keyboard.addListener('keyboardDidHide', onKeyboardHide);
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
-  return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[styles.contentContainer, { paddingBottom: keyboardPadding + 20 }]}
-      keyboardShouldPersistTaps="handled"
-      stickyHeaderIndices={[0]}
-      scrollEnabled={false} 
-    >
-      {/* Sticky Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Create an account</Text>
-      </View>
-
-      <View style={styles.form}>
-        <CustomTextInput
-          control={control}
-          name="email"
-          placeholder="Email"
-          autoFocus
-          autoCapitalize="none"
-          keyboardType="email-address"
-          autoComplete="email"
-        />
-
-        <CustomTextInput
-          control={control}
-          name="password"
-          placeholder="Password"
-          secureTextEntry
-        />
-
-        <Text style={styles.error}>{errors?.root?.message}</Text>
-
-      </View>
-
-      <CustomButton text="Create account" onPress={handleSubmit(onSignUp)} />
-
-      <Link href="/(auth)/sign-in" style={styles.link}>
-        Already have an account? Sign in
-      </Link>
-
-    </ScrollView>
-=======
   const handleNext = async () => {
     Keyboard.dismiss();
     let isValid = false;
-    // Clear previous errors first to avoid double error messages if multiple fields are invalid
     if (step === 1) isValid = await trigger('email');
     if (step === 2) isValid = await trigger('password');
     if (step === 3) isValid = true; 
@@ -525,27 +371,17 @@ export default function SignUpScreen() {
     }
   }, [step]);
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
-  };
-
   const dob = watch('dob') || new Date();
   const currentYear = dob.getFullYear();
   const currentMonth = dob.getMonth();
   const currentDay = dob.getDate();
 
-  // Memoize data lists for all columns to ensure stability
   const monthList = useMemo(() => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], []);
   const yearList = useMemo(() => Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - i), []);
   const daysInMonth = useMemo(() => getDaysInMonth(currentMonth, currentYear), [currentMonth, currentYear]);
   const daysArray = useMemo(() => Array.from({ length: daysInMonth }, (_, i) => i + 1), [daysInMonth]);
 
   const updateDate = useCallback((type: 'day' | 'month' | 'year', value: number) => {
-    // Read the current form value directly to ensure we have the latest source of truth
     const currentDob = getValues('dob') || new Date();
     let year = currentDob.getFullYear();
     let month = currentDob.getMonth();
@@ -555,7 +391,6 @@ export default function SignUpScreen() {
     else if (type === 'month') month = value;
     else if (type === 'year') year = value;
 
-    // Defensive clamping to prevent invalid dates (e.g., Feb 31)
     const lastDay = getDaysInMonth(month, year);
     if (day > lastDay) day = lastDay;
 
@@ -573,7 +408,7 @@ export default function SignUpScreen() {
           headerStyle: { backgroundColor: '#000' },
           headerTintColor: '#fff',
           headerShadowVisible: false,
-          gestureEnabled: step === 1, // Disable swipe back gesture during flow
+          gestureEnabled: step === 1,
           headerLeft: () => (
             <Pressable onPress={handleBack} style={{ padding: 12 }}>
               <Ionicons name="chevron-back" size={28} color="#fff" />
@@ -587,32 +422,31 @@ export default function SignUpScreen() {
         }} 
       />
       <View style={{ flex: 1, paddingBottom: keyboardHeight }}>
-          {step === 3 ? (
+        {step === 3 ? (
           <View style={[styles.contentContainer, { flex: 1 }]}>
             <View style={styles.stepContainer}>
-                <Text style={styles.stepTitle}>What's your date of birth?</Text>
-                
-                <View style={styles.wheelContainer}>
-                  <View style={styles.wheelBackground} />
-                  <WheelColumn
-                    data={monthList}
-                    selectedIndex={currentMonth}
-                    onSelect={(idx) => updateDate('month', idx)}
-                  />
-                  <View style={styles.wheelColumnDivider} />
-                  <WheelColumn
-                    data={daysArray}
-                    selectedIndex={Math.min(currentDay - 1, daysInMonth - 1)}
-                    onSelect={(idx) => updateDate('day', idx + 1)}
-                  />
-                  <View style={styles.wheelColumnDivider} />
-                  <WheelColumn
-                    data={yearList}
-                    selectedIndex={yearList.indexOf(currentYear)}
-                    onSelect={(idx) => updateDate('year', yearList[idx])}
-                  />
-                </View>
-
+              <Text style={styles.stepTitle}>What's your date of birth?</Text>
+              
+              <View style={styles.wheelContainer}>
+                <View style={styles.wheelBackground} />
+                <WheelColumn
+                  data={monthList}
+                  selectedIndex={currentMonth}
+                  onSelect={(idx) => updateDate('month', idx)}
+                />
+                <View style={styles.wheelColumnDivider} />
+                <WheelColumn
+                  data={daysArray}
+                  selectedIndex={Math.min(currentDay - 1, daysInMonth - 1)}
+                  onSelect={(idx) => updateDate('day', idx + 1)}
+                />
+                <View style={styles.wheelColumnDivider} />
+                <WheelColumn
+                  data={yearList}
+                  selectedIndex={yearList.indexOf(currentYear)}
+                  onSelect={(idx) => updateDate('year', yearList[idx])}
+                />
+              </View>
             </View>
           </View>
         ) : (
@@ -623,147 +457,128 @@ export default function SignUpScreen() {
             automaticallyAdjustContentInsets={false}
           >
             {step === 1 && (
-                <View style={styles.stepContainer}>
-                    <Text style={styles.stepTitle}>Enter your email address</Text>
-                    <CustomTextInput
-                        control={control}
-                        name="email"
-                        placeholder=""
-                        autoFocus
-                        autoCapitalize="none"
-                        keyboardType="email-address"
-                        style={styles.input}
-                    />
-                    <Text style={styles.helperText}>We will send you an email with a code, so you verify the account</Text>
-                </View>
+              <View style={styles.stepContainer}>
+                <Text style={styles.stepTitle}>Enter your email address</Text>
+                <CustomTextInput
+                  control={control}
+                  name="email"
+                  placeholder=""
+                  autoFocus
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  style={styles.input}
+                />
+                <Text style={styles.helperText}>We will send you an email with a code, so you verify the account</Text>
+              </View>
             )}
 
             {step === 2 && (
-                <View style={styles.stepContainer}>
-                    <Text style={styles.stepTitle}>Create a password</Text>
-                    <CustomTextInput
-                        control={control}
-                        name="password"
-                        placeholder=""
-                        secureTextEntry
-                        autoFocus
-                        style={styles.input}
-                    />
-                    <View style={styles.passwordStrength}>
-                        <View style={[styles.strengthBar, password?.length > 0 ? styles.activeBar : {}]} />
-                        <View style={[styles.strengthBar, password?.length > 4 ? styles.activeBar : {}]} />
-                        <View style={[styles.strengthBar, password?.length > 8 ? styles.activeBar : {}]} />
-                        <View style={[styles.strengthBar, password?.length > 10 ? styles.activeBar : {}]} />
-                    </View>
-                    <Text style={styles.helperText}>Your password is exceptional and exceeds minimum standards</Text>
+              <View style={styles.stepContainer}>
+                <Text style={styles.stepTitle}>Create a password</Text>
+                <CustomTextInput
+                  control={control}
+                  name="password"
+                  placeholder=""
+                  secureTextEntry
+                  autoFocus
+                  style={styles.input}
+                />
+                <View style={styles.passwordStrength}>
+                  <View style={[styles.strengthBar, password?.length > 0 ? styles.activeBar : {}]} />
+                  <View style={[styles.strengthBar, password?.length > 4 ? styles.activeBar : {}]} />
+                  <View style={[styles.strengthBar, password?.length > 8 ? styles.activeBar : {}]} />
+                  <View style={[styles.strengthBar, password?.length > 10 ? styles.activeBar : {}]} />
                 </View>
+                <Text style={styles.helperText}>Your password is exceptional and exceeds minimum standards</Text>
+              </View>
             )}
 
             {step === 4 && (
-                <View style={styles.stepContainer}>
-                    <Text style={styles.label}>First Name</Text>
-                    <CustomTextInput
-                        control={control}
-                        name="firstName"
-                        placeholder=""
-                        style={styles.input}
-                    />
-                    <Text style={styles.fieldHelper}>Insert your first name in the input field above.</Text>
+              <View style={styles.stepContainer}>
+                <Text style={styles.label}>First Name</Text>
+                <CustomTextInput
+                  control={control}
+                  name="firstName"
+                  placeholder=""
+                  style={styles.input}
+                />
+                <Text style={styles.fieldHelper}>Insert your first name in the input field above.</Text>
 
-                    <Text style={styles.label}>Last Name</Text>
-                    <CustomTextInput
-                        control={control}
-                        name="lastName"
-                        placeholder=""
-                        style={styles.input}
-                    />
-                    <Text style={styles.fieldHelper}>Insert your last name in the input field above.</Text>
+                <Text style={styles.label}>Last Name</Text>
+                <CustomTextInput
+                  control={control}
+                  name="lastName"
+                  placeholder=""
+                  style={styles.input}
+                />
+                <Text style={styles.fieldHelper}>Insert your last name in the input field above.</Text>
 
-                    <Pressable 
-                      onPress={() => setAgreedToTerms(prev => !prev)}
-                      style={styles.termsContainer}
-                      hitSlop={20}
-                    >
-                      <View style={[styles.checkbox, agreedToTerms && styles.checkboxActive]}>
-                        {agreedToTerms && <Ionicons name="checkmark" size={16} color="#000" />}
-                      </View>
-                      <Text style={styles.termsText}>
-                          I agree with [Insert Company Name] Terms of Service, Payments Terms of Service & Privacy Policy
-                      </Text>
-                    </Pressable>
-                </View>
+                <Pressable 
+                  onPress={() => setAgreedToTerms(prev => !prev)}
+                  style={styles.termsContainer}
+                  hitSlop={20}
+                >
+                  <View style={[styles.checkbox, agreedToTerms && styles.checkboxActive]}>
+                    {agreedToTerms && <Ionicons name="checkmark" size={16} color="#000" />}
+                  </View>
+                  <Text style={styles.termsText}>
+                    I agree with [Insert Company Name] Terms of Service, Payments Terms of Service & Privacy Policy
+                  </Text>
+                </Pressable>
+              </View>
             )}
           </ScrollView>
         )}
 
         <View style={[
           styles.footer,
-          keyboardHeight > 0 && { paddingBottom: 10 } // Tighter padding when keyboard is up
+          keyboardHeight > 0 && { paddingBottom: 10 }
         ]}>
-            <CustomButton 
-              text={step === 4 ? "Create Account" : "Next"} 
-              onPress={handleNext}
-              style={[
-                styles.nextButton,
-                { 
-                  opacity: (
-                    (step === 1 && email && !errors.email) ||
-                    (step === 2 && password && !errors.password) ||
-                    (step === 3) ||
-                    (step === 4 && firstName && lastName && !errors.firstName && !errors.lastName && agreedToTerms)
-                  ) ? 1 : 0.5 
-                }
-              ]}
-              disabled={
-                !(
+          <CustomButton 
+            text={step === 4 ? "Create Account" : "Next"} 
+            onPress={handleNext}
+            style={[
+              styles.nextButton,
+              { 
+                opacity: (
                   (step === 1 && email && !errors.email) ||
                   (step === 2 && password && !errors.password) ||
                   (step === 3) ||
                   (step === 4 && firstName && lastName && !errors.firstName && !errors.lastName && agreedToTerms)
-                )
+                ) ? 1 : 0.5 
               }
-            />
+            ]}
+            disabled={
+              !(
+                (step === 1 && email && !errors.email) ||
+                (step === 2 && password && !errors.password) ||
+                (step === 3) ||
+                (step === 4 && firstName && lastName && !errors.firstName && !errors.lastName && agreedToTerms)
+              )
+            }
+          />
         </View>
       </View>
+
+      {errorToast && (
+        <Toast
+          message={errorToast.message}
+          code={errorToast.code}
+          onAction={errorToast.stepToNavigate ? () => {
+            setStep(errorToast.stepToNavigate!);
+            setErrorToast(null);
+          } : undefined}
+          actionText={errorToast.stepToNavigate ? `Go to Page` : undefined}
+          onHide={() => setErrorToast(null)}
+        />
+      )}
     </View>
->>>>>>> app-routing
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-<<<<<<< HEAD
-    backgroundColor: "#fff",
-  },
-  contentContainer: {
-    flexGrow: 1,
-    justifyContent: "center",
-    padding: 10,
-    gap: 15,
-  },
-  header: {
-    backgroundColor: "#fff",
-    paddingVertical: 10,
-    borderBottomColor: "#ccc",
-  },
-  form: {
-    gap: 10,
-    marginVertical: 20,
-  },
-  error: {
-    color: 'crimson',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: "600",
-  },
-  link: {
-    color: "blue",
-    fontWeight: "600",
-    textAlign: "center",
-    marginTop: 15,
-=======
     backgroundColor: "#000",
   },
   title: {
@@ -786,7 +601,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   input: {
-    backgroundColor: '#2A2A2A', // Darker gray for input
+    backgroundColor: '#2A2A2A',
     borderColor: 'transparent',
     color: '#fff',
     padding: 16,
@@ -794,51 +609,45 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   helperText: {
-    color: '#9D7BFF', // Brighter purple
+    color: '#9D7BFF',
     fontSize: 13,
     marginTop: 8,
   },
   fieldHelper: {
-      color: '#1DB954', // Match the splash screen green
-      fontSize: 11,
-      marginBottom: 20,
-      marginTop: 4,
+    color: '#1DB954',
+    fontSize: 11,
+    marginBottom: 20,
+    marginTop: 4,
   },
   label: {
-      color: '#fff',
-      fontSize: 14,
-      fontWeight: '600',
-      marginBottom: 5,
-  },
-  error: {
-    color: 'crimson',
-    fontSize: 12,
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 5,
   },
   footer: {
-      paddingHorizontal: 20,
-      paddingVertical: 12,
-      backgroundColor: '#000',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#000',
   },
   nextButton: {
-      backgroundColor: '#1DB954', // Spotify Green
-      width: '100%',
+    backgroundColor: '#1DB954',
+    width: '100%',
   },
-  // Step 2 specifics
   passwordStrength: {
-      flexDirection: 'row',
-      gap: 6,
-      marginTop: 12,
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 12,
   },
   strengthBar: {
-      flex: 1,
-      height: 8,
-      backgroundColor: '#333',
-      borderRadius: 4,
+    flex: 1,
+    height: 8,
+    backgroundColor: '#333',
+    borderRadius: 4,
   },
   activeBar: {
-      backgroundColor: '#1DB954', // Match the splash screen green
+    backgroundColor: '#1DB954',
   },
-  // Step 3 specifics
   wheelContainer: {
     flexDirection: 'row',
     height: LIST_HEIGHT,
@@ -902,34 +711,32 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 1,
   },
-  // Step 4 specifics
   termsContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      marginTop: 24,
-      paddingRight: 10,
-      minHeight: 44, // Ensure good tap target
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 24,
+    paddingRight: 10,
+    minHeight: 44,
   },
   checkbox: {
-      width: 28,
-      height: 28,
-      borderWidth: 2,
-      borderColor: '#555',
-      borderRadius: 14, // Circle
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: '#1A1A1A',
+    width: 28,
+    height: 28,
+    borderWidth: 2,
+    borderColor: '#555',
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1A1A1A',
   },
   checkboxActive: {
     backgroundColor: '#1DB954',
     borderColor: '#1DB954',
   },
   termsText: {
-      color: '#fff',
-      fontSize: 12,
-      lineHeight: 18,
-      flex: 1,
->>>>>>> app-routing
+    color: '#fff',
+    fontSize: 12,
+    lineHeight: 18,
+    flex: 1,
   },
 });

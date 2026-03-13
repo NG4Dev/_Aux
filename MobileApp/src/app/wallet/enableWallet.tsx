@@ -10,7 +10,7 @@ export default function ConfigureWallet() {
 
   const handleEnableWallet = () => {
     enableWallet();
-    router.replace('/(protected)/(tabs)/pay/wallet');
+    router.replace('/(tabs)/pay/wallet');
   };
 
   return (

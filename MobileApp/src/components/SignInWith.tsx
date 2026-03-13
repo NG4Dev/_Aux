@@ -3,16 +3,12 @@ import * as WebBrowser from "expo-web-browser";
 import { useEffect, useCallback } from "react";
 import { useSSO } from '@clerk/clerk-expo'
 import * as AuthSession from 'expo-auth-session'
-<<<<<<< HEAD
 import { router } from "expo-router";
-import { Alert, Platform } from "react-native";
-=======
->>>>>>> app-routing
+import { Alert, Platform, StyleSheet, View } from "react-native";
 
 export const useWarmUpBrowser = () => {
   useEffect(() => {
     // Preloads the browser for Android devices to reduce authentication load time
-    // See: https://docs.expo.dev/guides/authentication/#improving-user-experience
     void WebBrowser.warmUpAsync();
     return () => {
       // Cleanup: closes browser when component unmounts
@@ -30,117 +26,30 @@ export default function SignInWith() {
   // Use the `useSSO()` hook to access the `startSSOFlow()` method
   const { startSSOFlow } = useSSO()
 
-  const onPress = useCallback(async () => {
+  const handleSSO = useCallback(async (strategy: 'oauth_google' | 'oauth_facebook' | 'oauth_apple') => {
     try {
-<<<<<<< HEAD
-      console.log("Starting SSO flow with Google...");
-      
       // Create a proper redirect URL with scheme
       const redirectUrl = AuthSession.makeRedirectUri({
-        scheme: Platform.OS === 'web' ? undefined : 'aux', // Using the correct scheme from app.json
+        scheme: 'aux',
         path: 'oauth-native-callback'
       });
       
-      console.log("Using redirect URL:", redirectUrl);
-      
       // Start the authentication process by calling `startSSOFlow()`
       const result = await startSSOFlow({
-        strategy: 'oauth_google',
-        redirectUrl: redirectUrl,
+        strategy,
+        redirectUrl,
       });
       
-      console.log("SSO flow result:", JSON.stringify(result, null, 2));
-      
-      const { createdSessionId, setActive, signIn, signUp, authSessionResult } = result;
+      const { createdSessionId, setActive, signIn } = result;
 
-      // If sign in was successful, set the active session
       if (createdSessionId) {
-        console.log("Session created, ID:", createdSessionId);
         await setActive!({ session: createdSessionId });
-        console.log("Session activated, redirecting to home");
-        // After successful authentication, redirect to protected route
-        router.replace('/(protected)/(tabs)/home');
-      } else if (signIn) {
-        // Handle sign in flow if needed
-        console.log("Sign in flow needed, status:", signIn.status);
-        
-        if (signIn.status === "complete") {
-          await setActive!({ session: signIn.createdSessionId });
-          router.replace('/(protected)/(tabs)/home');
-        } else if (signIn.status === "needs_identifier") {
-          if (authSessionResult?.type === "dismiss") {
-            // User dismissed the auth window
-            console.log("Authentication window dismissed by user");
-            Alert.alert(
-              "Authentication Incomplete",
-              "Please complete the Google sign-in process to continue.",
-              [{ text: "Try Again", onPress: onPress }]
-            );
-          } else if (signIn.firstFactorVerification?.externalVerificationRedirectURL) {
-            // Try to continue the OAuth flow with a different approach
-            console.log("Continuing OAuth flow with external URL");
-            
-            // Use a different browser approach
-            const authResult = await WebBrowser.openAuthSessionAsync(
-              String(signIn.firstFactorVerification.externalVerificationRedirectURL),
-              redirectUrl,
-              { showInRecents: true }
-            );
-            
-            console.log("Auth result:", authResult);
-            
-            if (authResult.type === "success") {
-              // Try to complete the sign-in
-              Alert.alert(
-                "Authentication",
-                "Please wait while we complete your sign-in...",
-                [{ text: "OK" }]
-              );
-              
-              // Refresh the page to complete the sign-in
-              router.replace('/(auth)/sign-in');
-            } else {
-              Alert.alert(
-                "Authentication Failed",
-                "Unable to complete sign-in with Google. Please try again.",
-                [{ text: "OK" }]
-              );
-            }
-          }
-        }
-      } else {
-        // If there is no `createdSessionId`,
-        // there are missing requirements, such as MFA
-        console.log("Authentication incomplete - no session created");
-        Alert.alert(
-          "Authentication Failed",
-          "Unable to complete sign-in with Google. Please try again or use email sign-in.",
-          [{ text: "OK" }]
-        );
-=======
-      // Start the authentication process by calling `startSSOFlow()`
-      const { createdSessionId, setActive, signIn, signUp } = await startSSOFlow({
-        strategy: 'oauth_google',
-        // For web, defaults to current path
-        // For native, you must pass a scheme, like AuthSession.makeRedirectUri({ scheme, path })
-        // For more info, see https://docs.expo.dev/versions/latest/sdk/auth-session/#authsessionmakeredirecturioptions
-        redirectUrl: AuthSession.makeRedirectUri(),
-      })
-
-      // If sign in was successful, set the active session
-      if (createdSessionId) {
-        setActive!({ session: createdSessionId })
-      } else {
-        // If there is no `createdSessionId`,
-        // there are missing requirements, such as MFA
-        // Use the `signIn` or `signUp` returned from `startSSOFlow`
-        // to handle next steps
->>>>>>> app-routing
+        router.replace('/(auth)/post-auth');
+      } else if (signIn && signIn.status === "complete") {
+        await setActive!({ session: signIn.createdSessionId });
+        router.replace('/(auth)/post-auth');
       }
     } catch (err) {
-      // See https://clerk.com/docs/custom-flows/error-handling
-      // for more info on error handling
-<<<<<<< HEAD
       console.error("SSO error:", JSON.stringify(err, null, 2));
       Alert.alert(
         "Authentication Error",
@@ -148,12 +57,26 @@ export default function SignInWith() {
         [{ text: "OK" }]
       );
     }
-  }, []);
-  
-=======
-      console.error(JSON.stringify(err, null, 2))
-    }
-  }, [])
->>>>>>> app-routing
-  return <CustomButton text="Sign in with Google" onPress={onPress} />;
+  }, [startSSOFlow]);
+
+  return (
+    <View style={styles.container}>
+      <CustomButton 
+        text="Sign in with Google" 
+        onPress={() => handleSSO('oauth_google')} 
+        icon="logo-google"
+        style={styles.googleButton}
+      />
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        gap: 12,
+        marginTop: 20,
+    },
+    googleButton: {
+        backgroundColor: '#fff',
+    }
+});

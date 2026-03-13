@@ -21,11 +21,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-<<<<<<< HEAD
-      "package": "com.ng4.AppFT"
-=======
       "package": "com.ng4.RNAuth"
->>>>>>> app-routing
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -34,12 +30,8 @@
     "plugins": [
       "expo-router",
       "expo-video",
-<<<<<<< HEAD
-      "./plugins/withCustomIcons.js"
-=======
       "expo-font",
       "@react-native-community/datetimepicker"
->>>>>>> app-routing
     ]
   }
 }
