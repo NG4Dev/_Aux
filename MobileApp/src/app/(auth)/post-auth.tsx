@@ -2,11 +2,27 @@ import React from "react";
 import { StyleSheet, View, Text, Pressable } from "react-native";
 import { router } from "expo-router";
 import CustomButton from "@/components/CustomButton";
+import { isOnboardingCompleted } from "@/services/onboarding";
+import { useEffect, useState } from "react";
 
 export default function PostAuthScreen() {
+  const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      const completed = await isOnboardingCompleted();
+      setOnboardingDone(completed);
+    };
+    checkOnboarding();
+  }, []);
+
   const handleRememberDevice = () => {
     // TODO: Implement device remembrance logic (e.g., long-lived session or AsyncStorage flag)
-    router.replace("/(onboarding)/notifications");
+    if (onboardingDone) {
+      router.replace("/notifications");
+    } else {
+      router.replace("/showcase");
+    }
   };
 
   const handleSetPassword = () => {
@@ -14,7 +30,11 @@ export default function PostAuthScreen() {
   };
 
   const handleSkip = () => {
-    router.replace("/(onboarding)/notifications");
+    if (onboardingDone) {
+      router.replace("/notifications");
+    } else {
+      router.replace("/showcase");
+    }
   };
 
   return (

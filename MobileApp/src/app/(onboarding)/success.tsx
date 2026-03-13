@@ -13,7 +13,7 @@ export default function SuccessScreen() {
 
     // After spinner shows for 1.5s, navigate to notifications
     const navigationTimer = setTimeout(() => {
-      router.replace("/(onboarding)/notifications");
+      router.replace("/showcase");
     }, 3000);
 
     return () => {

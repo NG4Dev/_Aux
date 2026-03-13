@@ -4,13 +4,22 @@ import { router } from "expo-router";
 import CustomButton from "@/components/CustomButton";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useAuth } from "@clerk/clerk-expo";
+import { isOnboardingCompleted } from "@/services/onboarding";
 
 export default function AuthSplashScreen() {
   const { isSignedIn } = useAuth();
 
   React.useEffect(() => {
     if (isSignedIn) {
-      router.replace("/(tabs)/home");
+      const checkOnboarding = async () => {
+        const completed = await isOnboardingCompleted();
+        if (completed) {
+          router.replace("/home");
+        } else {
+          router.replace("/showcase");
+        }
+      };
+      checkOnboarding();
     }
   }, [isSignedIn]);
 
@@ -54,7 +63,7 @@ export default function AuthSplashScreen() {
         <CustomButton
           text="Continue as guest"
           style={styles.transparentButton}
-          onPress={() => router.replace("/(tabs)/home")}
+          onPress={() => router.replace("/showcase")}
         />
       </View>
     </View>
