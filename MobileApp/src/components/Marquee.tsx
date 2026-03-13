@@ -52,9 +52,9 @@ function MarqueeItem({
 
     return {
       transform: [
-        { translateX: Math.round(x) },
+        { translateX: x },
         { rotateZ: `${rotation}deg` },
-        { translateY: Math.round(translateY) }
+        { translateY: translateY }
       ],
     };
   });

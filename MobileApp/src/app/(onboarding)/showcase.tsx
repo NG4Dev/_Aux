@@ -48,15 +48,12 @@ export default function ShowcaseScreen() {
   const { isSignedIn } = useAuth();
 
   const onGetStarted = async () => {
-    await markOnboardingComplete();
-    if (isSignedIn) {
-      router.replace('/notifications');
-    } else {
-      router.replace('/home');
-    }
+    // We don't mark complete here yet, as there's another step
+    router.replace('/preferences');
   };
 
   const handleSkip = async () => {
+    // Skip the whole onboarding
     await markOnboardingComplete();
     router.replace('/home');
   };
