@@ -19,7 +19,7 @@ export default function PostAuthScreen() {
   const handleRememberDevice = () => {
     // TODO: Implement device remembrance logic (e.g., long-lived session or AsyncStorage flag)
     if (onboardingDone) {
-      router.replace("/notifications");
+      router.replace("/(tabs)/chat");
     } else {
       router.replace("/showcase");
     }
@@ -31,7 +31,7 @@ export default function PostAuthScreen() {
 
   const handleSkip = () => {
     if (onboardingDone) {
-      router.replace("/notifications");
+      router.replace("/(tabs)/chat");
     } else {
       router.replace("/showcase");
     }

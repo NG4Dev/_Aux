@@ -48,8 +48,8 @@ function InitialLayout() {
         // Force onboarding if not done and not already there
         router.replace('/showcase');
       } else if (onboardingDone === true && (inAuthGroup || !segments[0])) {
-        // If done and in auth or root, go home
-        router.replace('/home');
+        // If done and in auth or root, go to chat (center tab)
+        router.replace('/chat');
       }
     } else {
       // Not signed in

@@ -1,6 +1,14 @@
 import { Text, StyleSheet, View } from "react-native";
+import { useAuth } from "@clerk/clerk-expo";
+import GuestPromptScreen from "@/components/GuestPromptScreen";
 
 export default function LibraryScreen() {
+  const { isSignedIn } = useAuth();
+
+  if (!isSignedIn) {
+    return <GuestPromptScreen feature="Library" />;
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Library</Text>
