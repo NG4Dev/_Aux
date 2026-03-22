@@ -37,24 +37,14 @@ function InitialLayout() {
     const inOnboardingGroup = segments[0] === '(onboarding)' || segments[0] === 'showcase' || segments[0] === 'notifications';
     const inTabsGroup = segments[0] === '(tabs)' || segments[0] === 'home' || segments[0] === 'discover';
     
-    // Identify protected paths
-    const segmentArray = segments as string[];
-    const segmentOne = segmentArray.length > 1 ? segmentArray[1] : null;
-    const inProtectedRoute = 
-      (segmentArray[0] === '(tabs)' && (segmentOne === 'pay' || segmentOne === 'library')) ||
-      segmentArray[0] === 'wallet';
     if (isSignedIn) {
       if (onboardingDone === false && !inOnboardingGroup) {
-        // Force onboarding if not done and not already there
         router.replace('/showcase');
       } else if (onboardingDone === true && (inAuthGroup || !segments[0])) {
-        // If done and in auth or root, go to chat (center tab)
-        router.replace('/chat');
+        router.replace('/home');
       }
     } else {
-      // Not signed in
-      // If at root or in a protected route, go to auth splash screen
-      if (!segments[0] || inProtectedRoute) {
+      if (!segments[0]) {
         router.replace('/(auth)');
       }
     }

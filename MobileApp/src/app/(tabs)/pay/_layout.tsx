@@ -1,17 +1,10 @@
-import { Redirect, Stack } from "expo-router";
-import { useAuth } from "@clerk/clerk-expo";
+import { Stack } from "expo-router";
 
 export default function PayLayout() {
-  const { isSignedIn } = useAuth();
-
-  if (!isSignedIn) {
-    return <Redirect href="/(auth)" />;
-  }
-
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" options={{ title: "Pay" }} />
-      <Stack.Screen name="manageWallet" options={{ title: "Manage Wallet" }} />
+      <Stack.Screen name="wallet" options={{ title: "Wallet" }} />
     </Stack>
   );
 }

@@ -14,19 +14,19 @@ export default function NotificationsScreen() {
   const checkIfHandled = async () => {
     const handled = await SecureStore.getItemAsync(NOTIFICATIONS_KEY);
     if (handled === 'true') {
-      router.replace("/(tabs)/chat");
+      router.replace("/(tabs)/home");
     }
   };
 
   const handleEnable = async () => {
     // TODO: Request push notification permissions here
     await SecureStore.setItemAsync(NOTIFICATIONS_KEY, 'true');
-    router.replace("/(tabs)/chat");
+    router.replace("/(tabs)/home");
   };
 
   const handleDismiss = async () => {
     await SecureStore.setItemAsync(NOTIFICATIONS_KEY, 'true');
-    router.replace("/(tabs)/chat");
+    router.replace("/(tabs)/home");
   };
 
   return (

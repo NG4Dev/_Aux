@@ -1,0 +1,444 @@
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  FlatList,
+  Dimensions,
+  Animated as RNAnimated,
+  LayoutChangeEvent,
+  ScrollView,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { FEED_ITEMS, DISCOVER_FILTER_CATEGORIES } from '@/data/mockFeed';
+import IdentityRow from '@/components/feed/IdentityRow';
+import ContentContextMenu from '@/components/feed/ContentContextMenu';
+import DynamicMediaRenderer from '@/components/feed/DynamicMediaRenderer';
+import type { MediaItem } from '@/types/content';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const CARD_IMAGE_MAX_HEIGHT = SCREEN_HEIGHT * 0.55;
+const HEADER_ROW_HEIGHT = 52;
+const TAB_BAR_HEIGHT = 48;
+
+type TabMeasurement = { x: number; width: number };
+
+function MediaCarousel({
+  media,
+  maxHeight,
+  borderRadius,
+  cardWidth,
+}: {
+  media: MediaItem[];
+  maxHeight: number;
+  borderRadius: number;
+  cardWidth: number;
+}) {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  if (media.length === 1) {
+    return (
+      <DynamicMediaRenderer
+        media={media[0]}
+        maxHeight={maxHeight}
+        borderRadius={borderRadius}
+      />
+    );
+  }
+
+  return (
+    <View>
+      <FlatList
+        data={media}
+        keyExtractor={(_, i) => String(i)}
+        horizontal
+        pagingEnabled
+        nestedScrollEnabled
+        showsHorizontalScrollIndicator={false}
+        style={{ width: cardWidth }}
+        getItemLayout={(_, index) => ({
+          length: cardWidth,
+          offset: cardWidth * index,
+          index,
+        })}
+        onMomentumScrollEnd={(e) => {
+          const idx = Math.round(e.nativeEvent.contentOffset.x / cardWidth);
+          setActiveIndex(idx);
+        }}
+        renderItem={({ item }) => (
+          <View style={{ width: cardWidth }}>
+            <DynamicMediaRenderer
+              media={item}
+              maxHeight={maxHeight}
+              borderRadius={borderRadius}
+            />
+          </View>
+        )}
+      />
+      {media.length > 1 && (
+        <View style={carouselStyles.indicators}>
+          {media.map((_, i) => (
+            <View
+              key={i}
+              style={[
+                carouselStyles.dot,
+                i === activeIndex && carouselStyles.dotActive,
+              ]}
+            />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+const carouselStyles = StyleSheet.create({
+  indicators: {
+    position: 'absolute',
+    bottom: 12,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  dot: {
+    width: 24,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+  },
+  dotActive: {
+    backgroundColor: '#00BFA5',
+  },
+});
+
+const CARD_WIDTH = SCREEN_WIDTH - 32;
+
+const HEADER_MAX_HEIGHT = HEADER_ROW_HEIGHT + TAB_BAR_HEIGHT;
+
+export default function DiscoverCategory() {
+  const { category, label } = useLocalSearchParams<{
+    category: string;
+    label: string;
+  }>();
+  const router = useRouter();
+  const navigation = useNavigation();
+  const parentNav = navigation.getParent();
+  const [activeFilter, setActiveFilter] = useState('All');
+
+  const [headerVisible, setHeaderVisible] = useState(true);
+  const headerRowHeight = useRef(new RNAnimated.Value(HEADER_ROW_HEIGHT)).current;
+  const lastOffset = useRef(0);
+
+  const tabScrollRef = useRef<ScrollView>(null);
+  const tabMeasurements = useRef<TabMeasurement[]>([]);
+  const underlineX = useRef(new RNAnimated.Value(0)).current;
+  const underlineW = useRef(new RNAnimated.Value(0)).current;
+
+  const setTabBarVisible = useCallback(
+    (visible: boolean) => {
+      parentNav?.setOptions({
+        tabBarStyle: {
+          backgroundColor: 'transparent',
+          position: 'absolute' as const,
+          bottom: visible ? 0 : -100,
+          left: 0,
+          right: 0,
+          elevation: 0,
+          shadowOpacity: 0,
+          borderTopWidth: 0,
+        },
+      });
+    },
+    [parentNav],
+  );
+
+  useEffect(() => {
+    return () => setTabBarVisible(true);
+  }, [setTabBarVisible]);
+
+  const toggleHeader = (toValue: number) => {
+    RNAnimated.timing(headerRowHeight, {
+      toValue,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const handleScroll = (event: { nativeEvent: { contentOffset: { y: number } } }) => {
+    const currentOffset = event.nativeEvent.contentOffset.y;
+
+    if (currentOffset <= 10) {
+      toggleHeader(HEADER_ROW_HEIGHT);
+      setHeaderVisible(true);
+      setTabBarVisible(true);
+      lastOffset.current = currentOffset;
+      return;
+    }
+
+    if (currentOffset > lastOffset.current && headerVisible) {
+      toggleHeader(0);
+      setHeaderVisible(false);
+      setTabBarVisible(false);
+    } else if (currentOffset < lastOffset.current && !headerVisible) {
+      toggleHeader(HEADER_ROW_HEIGHT);
+      setHeaderVisible(true);
+      setTabBarVisible(true);
+    }
+
+    lastOffset.current = currentOffset;
+  };
+
+  const handleTabLayout = useCallback(
+    (index: number, e: LayoutChangeEvent) => {
+      const { x, width } = e.nativeEvent.layout;
+      tabMeasurements.current[index] = { x, width };
+      if (DISCOVER_FILTER_CATEGORIES[index] === activeFilter) {
+        underlineX.setValue(x);
+        underlineW.setValue(width);
+      }
+    },
+    [activeFilter, underlineX, underlineW],
+  );
+
+  const handleFilterSelect = useCallback(
+    (cat: string) => {
+      setActiveFilter(cat);
+      const idx = DISCOVER_FILTER_CATEGORIES.indexOf(cat as any);
+      const m = tabMeasurements.current[idx];
+      if (m) {
+        RNAnimated.parallel([
+          RNAnimated.timing(underlineX, { toValue: m.x, duration: 250, useNativeDriver: false }),
+          RNAnimated.timing(underlineW, { toValue: m.width, duration: 250, useNativeDriver: false }),
+        ]).start();
+        tabScrollRef.current?.scrollTo({ x: Math.max(0, m.x - 32), animated: true });
+      }
+    },
+    [underlineX, underlineW],
+  );
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.content}>
+        <View style={styles.stickyBlock}>
+          <RNAnimated.View style={{ height: headerRowHeight, overflow: 'hidden' }}>
+            <View style={styles.headerRow}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
+                <Ionicons name="chevron-back" size={22} color="#fff" />
+              </TouchableOpacity>
+              <View style={styles.locationChip}>
+                <Text style={styles.locationText}>Cape Town</Text>
+              </View>
+              <TouchableOpacity style={styles.headerBtn}>
+                <Ionicons name="options-outline" size={20} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </RNAnimated.View>
+
+          <View style={styles.tabBarWrap}>
+            <ScrollView
+              ref={tabScrollRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.tabScroll}
+            >
+              {(DISCOVER_FILTER_CATEGORIES as readonly string[]).map((item, index) => {
+                const active = item === activeFilter;
+                return (
+                  <TouchableOpacity
+                    key={item}
+                    onPress={() => handleFilterSelect(item)}
+                    onLayout={(e) => handleTabLayout(index, e)}
+                    style={styles.tabItem}
+                  >
+                    <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
+                      {item}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+              <RNAnimated.View
+                style={[
+                  styles.tabUnderline,
+                  { left: underlineX, width: underlineW },
+                ]}
+              />
+            </ScrollView>
+          </View>
+        </View>
+
+        <FlatList
+          data={FEED_ITEMS}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          contentContainerStyle={[
+            styles.list,
+            { paddingTop: HEADER_MAX_HEIGHT + 12 },
+          ]}
+          renderItem={({ item }) => (
+            <View style={styles.card}>
+              <View style={styles.cardMediaWrap}>
+                <MediaCarousel
+                  media={item.media}
+                  maxHeight={CARD_IMAGE_MAX_HEIGHT}
+                  borderRadius={3}
+                  cardWidth={CARD_WIDTH}
+                />
+              </View>
+
+              <View style={styles.cardMeta}>
+                <View style={styles.metaTop}>
+                  <View style={styles.metaLeft}>
+                    <IdentityRow
+                      avatarUri={item.profileAvatar}
+                      name={item.profileName}
+                      verified={item.verified}
+                      status={item.status}
+                    />
+                  </View>
+                  <ContentContextMenu />
+                </View>
+
+                {item.description && (
+                  <Text style={styles.cardDesc} numberOfLines={3}>
+                    {item.description}
+                  </Text>
+                )}
+
+                <View style={styles.cardChips}>
+                  {item.categories.map((cat) => (
+                    <View key={cat} style={styles.chip}>
+                      <Text style={styles.chipText}>{cat}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </View>
+          )}
+        />
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  content: {
+    flex: 1,
+  },
+  stickyBlock: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    overflow: 'hidden',
+    zIndex: 10,
+    backgroundColor: '#000',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    height: HEADER_ROW_HEIGHT,
+  },
+  headerBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  locationChip: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  locationText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  tabBarWrap: {
+    height: TAB_BAR_HEIGHT,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  tabScroll: {
+    paddingHorizontal: 16,
+  },
+  tabItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  tabLabel: {
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  tabLabelActive: {
+    color: '#fff',
+  },
+  tabUnderline: {
+    position: 'absolute',
+    bottom: 0,
+    height: 2,
+    backgroundColor: '#fff',
+    borderRadius: 1,
+  },
+  list: {
+    paddingHorizontal: 16,
+    paddingBottom: 120,
+    gap: 24,
+  },
+  card: {
+    gap: 12,
+  },
+  cardMediaWrap: {
+    overflow: 'hidden',
+    borderRadius: 3,
+  },
+  cardMeta: {
+    gap: 8,
+  },
+  metaTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  metaLeft: {
+    flex: 1,
+  },
+  cardDesc: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  cardChips: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  chip: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  chipText: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+});

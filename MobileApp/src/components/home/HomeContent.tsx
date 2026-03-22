@@ -1,19 +1,14 @@
-import { Text, StyleSheet, View, Button } from "react-native";
-import { useAuth } from "@clerk/clerk-expo";
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
+import TopActionRow from '@/components/feed/TopActionRow';
+import VerticalFeedList from '@/components/feed/VerticalFeedList';
+import { FEED_ITEMS } from '@/data/mockFeed';
 
 export default function HomeContent() {
-  const { signOut, isSignedIn } = useAuth();
-
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Dashboard</Text>
-      <Text style={styles.subtitle}>
-        {isSignedIn ? "Welcome back!" : "Browsing as guest"}
-      </Text>
-
-      {isSignedIn && (
-        <Button title="Sign out" onPress={() => signOut()} />
-      )}
+      <TopActionRow />
+      <VerticalFeedList data={FEED_ITEMS} />
     </View>
   );
 }
@@ -21,18 +16,6 @@ export default function HomeContent() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#000",
-    gap: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#fff",
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "#888",
+    backgroundColor: '#000',
   },
 });

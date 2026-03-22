@@ -26,6 +26,8 @@ export default function SwipeChatContainer({ children, onSwipeChange }: Props) {
 
   const gesture = Gesture.Pan()
     .enabled(isHome || translateX.value > 0)
+    .activeOffsetX([-20, 20])
+    .failOffsetY([-12, 12])
     .onStart(() => {
       context.value = { x: translateX.value };
     })
@@ -36,13 +38,34 @@ export default function SwipeChatContainer({ children, onSwipeChange }: Props) {
       translateX.value = nextX;
     })
     .onEnd((event) => {
-      const threshold = width / 3;
-      if (event.velocityX > 500 || translateX.value > threshold) {
-        translateX.value = withSpring(width, { damping: 100, stiffness: 400, overshootClamping: true });
+      const isShowingChat = context.value.x >= width;
+      const threshold = isShowingChat ? width * 0.6 : width / 3;
+
+      if (event.velocityX > 400 || translateX.value > threshold) {
+        translateX.value = withSpring(width, {
+          damping: 28,
+          stiffness: 320,
+          mass: 0.8,
+          overshootClamping: true,
+        });
         if (onSwipeChange) runOnJS(onSwipeChange)(0);
-      } else {
-        translateX.value = withSpring(0, { damping: 100, stiffness: 400, overshootClamping: true });
+      } else if (event.velocityX < -400 || translateX.value < threshold) {
+        translateX.value = withSpring(0, {
+          damping: 28,
+          stiffness: 320,
+          mass: 0.8,
+          overshootClamping: true,
+        });
         if (onSwipeChange) runOnJS(onSwipeChange)(1);
+      } else {
+        const snapTo = translateX.value > width / 2 ? width : 0;
+        translateX.value = withSpring(snapTo, {
+          damping: 28,
+          stiffness: 320,
+          mass: 0.8,
+          overshootClamping: true,
+        });
+        if (onSwipeChange) runOnJS(onSwipeChange)(snapTo === 0 ? 1 : 0);
       }
     });
 

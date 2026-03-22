@@ -8,7 +8,7 @@ import Dropdown from '@/components/Dropdown';
 import { useBalanceStore } from '@store/balanceStore';
 import { useWalletStore } from '@/features/wallet/walletPersistenceStore';
 import { RecentTransactions } from '@/components/RecentTransactions';
-import GuestPromptScreen from '@/components/GuestPromptScreen';
+import GuestEmptyState from '@/components/GuestEmptyState';
 
 const PayIndex = () => {
   const router = useRouter();
@@ -17,7 +17,13 @@ const PayIndex = () => {
   const { isEnabled } = useWalletStore();
 
   if (!isSignedIn) {
-    return <GuestPromptScreen feature="Pay" />;
+    return (
+      <GuestEmptyState
+        feature="Pay"
+        icon="card-outline"
+        description="Your wallet, transactions, and payment history will appear here."
+      />
+    );
   }
 
   const handleWalletPress = () => {

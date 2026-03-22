@@ -1,12 +1,18 @@
 import { Text, StyleSheet, View } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
-import GuestPromptScreen from "@/components/GuestPromptScreen";
+import GuestEmptyState from "@/components/GuestEmptyState";
 
 export default function LibraryScreen() {
   const { isSignedIn } = useAuth();
 
   if (!isSignedIn) {
-    return <GuestPromptScreen feature="Library" />;
+    return (
+      <GuestEmptyState
+        feature="Library"
+        icon="bookmark-outline"
+        description="Your saved events, places, and bookmarks will appear here."
+      />
+    );
   }
 
   return (
