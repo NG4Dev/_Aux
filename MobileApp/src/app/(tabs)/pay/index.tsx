@@ -1,17 +1,24 @@
 import { ScrollView, View, Text, StyleSheet } from 'react-native';
 import React from 'react';
 import { useRouter } from 'expo-router';
+import { useAuth } from '@clerk/clerk-expo';
 import Colors from '@/constants/Colors';
 import RoundButton from '@/components/RoundButton';
 import Dropdown from '@/components/Dropdown';
 import { useBalanceStore } from '@store/balanceStore';
 import { useWalletStore } from '@/features/wallet/walletPersistenceStore';
 import { RecentTransactions } from '@/components/RecentTransactions';
+import GuestPromptScreen from '@/components/GuestPromptScreen';
 
 const PayIndex = () => {
   const router = useRouter();
+  const { isSignedIn } = useAuth();
   const { balance, transactions } = useBalanceStore();
   const { isEnabled } = useWalletStore();
+
+  if (!isSignedIn) {
+    return <GuestPromptScreen feature="Pay" />;
+  }
 
   const handleWalletPress = () => {
     const route = isEnabled 

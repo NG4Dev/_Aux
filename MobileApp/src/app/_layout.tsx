@@ -3,6 +3,9 @@ import { ClerkProvider, ClerkLoaded, useAuth } from '@clerk/clerk-expo'
 import { tokenCache } from '@clerk/clerk-expo/token-cache'
 import { useEffect } from "react";
 import { useRouter, useSegments } from "expo-router";
+import { isOnboardingCompleted } from "@/services/onboarding";
+import { useState } from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!
 
@@ -17,10 +20,22 @@ function InitialLayout() {
   const segments = useSegments();
   const router = useRouter();
 
-  useEffect(() => {
-    if (!isLoaded) return;
+  const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
 
-    const inAuthGroup = segments[0] === '(auth)';
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      const completed = await isOnboardingCompleted();
+      setOnboardingDone(completed);
+    };
+    checkOnboarding();
+  }, [segments]);
+
+  useEffect(() => {
+    if (!isLoaded || onboardingDone === null) return;
+
+    const inAuthGroup = segments[0] === '(auth)' || segments[0] === 'selection' || segments[0] === 'sign-in' || segments[0] === 'sign-up';
+    const inOnboardingGroup = segments[0] === '(onboarding)' || segments[0] === 'showcase' || segments[0] === 'notifications';
+    const inTabsGroup = segments[0] === '(tabs)' || segments[0] === 'home' || segments[0] === 'discover';
     
     // Identify protected paths
     const segmentArray = segments as string[];
@@ -28,17 +43,22 @@ function InitialLayout() {
     const inProtectedRoute = 
       (segmentArray[0] === '(tabs)' && (segmentOne === 'pay' || segmentOne === 'library')) ||
       segmentArray[0] === 'wallet';
-
-    if (isSignedIn && inAuthGroup) {
-      // If user is signed in and in auth group, they should probably be elsewhere
-      // But we might want them to finish onboarding first
-      // For now, let's just let the layouts handle it or redirect to home
-      // router.replace('/(tabs)/home');
-    } else if (!isSignedIn && inProtectedRoute) {
-      // If user is not signed in and tries to access a protected route, redirect to auth
-      router.replace('/(auth)');
+    if (isSignedIn) {
+      if (onboardingDone === false && !inOnboardingGroup) {
+        // Force onboarding if not done and not already there
+        router.replace('/showcase');
+      } else if (onboardingDone === true && (inAuthGroup || !segments[0])) {
+        // If done and in auth or root, go to chat (center tab)
+        router.replace('/chat');
+      }
+    } else {
+      // Not signed in
+      // If at root or in a protected route, go to auth splash screen
+      if (!segments[0] || inProtectedRoute) {
+        router.replace('/(auth)');
+      }
     }
-  }, [isSignedIn, segments, isLoaded]);
+  }, [isSignedIn, segments, isLoaded, onboardingDone]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
@@ -53,10 +73,12 @@ function InitialLayout() {
 
 export default function RootLayout() {
   return (
-    <ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
-      <ClerkLoaded>
-        <InitialLayout />
-      </ClerkLoaded>
-    </ClerkProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
+        <ClerkLoaded>
+          <InitialLayout />
+        </ClerkLoaded>
+      </ClerkProvider>
+    </GestureHandlerRootView>
   );
 }

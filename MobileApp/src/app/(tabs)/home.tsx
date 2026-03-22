@@ -1,38 +1,8 @@
-import { Text, StyleSheet, View, Button } from "react-native";
-import { useAuth } from "@clerk/clerk-expo";
+import React from 'react';
+import HomeContent from '@/components/home/HomeContent';
 
 export default function HomeScreen() {
-  const { signOut, isSignedIn } = useAuth();
-
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Dashboard</Text>
-      <Text style={styles.subtitle}>
-        {isSignedIn ? "Welcome back!" : "Browsing as guest"}
-      </Text>
-
-      {isSignedIn && (
-        <Button title="Sign out" onPress={() => signOut()} />
-      )}
-    </View>
+    <HomeContent />
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#000",
-    gap: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#fff",
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "#888",
-  },
-});

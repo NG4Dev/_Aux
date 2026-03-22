@@ -44,10 +44,8 @@ export default function SignInWith() {
 
       if (createdSessionId) {
         await setActive!({ session: createdSessionId });
-        router.replace('/(auth)/post-auth');
       } else if (signIn && signIn.status === "complete") {
         await setActive!({ session: signIn.createdSessionId });
-        router.replace('/(auth)/post-auth');
       }
     } catch (err) {
       console.error("SSO error:", JSON.stringify(err, null, 2));
