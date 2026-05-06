@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import { View, Text, Image, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { ContentStatus } from '@/types/content';
 
@@ -9,6 +9,7 @@ type IdentityRowProps = {
   subtitle?: string;
   verified?: boolean;
   status?: ContentStatus;
+  onPress?: () => void;
 };
 
 const STATUS_LABELS: Record<ContentStatus, { label: string; color: string }> = {
@@ -24,11 +25,12 @@ export default function IdentityRow({
   subtitle,
   verified,
   status,
+  onPress,
 }: IdentityRowProps) {
   const statusMeta = status ? STATUS_LABELS[status] : null;
 
-  return (
-    <View style={styles.container}>
+  const content = (
+    <>
       <Image source={{ uri: avatarUri }} style={styles.avatar} />
       <View style={styles.textBlock}>
         <View style={styles.nameRow}>
@@ -55,8 +57,23 @@ export default function IdentityRow({
           </Text>
         ) : null}
       </View>
-    </View>
+    </>
   );
+
+  if (onPress) {
+    return (
+      <Pressable
+        style={styles.container}
+        onPress={onPress}
+        hitSlop={6}
+        android_ripple={{ color: 'rgba(255,255,255,0.05)' }}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return <View style={styles.container}>{content}</View>;
 }
 
 const styles = StyleSheet.create({

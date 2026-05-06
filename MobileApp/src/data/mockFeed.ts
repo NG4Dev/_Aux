@@ -60,6 +60,7 @@ export const FEED_ITEMS: ContentItem[] = [
     verified: true,
     profileName: 'SBCLTR',
     profileAvatar: 'https://i.pravatar.cc/80?u=sbcltr',
+    businessId: 'la-parada',
     categories: ['Bars', 'Night clubs'],
   },
   {
@@ -88,8 +89,9 @@ export const FEED_ITEMS: ContentItem[] = [
     badge: { label: 'NEW EVENT', color: '#00BFA5' },
     status: 'upcoming',
     verified: false,
-    profileName: 'Uncle Waffles',
-    profileAvatar: 'https://i.pravatar.cc/80?u=uw',
+    profileName: 'Keinemusik',
+    profileAvatar: 'https://i.pravatar.cc/80?u=keinemusik',
+    businessId: 'keinemusik-co',
     categories: ['Events', 'Music'],
     chyron: 'Keinemusik crew is coming to Cape Town & JHB this Nov!',
   },
@@ -156,6 +158,7 @@ export const FEED_ITEMS: ContentItem[] = [
     verified: true,
     profileName: 'The Lawns',
     profileAvatar: 'https://i.pravatar.cc/80?u=lawns',
+    businessId: 'la-parada',
     categories: ['Restaurants', 'Sundowners'],
   },
   {
@@ -230,6 +233,7 @@ export const FEED_ITEMS: ContentItem[] = [
     verified: true,
     profileName: 'Afropunk',
     profileAvatar: 'https://i.pravatar.cc/80?u=afropunk',
+    businessId: 'keinemusik-co',
     categories: ['Events', 'Music'],
     chyron: 'Afropunk returns to Johannesburg for the biggest edition yet',
   },
@@ -269,3 +273,10 @@ export const SEARCH_HISTORY: SearchHistoryEntry[] = [
   { id: '3', query: 'The Lawns' },
   { id: '4', query: 'Events' },
 ];
+
+export const BOOKMARK_LOCATIONS = [
+  'Cape Town',
+  'Johannesburg',
+  'Durban',
+  'Accra',
+] as const;

@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import type { ContentItem } from '@/types/content';
 import IdentityRow from './IdentityRow';
 import BadgeChyron from './BadgeChyron';
 import CategoryChips from './CategoryChips';
 import ContentContextMenu from './ContentContextMenu';
+import SaveToCollectionSheet from '@/components/bookmarks/SaveToCollectionSheet';
 
 type FeedCardProps = {
   item: ContentItem;
@@ -14,6 +16,16 @@ type FeedCardProps = {
 
 export default function FeedCard({ item, height }: FeedCardProps) {
   const heroMedia = item.media[0];
+  const router = useRouter();
+  const [saveTarget, setSaveTarget] = useState<ContentItem | null>(null);
+
+  const onProfilePress = item.businessId
+    ? () =>
+        router.push({
+          pathname: '/(tabs)/business/[businessId]',
+          params: { businessId: item.businessId! },
+        })
+    : undefined;
 
   return (
     <View style={[styles.card, { height }]}>
@@ -50,9 +62,10 @@ export default function FeedCard({ item, height }: FeedCardProps) {
               subtitle={item.subtitle}
               verified={item.verified}
               status={item.status}
+              onPress={onProfilePress}
             />
           </View>
-          <ContentContextMenu />
+          <ContentContextMenu onSave={() => setSaveTarget(item)} />
         </View>
 
         {item.description && (
@@ -63,6 +76,11 @@ export default function FeedCard({ item, height }: FeedCardProps) {
 
         <CategoryChips categories={item.categories} variant="tag" />
       </View>
+
+      <SaveToCollectionSheet
+        item={saveTarget}
+        onClose={() => setSaveTarget(null)}
+      />
     </View>
   );
 }

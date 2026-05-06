@@ -65,6 +65,12 @@ const TabsLayout = () => {
           }}
         />
         <Tabs.Screen
+          name="business"
+          options={{
+            href: null,
+          }}
+        />
+        <Tabs.Screen
           name="library"
           options={{
             title: 'Library',

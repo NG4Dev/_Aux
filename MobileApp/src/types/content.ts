@@ -29,6 +29,7 @@ export type ContentItem = {
   verified?: boolean;
   profileName: string;
   profileAvatar: string;
+  businessId?: string;
   categories: string[];
   chyron?: string;
 };

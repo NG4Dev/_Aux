@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,13 +11,15 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FEED_ITEMS, DISCOVER_FILTER_CATEGORIES } from '@/data/mockFeed';
 import IdentityRow from '@/components/feed/IdentityRow';
 import ContentContextMenu from '@/components/feed/ContentContextMenu';
 import DynamicMediaRenderer from '@/components/feed/DynamicMediaRenderer';
-import type { MediaItem } from '@/types/content';
+import SaveToCollectionSheet from '@/components/bookmarks/SaveToCollectionSheet';
+import { useCollapsibleHeader } from '@/hooks/useCollapsibleHeader';
+import type { ContentItem, MediaItem } from '@/types/content';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CARD_IMAGE_MAX_HEIGHT = SCREEN_HEIGHT * 0.55;
@@ -126,72 +128,16 @@ export default function DiscoverCategory() {
     label: string;
   }>();
   const router = useRouter();
-  const navigation = useNavigation();
-  const parentNav = navigation.getParent();
   const [activeFilter, setActiveFilter] = useState('All');
+  const [saveTarget, setSaveTarget] = useState<ContentItem | null>(null);
 
-  const [headerVisible, setHeaderVisible] = useState(true);
-  const headerRowHeight = useRef(new RNAnimated.Value(HEADER_ROW_HEIGHT)).current;
-  const lastOffset = useRef(0);
+  const { animatedHeight: headerRowHeight, onScroll: handleScroll } =
+    useCollapsibleHeader({ headerHeight: HEADER_ROW_HEIGHT });
 
   const tabScrollRef = useRef<ScrollView>(null);
   const tabMeasurements = useRef<TabMeasurement[]>([]);
   const underlineX = useRef(new RNAnimated.Value(0)).current;
   const underlineW = useRef(new RNAnimated.Value(0)).current;
-
-  const setTabBarVisible = useCallback(
-    (visible: boolean) => {
-      parentNav?.setOptions({
-        tabBarStyle: {
-          backgroundColor: 'transparent',
-          position: 'absolute' as const,
-          bottom: visible ? 0 : -100,
-          left: 0,
-          right: 0,
-          elevation: 0,
-          shadowOpacity: 0,
-          borderTopWidth: 0,
-        },
-      });
-    },
-    [parentNav],
-  );
-
-  useEffect(() => {
-    return () => setTabBarVisible(true);
-  }, [setTabBarVisible]);
-
-  const toggleHeader = (toValue: number) => {
-    RNAnimated.timing(headerRowHeight, {
-      toValue,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
-  };
-
-  const handleScroll = (event: { nativeEvent: { contentOffset: { y: number } } }) => {
-    const currentOffset = event.nativeEvent.contentOffset.y;
-
-    if (currentOffset <= 10) {
-      toggleHeader(HEADER_ROW_HEIGHT);
-      setHeaderVisible(true);
-      setTabBarVisible(true);
-      lastOffset.current = currentOffset;
-      return;
-    }
-
-    if (currentOffset > lastOffset.current && headerVisible) {
-      toggleHeader(0);
-      setHeaderVisible(false);
-      setTabBarVisible(false);
-    } else if (currentOffset < lastOffset.current && !headerVisible) {
-      toggleHeader(HEADER_ROW_HEIGHT);
-      setHeaderVisible(true);
-      setTabBarVisible(true);
-    }
-
-    lastOffset.current = currentOffset;
-  };
 
   const handleTabLayout = useCallback(
     (index: number, e: LayoutChangeEvent) => {
@@ -300,9 +246,18 @@ export default function DiscoverCategory() {
                       name={item.profileName}
                       verified={item.verified}
                       status={item.status}
+                      onPress={
+                        item.businessId
+                          ? () =>
+                              router.push({
+                                pathname: '/(tabs)/business/[businessId]',
+                                params: { businessId: item.businessId! },
+                              })
+                          : undefined
+                      }
                     />
                   </View>
-                  <ContentContextMenu />
+                  <ContentContextMenu onSave={() => setSaveTarget(item)} />
                 </View>
 
                 {item.description && (
@@ -323,6 +278,11 @@ export default function DiscoverCategory() {
           )}
         />
       </View>
+
+      <SaveToCollectionSheet
+        item={saveTarget}
+        onClose={() => setSaveTarget(null)}
+      />
     </SafeAreaView>
   );
 }
