@@ -9,6 +9,7 @@ import {
   ScrollView,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  TouchableOpacity,
 } from 'react-native';
 
 import type { ContentItem } from '@/types/content';
@@ -24,12 +25,14 @@ type Props = {
   events: ContentItem[];
   contentPaddingTop: number;
   onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  onEventPress?: (event: ContentItem) => void;
 };
 
 export default function EventsTab({
   events,
   contentPaddingTop,
   onScroll,
+  onEventPress,
 }: Props) {
   if (events.length === 0) {
     return (
@@ -63,7 +66,11 @@ export default function EventsTab({
       scrollEventThrottle={16}
       showsVerticalScrollIndicator={false}
       renderItem={({ item }) => (
-        <View style={styles.card}>
+        <TouchableOpacity
+          style={styles.card}
+          activeOpacity={0.85}
+          onPress={() => onEventPress?.(item)}
+        >
           {item.media[0] && (
             <Image
               source={{ uri: item.media[0].uri }}
@@ -91,7 +98,7 @@ export default function EventsTab({
               </Text>
             )}
           </View>
-        </View>
+        </TouchableOpacity>
       )}
     />
   );

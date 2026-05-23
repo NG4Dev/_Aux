@@ -3,6 +3,7 @@ import { mutation, query } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
 import schema from "../schema";
 import { requireAdmin } from "./_helpers";
+import { internal } from "../_generated/api";
 
 const adminCategoryValidator = v.object({
   _id: v.id("categories"),
@@ -47,6 +48,7 @@ export const create = mutation({
     slug: v.string(),
     sortOrder: v.number(),
     imageStorageId: v.optional(v.id("_storage")),
+    discoverGroup: v.optional(v.string()),
   },
   returns: v.id("categories"),
   handler: async (ctx, args) => {
@@ -66,12 +68,21 @@ export const create = mutation({
     if (existing !== null) {
       throw new Error(`A category with slug "${slug}" already exists`);
     }
-    return await ctx.db.insert("categories", {
+    const categoryId = await ctx.db.insert("categories", {
       name,
       slug,
       sortOrder: args.sortOrder,
       imageStorageId: args.imageStorageId,
+      discoverGroup: args.discoverGroup?.trim() || undefined,
     });
+    if (args.discoverGroup !== undefined) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.embeddingsCategories.generateForCategory,
+        { categoryId },
+      );
+    }
+    return categoryId;
   },
 });
 
@@ -82,6 +93,7 @@ export const update = mutation({
     slug: v.optional(v.string()),
     sortOrder: v.optional(v.number()),
     imageStorageId: v.optional(v.union(v.id("_storage"), v.null())),
+    discoverGroup: v.optional(v.union(v.string(), v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -91,13 +103,17 @@ export const update = mutation({
       throw new Error("Category not found");
     }
     const patch: Partial<Doc<"categories">> = {};
+    let shouldReembed = false;
 
     if (args.name !== undefined) {
       const trimmed = args.name.trim();
       if (trimmed.length === 0) {
         throw new Error("Category name is required");
       }
-      patch.name = trimmed;
+      if (trimmed !== category.name) {
+        patch.name = trimmed;
+        shouldReembed = category.discoverGroup !== undefined;
+      }
     }
     if (args.slug !== undefined && args.slug.trim() !== category.slug) {
       const trimmedSlug = args.slug.trim();
@@ -119,9 +135,23 @@ export const update = mutation({
     if (args.imageStorageId !== undefined) {
       patch.imageStorageId = args.imageStorageId ?? undefined;
     }
+    if (args.discoverGroup !== undefined) {
+      const trimmed = args.discoverGroup?.trim() || undefined;
+      if (trimmed !== category.discoverGroup) {
+        patch.discoverGroup = trimmed;
+        shouldReembed = trimmed !== undefined;
+      }
+    }
 
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(args.categoryId, patch);
+    }
+    if (shouldReembed) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.embeddingsCategories.generateForCategory,
+        { categoryId: args.categoryId },
+      );
     }
     return null;
   },

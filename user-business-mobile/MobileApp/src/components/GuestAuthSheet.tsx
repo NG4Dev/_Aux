@@ -11,9 +11,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSSO } from '@clerk/clerk-expo';
 import * as WebBrowser from 'expo-web-browser';
-import * as AuthSession from 'expo-auth-session';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  completeSsoFlow,
+  navigateToPostAuth,
+} from '@/services/completeSsoFlow';
+import { authLog } from '@/services/authFlowLogger';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -29,26 +33,25 @@ export default function GuestAuthSheet({ onDismiss }: GuestAuthSheetProps) {
   const handleGoogle = useCallback(async () => {
     try {
       setSsoLoading(true);
-      const redirectUrl = AuthSession.makeRedirectUri({
-        scheme: 'aux',
-        path: 'oauth-native-callback',
-      });
-      const result = await startSSOFlow({
-        strategy: 'oauth_google',
-        redirectUrl,
-      });
-      const { createdSessionId, setActive, signIn } = result;
-      if (createdSessionId) {
-        await setActive!({ session: createdSessionId });
-      } else if (signIn && signIn.status === 'complete') {
-        await setActive!({ session: signIn.createdSessionId });
+      authLog('guestAuthSheet', 'ssoStart', { strategy: 'oauth_google' });
+      const result = await completeSsoFlow(startSSOFlow, 'oauth_google');
+      if (!result.ok) {
+        authLog('guestAuthSheet', 'ssoIncomplete', { reason: result.reason });
+        return;
       }
-    } catch {
+
+      authLog('guestAuthSheet', 'ssoSuccess', { strategy: 'oauth_google' });
+      onDismiss();
+      navigateToPostAuth(router);
+    } catch (err) {
+      authLog('guestAuthSheet', 'ssoError', {
+        message: err instanceof Error ? err.message : String(err),
+      });
       Alert.alert('Authentication Error', 'Something went wrong. Please try again.');
     } finally {
       setSsoLoading(false);
     }
-  }, [startSSOFlow]);
+  }, [startSSOFlow, onDismiss]);
 
   return (
     <View style={styles.overlay}>

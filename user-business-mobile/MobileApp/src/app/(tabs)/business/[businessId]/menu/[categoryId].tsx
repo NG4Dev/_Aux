@@ -114,7 +114,19 @@ export default function MenuCategoryScreen() {
       scrollEventThrottle={16}
       ItemSeparatorComponent={() => <View style={{ height: GRID_GAP }} />}
       renderItem={({ item }) => (
-        <View style={styles.gridTile}>
+        <TouchableOpacity
+          style={styles.gridTile}
+          activeOpacity={0.85}
+          onPress={() =>
+            router.push({
+              pathname: '/(tabs)/business/[businessId]/product/[productId]',
+              params: {
+                businessId: businessId ?? '',
+                productId: item.id,
+              },
+            })
+          }
+        >
           <Image source={{ uri: item.image }} style={styles.gridImage} />
           <View style={styles.gridOverlay}>
             <Text style={styles.gridName} numberOfLines={1}>
@@ -125,7 +137,7 @@ export default function MenuCategoryScreen() {
               {item.price}
             </Text>
           </View>
-        </View>
+        </TouchableOpacity>
       )}
     />
   );
@@ -143,7 +155,19 @@ export default function MenuCategoryScreen() {
       scrollEventThrottle={16}
       ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
       renderItem={({ item }) => (
-        <View style={styles.listRow}>
+        <TouchableOpacity
+          style={styles.listRow}
+          activeOpacity={0.85}
+          onPress={() =>
+            router.push({
+              pathname: '/(tabs)/business/[businessId]/product/[productId]',
+              params: {
+                businessId: businessId ?? '',
+                productId: item.id,
+              },
+            })
+          }
+        >
           <Image source={{ uri: item.image }} style={styles.listThumb} />
           <View style={styles.listText}>
             <Text style={styles.listName} numberOfLines={1}>
@@ -157,7 +181,7 @@ export default function MenuCategoryScreen() {
             {item.currency}
             {item.price}
           </Text>
-        </View>
+        </TouchableOpacity>
       )}
     />
   );

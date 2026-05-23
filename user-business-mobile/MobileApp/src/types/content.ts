@@ -1,4 +1,10 @@
-export type MediaAspect = 'square' | 'landscape' | 'portrait' | 'story';
+export type MediaAspect =
+  | 'square'
+  | 'landscape'
+  | 'portrait'
+  | 'portrait45'
+  | 'portrait34'
+  | 'story';
 
 export type MediaItem = {
   uri: string;
@@ -30,6 +36,8 @@ export type ContentItem = {
   profileName: string;
   profileAvatar: string;
   businessId?: string;
+  productSlug?: string;
+  merchantSlug?: string;
   categories: string[];
   chyron?: string;
 };

@@ -89,6 +89,7 @@ export default function OrdersTable() {
           <TableHeader>
             <TableRow>
               <TableHead>Customer</TableHead>
+              <TableHead>Kind</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Placed</TableHead>
               <TableHead className="text-right">Items</TableHead>
@@ -100,7 +101,7 @@ export default function OrdersTable() {
             {orders === undefined ? (
               Array.from({ length: 6 }).map((_, i) => (
                 <TableRow key={i}>
-                  <TableCell colSpan={6}>
+                  <TableCell colSpan={7}>
                     <Skeleton className="h-10 w-full" />
                   </TableCell>
                 </TableRow>
@@ -126,6 +127,9 @@ export default function OrdersTable() {
                         {order.customer.email}
                       </span>
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{order.orderKind ?? "product"}</Badge>
                   </TableCell>
                   <TableCell>
                     <Badge variant={STATUS_BADGE[order.status]}>

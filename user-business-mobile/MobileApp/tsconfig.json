@@ -16,8 +16,8 @@
       "@constants/*": [
         "constants/*"
       ],
-      "@videos/*": [
-        "assets/videos/*"
+      "@convex/*": [
+        "src/convex/*"
       ]
     }
   },
@@ -25,7 +25,8 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "constants/**/*.ts",
-    "assets/**/*"
+    "assets/**/*",
+    "src/convex/_generated/**/*.ts"
   ],
   "exclude": [
     "node_modules",

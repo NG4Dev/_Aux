@@ -1,5 +1,5 @@
 import React from 'react';
-import { Dimensions, StyleSheet } from 'react-native';
+import { Dimensions, Platform, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedScrollHandler,
@@ -15,6 +15,7 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('screen');
 const SPACING = 4;
 const ITEM_HEIGHT = SCREEN_HEIGHT * 0.72;
 const ITEM_FULL_SIZE = ITEM_HEIGHT + SPACING * 2;
+const TAB_BAR_INSET = Platform.OS === 'ios' ? 88 : 72;
 
 export default function VerticalFeedList({ data }: VerticalFeedListProps) {
   const scrollY = useSharedValue(0);
@@ -27,6 +28,7 @@ export default function VerticalFeedList({ data }: VerticalFeedListProps) {
 
   return (
     <Animated.FlatList
+      style={styles.list}
       data={data}
       keyExtractor={(item) => item.id}
       renderItem={({ item, index }) => (
@@ -44,12 +46,19 @@ export default function VerticalFeedList({ data }: VerticalFeedListProps) {
       decelerationRate="fast"
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{
-        paddingVertical: (SCREEN_HEIGHT - ITEM_FULL_SIZE) / 2,
+        paddingTop: (SCREEN_HEIGHT - ITEM_FULL_SIZE) / 2,
+        paddingBottom: (SCREEN_HEIGHT - ITEM_FULL_SIZE) / 2 + TAB_BAR_INSET,
         paddingHorizontal: SPACING * 3,
         gap: SPACING * 2,
       }}
     />
   );
 }
+
+const styles = StyleSheet.create({
+  list: {
+    flex: 1,
+  },
+});
 
 export { ITEM_HEIGHT, ITEM_FULL_SIZE, SPACING };

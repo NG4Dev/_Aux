@@ -19,9 +19,10 @@ import { Link, router, Stack } from "expo-router";
 import { useState, useEffect, useCallback } from "react";
 import { isClerkAPIResponseError, useSignIn } from "@clerk/clerk-expo";
 import SignInWith from "@/components/SignInWith";
-import { useHeaderHeight } from '@react-navigation/elements';
+import { useHeaderHeight } from 'expo-router/react-navigation';
 import Svg, { Circle } from 'react-native-svg';
 import { Toast } from "@/components/Toast";
+import { authLog } from "@/services/authFlowLogger";
 
 const ProgressCircle = ({ step }: { step: number }) => {
   const size = 24;
@@ -76,6 +77,7 @@ export default function SignInScreen() {
   const [isMagicLinkSent, setIsMagicLinkSent] = useState(false);
   const [isMagicLinkLoading, setIsMagicLinkLoading] = useState(false);
   const [errorToast, setErrorToast] = useState<{ message: string; code?: string; stepToNavigate?: number } | null>(null);
+  const [infoToast, setInfoToast] = useState<string | null>(null);
 
   const { 
     control, 
@@ -139,21 +141,28 @@ export default function SignInScreen() {
   const onSignIn = async (data: SignInFields) => {
     if (!isLoaded) return;
 
+    authLog('signIn', 'start', { email: data.email });
+
     try {
       const signInAttempt = await signIn.create({
         identifier: data.email,
         password: data.password,
       });
 
+      authLog('signIn', 'clerkStatus', { status: signInAttempt.status });
+
       if (signInAttempt.status === "complete") {
         await setActive({ session: signInAttempt.createdSessionId });
-        router.replace("/(onboarding)/notifications");
+        authLog('signIn', 'navigate', { to: '/(auth)/post-auth' });
+        router.replace("/(auth)/post-auth");
       } else {
+        authLog('signIn', 'incomplete', { status: signInAttempt.status });
         setErrorToast({ message: "Sign in could not be completed", code: "STATUS_" + signInAttempt.status });
       }
     } catch (err) {
       if (isClerkAPIResponseError(err)) {
         const error = err.errors[0];
+        authLog('signIn', 'clerkError', { code: error.code, message: error.longMessage });
         // Map common errors to steps
         let stepToNavigate = undefined;
         if (error.code === 'form_identifier_not_found' || error.meta?.paramName === 'identifier') {
@@ -168,6 +177,7 @@ export default function SignInScreen() {
           stepToNavigate 
         });
       } else {
+        authLog('signIn', 'error', { message: 'unknown' });
         setErrorToast({ message: "Unknown error" });
       }
     }
@@ -263,7 +273,7 @@ export default function SignInScreen() {
               />
               <Text style={styles.helperText}>We will send you an email with a link, so you verify the account</Text>
               <View style={styles.signInWithContainer}>
-                <SignInWith />
+                <SignInWith onNewUser={() => setInfoToast("Signing you up…")} />
               </View>
             </View>
           )}
@@ -285,7 +295,7 @@ export default function SignInScreen() {
                 </Text>
               </Pressable>
 
-              <Link href="/(auth)/sign-up" asChild>
+              <Link href="/(auth)/reset-password" asChild>
                 <Text style={styles.forgotPassword}>Forgot password?</Text>
               </Link>
             </View>
@@ -319,6 +329,14 @@ export default function SignInScreen() {
           )}
         </View>
       </View>
+
+      {infoToast && (
+        <Toast
+          message={infoToast}
+          onHide={() => setInfoToast(null)}
+          duration={3000}
+        />
+      )}
 
       {errorToast && (
         <Toast

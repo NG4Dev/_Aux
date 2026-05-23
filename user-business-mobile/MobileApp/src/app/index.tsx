@@ -1,9 +1,5 @@
-import { Redirect } from "expo-router";
-import { useAuth } from "@clerk/clerk-expo";
+import { Redirect } from 'expo-router';
 
 export default function StartPage() {
-  const { isSignedIn } = useAuth();
-
-  // RootLayout/InitialLayout handles all redirection based on auth/onboarding state
-  return null;
+  return <Redirect href="/(auth)" />;
 }

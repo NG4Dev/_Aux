@@ -13,11 +13,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   getBusinessById,
-  getMenuCategoriesForBusiness,
-  getMenuItemsForBusiness,
-  getEventsForBusiness,
   getTabsForBusiness,
 } from '@/data/mockBusinesses';
+import {
+  useMerchantBySlug,
+  useMerchantEvents,
+  useMerchantProducts,
+} from '@/hooks/usePlatformMerchant';
 import { useCollapsibleHeader } from '@/hooks/useCollapsibleHeader';
 import HoursRow from '@/components/business/HoursRow';
 import LocationRow from '@/components/business/LocationRow';
@@ -39,25 +41,32 @@ export default function BusinessProfile() {
   const { businessId } = useLocalSearchParams<{ businessId: string }>();
   const router = useRouter();
 
-  const business = businessId ? getBusinessById(businessId) : undefined;
+  const businessIdParam = businessId ?? '';
+  const { merchant: business } = useMerchantBySlug(businessIdParam);
+  const { items: menuItems, categories: menuCategories } =
+    useMerchantProducts(businessIdParam);
+  const { events: merchantEvents } = useMerchantEvents(businessIdParam);
+
+  const businessFallback = businessId ? getBusinessById(businessId) : undefined;
+  const resolvedBusiness = business ?? businessFallback;
 
   const tabs = useMemo<ProfileTabId[]>(
-    () => (business ? getTabsForBusiness(business) : []),
-    [business],
+    () => (resolvedBusiness ? getTabsForBusiness(resolvedBusiness) : []),
+    [resolvedBusiness],
   );
 
   const [activeTab, setActiveTab] = useState<ProfileTabId | null>(
     tabs[0] ?? null,
   );
   const [isFollowing, setIsFollowing] = useState<boolean>(
-    business?.isFollowing ?? false,
+    resolvedBusiness?.isFollowing ?? false,
   );
 
   const { animatedHeight, onScroll } = useCollapsibleHeader({
     headerHeight: COLLAPSIBLE_HEIGHT,
   });
 
-  if (!business) {
+  if (!resolvedBusiness) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.headerRow}>
@@ -79,9 +88,9 @@ export default function BusinessProfile() {
       case 'Menu':
         return (
           <MenuTab
-            business={business}
-            categories={getMenuCategoriesForBusiness(business.id)}
-            items={getMenuItemsForBusiness(business.id)}
+            business={resolvedBusiness}
+            categories={menuCategories}
+            items={menuItems}
             contentPaddingTop={STICKY_TOTAL + 12}
             onScroll={onScroll}
           />
@@ -89,7 +98,7 @@ export default function BusinessProfile() {
       case 'Gallery':
         return (
           <GalleryTab
-            business={business}
+            business={resolvedBusiness}
             contentPaddingTop={STICKY_TOTAL + 12}
             onScroll={onScroll}
           />
@@ -97,15 +106,24 @@ export default function BusinessProfile() {
       case 'Events':
         return (
           <EventsTab
-            events={getEventsForBusiness(business.id)}
+            events={merchantEvents}
             contentPaddingTop={STICKY_TOTAL + 12}
             onScroll={onScroll}
+            onEventPress={(event) =>
+              router.push({
+                pathname: '/(tabs)/business/[businessId]/event/[eventId]',
+                params: {
+                  businessId: resolvedBusiness.id,
+                  eventId: event.id,
+                },
+              })
+            }
           />
         );
       case 'About':
         return (
           <AboutTab
-            business={business}
+            business={resolvedBusiness}
             contentPaddingTop={STICKY_TOTAL + 12}
             onScroll={onScroll}
           />
@@ -143,30 +161,30 @@ export default function BusinessProfile() {
           <View style={styles.detailBlock}>
             <View style={styles.identityRow}>
               <Image
-                source={{ uri: business.logo }}
+                source={{ uri: resolvedBusiness.logo }}
                 style={styles.logo}
               />
               <View style={styles.identityText}>
                 <Text style={styles.name} numberOfLines={1}>
-                  {business.name}
+                  {resolvedBusiness.name}
                 </Text>
-                {business.tagline && (
+                {resolvedBusiness.tagline && (
                   <Text style={styles.tagline} numberOfLines={1}>
-                    {business.tagline}
+                    {resolvedBusiness.tagline}
                   </Text>
                 )}
               </View>
             </View>
 
             <Text style={styles.description} numberOfLines={3}>
-              {business.description}
+              {resolvedBusiness.description}
             </Text>
 
             <View style={styles.metaCol}>
-              <HoursRow hours={business.hours} />
+              <HoursRow hours={resolvedBusiness.hours} />
               <LocationRow
-                location={business.location}
-                locationGiven={business.locationGiven}
+                location={resolvedBusiness.location}
+                locationGiven={resolvedBusiness.locationGiven}
               />
             </View>
 

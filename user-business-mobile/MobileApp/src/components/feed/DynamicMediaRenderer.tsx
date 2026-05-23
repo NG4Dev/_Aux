@@ -12,8 +12,10 @@ type DynamicMediaRendererProps = {
 
 const ASPECT_MAP: Record<string, number> = {
   square: 1,
-  landscape: 1080 / 566,
+  landscape: 1080 / 608,
   portrait: 1080 / 1350,
+  portrait45: 1080 / 1350,
+  portrait34: 1080 / 1440,
   story: 9 / 16,
 };
 

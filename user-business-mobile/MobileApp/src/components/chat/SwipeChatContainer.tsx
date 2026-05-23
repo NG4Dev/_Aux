@@ -1,17 +1,16 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
-import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withSpring, 
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
   runOnJS,
-  useDerivedValue
 } from 'react-native-reanimated';
 import { useSegments } from 'expo-router';
 import ChatScreenContent from '@/components/chat/ChatScreenContent';
 
-const { width } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface Props {
   children: React.ReactNode;
@@ -24,6 +23,12 @@ export default function SwipeChatContainer({ children, onSwipeChange }: Props) {
   const translateX = useSharedValue(0);
   const context = useSharedValue({ x: 0 });
 
+  useEffect(() => {
+    if (!isHome) {
+      translateX.value = 0;
+    }
+  }, [isHome, translateX]);
+
   const gesture = Gesture.Pan()
     .enabled(isHome || translateX.value > 0)
     .activeOffsetX([-20, 20])
@@ -34,15 +39,15 @@ export default function SwipeChatContainer({ children, onSwipeChange }: Props) {
     .onUpdate((event) => {
       let nextX = context.value.x + event.translationX;
       if (nextX < 0) nextX = 0;
-      if (nextX > width) nextX = width;
+      if (nextX > SCREEN_WIDTH) nextX = SCREEN_WIDTH;
       translateX.value = nextX;
     })
     .onEnd((event) => {
-      const isShowingChat = context.value.x >= width;
-      const threshold = isShowingChat ? width * 0.6 : width / 3;
+      const isShowingChat = context.value.x >= SCREEN_WIDTH;
+      const threshold = isShowingChat ? SCREEN_WIDTH * 0.6 : SCREEN_WIDTH / 3;
 
       if (event.velocityX > 400 || translateX.value > threshold) {
-        translateX.value = withSpring(width, {
+        translateX.value = withSpring(SCREEN_WIDTH, {
           damping: 28,
           stiffness: 320,
           mass: 0.8,
@@ -58,7 +63,7 @@ export default function SwipeChatContainer({ children, onSwipeChange }: Props) {
         });
         if (onSwipeChange) runOnJS(onSwipeChange)(1);
       } else {
-        const snapTo = translateX.value > width / 2 ? width : 0;
+        const snapTo = translateX.value > SCREEN_WIDTH / 2 ? SCREEN_WIDTH : 0;
         translateX.value = withSpring(snapTo, {
           damping: 28,
           stiffness: 320,
@@ -69,31 +74,25 @@ export default function SwipeChatContainer({ children, onSwipeChange }: Props) {
       }
     });
 
-  const mainStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateX: translateX.value }],
-    };
-  });
+  const mainStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
 
-  const leftStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateX: translateX.value - width }],
-    };
-  });
+  const leftStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value - SCREEN_WIDTH }],
+  }));
 
   return (
     <GestureDetector gesture={gesture}>
-      <Animated.View style={styles.container}>
-        {/* Page 0: Chat (on the left) */}
-        <Animated.View key="chat-page" style={[styles.page, leftStyle]}>
+      <View style={styles.container}>
+        <Animated.View style={[styles.page, leftStyle]}>
           <ChatScreenContent />
         </Animated.View>
 
-        {/* Page 1: Main App (on the right/default) */}
-        <Animated.View key="main-page" style={[styles.page, mainStyle]}>
-          {children}
+        <Animated.View style={[styles.page, mainStyle]}>
+          <View style={styles.mainContent}>{children}</View>
         </Animated.View>
-      </Animated.View>
+      </View>
     </GestureDetector>
   );
 }
@@ -102,10 +101,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+    overflow: 'hidden',
   },
   page: {
-    ...StyleSheet.absoluteFillObject,
-    width: width,
+    ...StyleSheet.absoluteFill,
+    width: SCREEN_WIDTH,
+  },
+  mainContent: {
+    flex: 1,
+    width: '100%',
     height: '100%',
   },
 });

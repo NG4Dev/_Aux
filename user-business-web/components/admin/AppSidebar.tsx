@@ -9,6 +9,8 @@ import {
   Tags,
   ShoppingBag,
   Users,
+  Store,
+  Calendar,
 } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 import {
@@ -31,13 +33,44 @@ type NavItem = {
   exact?: boolean;
 };
 
-const navItems: NavItem[] = [
-  { href: "/admin", label: "Dashboard", Icon: LayoutDashboard, exact: true },
-  { href: "/admin/products", label: "Products", Icon: Package },
-  { href: "/admin/categories", label: "Categories", Icon: Tags },
-  { href: "/admin/orders", label: "Orders", Icon: ShoppingBag },
-  { href: "/admin/customers", label: "Customers", Icon: Users },
+const platformNavItems: NavItem[] = [
+  {
+    href: "/admin/platform",
+    label: "Dashboard",
+    Icon: LayoutDashboard,
+    exact: true,
+  },
+  { href: "/admin/platform/products", label: "Products", Icon: Package },
+  { href: "/admin/platform/categories", label: "Categories", Icon: Tags },
+  { href: "/admin/platform/orders", label: "Orders", Icon: ShoppingBag },
+  { href: "/admin/platform/customers", label: "Customers", Icon: Users },
 ];
+
+function merchantNavItems(slug: string): NavItem[] {
+  return [
+    {
+      href: `/admin/merchant/${slug}`,
+      label: "Dashboard",
+      Icon: LayoutDashboard,
+      exact: true,
+    },
+    {
+      href: `/admin/merchant/${slug}/events`,
+      label: "Events",
+      Icon: Calendar,
+    },
+    {
+      href: `/admin/merchant/${slug}/products`,
+      label: "Products",
+      Icon: Package,
+    },
+    {
+      href: `/admin/merchant/${slug}/orders`,
+      label: "Orders",
+      Icon: ShoppingBag,
+    },
+  ];
+}
 
 function isItemActive(pathname: string, item: NavItem): boolean {
   if (item.exact) {
@@ -46,20 +79,29 @@ function isItemActive(pathname: string, item: NavItem): boolean {
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
-export default function AppSidebar() {
+type AppSidebarProps = {
+  role: "platform" | "merchant";
+  merchantSlug?: string;
+};
+
+export default function AppSidebar({ role, merchantSlug }: AppSidebarProps) {
   const pathname = usePathname();
+  const navItems =
+    role === "platform"
+      ? platformNavItems
+      : merchantNavItems(merchantSlug ?? "unknown");
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-1.5">
           <div className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-semibold">
-            P
+            Y
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
             <span className="text-sm font-semibold leading-none">ycago</span>
             <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-              Admin
+              {role === "platform" ? "Platform Admin" : "Merchant Admin"}
             </span>
           </div>
         </div>
@@ -67,7 +109,9 @@ export default function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Manage</SidebarGroupLabel>
+          <SidebarGroupLabel>
+            {role === "platform" ? "Platform" : "My business"}
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => {
@@ -85,6 +129,18 @@ export default function AppSidebar() {
                   </SidebarMenuItem>
                 );
               })}
+              {role === "platform" && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    tooltip="Merchants"
+                    render={<Link href="/admin/platform/merchants" />}
+                    isActive={pathname.startsWith("/admin/platform/merchants")}
+                  >
+                    <Store />
+                    <span>Merchants</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

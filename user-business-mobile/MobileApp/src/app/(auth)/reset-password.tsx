@@ -74,7 +74,7 @@ export default function ResetPasswordScreen() {
       await (user as any).updatePassword({
         newPassword: data.password,
       });
-      router.replace("/(onboarding)/notifications");
+      router.replace("/(onboarding)/showcase");
     } catch (err: any) {
       setErrorToast({ 
         message: err.errors?.[0]?.longMessage || "Failed to update password",

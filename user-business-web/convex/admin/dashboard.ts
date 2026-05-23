@@ -6,6 +6,14 @@ import { requireAdmin } from "./_helpers";
 const recentOrderValidator = v.object({
   _id: v.id("orders"),
   status: orderStatusValidator,
+  orderKind: v.optional(
+    v.union(
+      v.literal("product"),
+      v.literal("ticket"),
+      v.literal("bundle"),
+      v.literal("resale"),
+    ),
+  ),
   totalCents: v.number(),
   currency: v.string(),
   createdAt: v.number(),
@@ -71,6 +79,7 @@ export const getStats = query({
         return {
           _id: order._id,
           status: order.status,
+          orderKind: order.orderKind,
           totalCents: order.totalCents,
           currency: order.currency,
           createdAt: order.createdAt,

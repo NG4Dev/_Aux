@@ -446,11 +446,13 @@ Only proceed to Phase N+1 when all boxes are checked.
 |-------|--------|--------|
 | 0 — Restructure | [NG-5](https://linear.app/ng4/issue/NG-5) | Done |
 | 1 — Bootstrap web | [NG-6](https://linear.app/ng4/issue/NG-6) | Done |
-| 2 — Shared Clerk | [NG-7](https://linear.app/ng4/issue/NG-7) | **Blocked** — `CLERK_SECRET_KEY` required |
-| 3 — Convex + Stripe | [NG-8](https://linear.app/ng4/issue/NG-8) | Pending |
-| 4 — Mobile integration | [NG-9](https://linear.app/ng4/issue/NG-9) | Pending |
-| 5 — Reskin + schema | [NG-10](https://linear.app/ng4/issue/NG-10) | Pending |
+| 2 — Shared Clerk | [NG-7](https://linear.app/ng4/issue/NG-7) | Done |
+| 3 — Convex + Stripe | [NG-8](https://linear.app/ng4/issue/NG-8) | Done |
+| 4+ — Platform schema + mobile | [NG-9–NG-16](platform_schema_and_mobile_plan.md) | In progress |
+
+**Phases 4–5 detail:** see [`platform_schema_and_mobile_plan.md`](platform_schema_and_mobile_plan.md)
 
 **Linear project:** [Toqo Repo Reorganisation](https://linear.app/ng4/project/toqo-repo-reorganisation-c6c781e4dd0e)
 
-**Web dev server:** `cd user-business-web && pnpm dev` → http://localhost:3000 (local Convex at http://127.0.0.1:3210)
+**Web dev server:** `cd user-business-web && pnpm dev` → http://localhost:3000  
+**Convex:** cloud dev `tacit-iguana-891` (`NEXT_PUBLIC_CONVEX_URL` in `.env.local`)

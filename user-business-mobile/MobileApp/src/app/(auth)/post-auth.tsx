@@ -1,69 +1,91 @@
-import React from "react";
-import { StyleSheet, View, Text, Pressable } from "react-native";
-import { router } from "expo-router";
-import CustomButton from "@/components/CustomButton";
-import { isOnboardingCompleted } from "@/services/onboarding";
-import { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { router } from 'expo-router';
+import { useAuth } from '@clerk/clerk-expo';
+import { useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import {
+  resolveAuthSession,
+  waitForClerkToken,
+} from '@/services/resolveAuthSession';
+import { authLog } from '@/services/authFlowLogger';
+import { Toast } from '@/components/Toast';
 
 export default function PostAuthScreen() {
-  const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
+  const { isSignedIn, isLoaded, getToken } = useAuth();
+  const ensureCurrentWithStatus = useMutation(api.users.ensureCurrentWithStatus);
+  const [infoToast, setInfoToast] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const startedRef = useRef(false);
 
   useEffect(() => {
-    const checkOnboarding = async () => {
-      const completed = await isOnboardingCompleted();
-      setOnboardingDone(completed);
-    };
-    checkOnboarding();
-  }, []);
-
-  const handleRememberDevice = () => {
-    // TODO: Implement device remembrance logic (e.g., long-lived session or AsyncStorage flag)
-    if (onboardingDone) {
-      router.replace("/(tabs)/chat");
-    } else {
-      router.replace("/showcase");
+    if (!isLoaded) {
+      authLog('postAuth', 'wait', { reason: 'clerkNotLoaded' });
+      return;
     }
-  };
-
-  const handleSetPassword = () => {
-    router.push("/(auth)/reset-password"); // We'll create this or use a step
-  };
-
-  const handleSkip = () => {
-    if (onboardingDone) {
-      router.replace("/(tabs)/chat");
-    } else {
-      router.replace("/showcase");
+    if (!isSignedIn) {
+      authLog('postAuth', 'wait', { reason: 'notSignedIn' });
+      return;
     }
-  };
+    if (startedRef.current) return;
+    startedRef.current = true;
+
+    authLog('postAuth', 'start', {});
+
+    void (async () => {
+      try {
+        const status = await resolveAuthSession(
+          () => ensureCurrentWithStatus({}),
+          router,
+          {
+            onNewUser: () => {
+              authLog('postAuth', 'newUserToast', {});
+              setInfoToast('Signing you up…');
+            },
+            waitForConvexAuth: () => waitForClerkToken(() => getToken()),
+          },
+        );
+        authLog('postAuth', 'success', {
+          isNewUser: status.isNewUser,
+          hasDateOfBirth: status.hasDateOfBirth,
+          onboardingComplete: status.onboardingComplete,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        authLog('postAuth', 'error', { message });
+        console.warn('post-auth resolve failed', err);
+        setError('Could not finish sign-in. Please try again.');
+        startedRef.current = false;
+      }
+    })();
+  }, [isLoaded, isSignedIn, ensureCurrentWithStatus, getToken]);
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>{error}</Text>
+        <Pressable
+          style={styles.retryButton}
+          onPress={() => router.replace('/(auth)/selection?mode=signin')}
+        >
+          <Text style={styles.retryText}>Try again</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>You're in!</Text>
-        <Text style={styles.description}>
-          We're glad you're here.{"\n"}
-          To make things easier next time, press a button that works best for you.
-        </Text>
-
-        <View style={styles.buttonContainer}>
-          <CustomButton
-            text="Remember this device"
-            style={styles.rememberButton}
-            onPress={handleRememberDevice}
-          />
-
-          <CustomButton
-            text="Set a new password"
-            style={styles.setPasswordButton}
-            onPress={handleSetPassword}
-          />
-
-          <Pressable onPress={handleSkip} style={styles.skipButton}>
-            <Text style={styles.skipText}>Skip</Text>
-          </Pressable>
-        </View>
-      </View>
+      <ActivityIndicator size="large" color="#1DB954" />
+      {infoToast ? (
+        <Toast message={infoToast} onHide={() => setInfoToast(null)} duration={3000} />
+      ) : null}
     </View>
   );
 }
@@ -71,46 +93,28 @@ export default function PostAuthScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
-    justifyContent: "center",
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingHorizontal: 20,
-  },
-  content: {
-    alignItems: "center",
-    gap: 30,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#fff",
-    textAlign: "center",
-  },
-  description: {
-    fontSize: 16,
-    color: "#ccc",
-    textAlign: "center",
-    lineHeight: 24,
-  },
-  buttonContainer: {
-    width: "100%",
     gap: 16,
-    marginTop: 20,
   },
-  rememberButton: {
-    backgroundColor: "#A881E6", // Purple from Figma
-    width: "100%",
+  errorText: {
+    color: '#ff6b6b',
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: 16,
   },
-  setPasswordButton: {
-    backgroundColor: "#1D8954", // Teal/Green from Figma
-    width: "100%",
+  retryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
-  skipButton: {
-    padding: 15,
-    alignItems: "center",
-  },
-  skipText: {
-    color: "#fff",
+  retryText: {
+    color: '#fff',
+    fontWeight: '600',
     fontSize: 16,
-    fontWeight: "700",
   },
 });

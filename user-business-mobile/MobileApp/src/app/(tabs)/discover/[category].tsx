@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,17 +9,26 @@ import {
   Animated as RNAnimated,
   LayoutChangeEvent,
   ScrollView,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQuery } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 import { FEED_ITEMS, DISCOVER_FILTER_CATEGORIES } from '@/data/mockFeed';
+import { usePersonalizedFeed } from '@/hooks/usePersonalizedFeed';
+import { mapFeedItemToContentItem } from '@/utils/personalizedFeed';
+import { USE_CONVEX_DATA } from '@/config/features';
 import IdentityRow from '@/components/feed/IdentityRow';
 import ContentContextMenu from '@/components/feed/ContentContextMenu';
 import DynamicMediaRenderer from '@/components/feed/DynamicMediaRenderer';
 import SaveToCollectionSheet from '@/components/bookmarks/SaveToCollectionSheet';
+import DiscoverProductOverlay from '@/components/commerce/DiscoverProductOverlay';
+import { toMediaAspect } from '@/components/commerce/getSheetSnapPoints';
 import { useCollapsibleHeader } from '@/hooks/useCollapsibleHeader';
 import type { ContentItem, MediaItem } from '@/types/content';
+import Colors from '@/constants/Colors';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CARD_IMAGE_MAX_HEIGHT = SCREEN_HEIGHT * 0.55;
@@ -130,6 +139,25 @@ export default function DiscoverCategory() {
   const router = useRouter();
   const [activeFilter, setActiveFilter] = useState('All');
   const [saveTarget, setSaveTarget] = useState<ContentItem | null>(null);
+  const [overlay, setOverlay] = useState<{
+    merchantSlug: string;
+    productSlug: string;
+  } | null>(null);
+
+  const laParadaProducts = useQuery(
+    api.platform.merchants.listProducts,
+    USE_CONVEX_DATA ? { merchantSlug: 'la-parada' } : 'skip',
+  );
+  const { items: personalizedItems } = usePersonalizedFeed(12);
+  const feedData = useMemo(() => {
+    if (personalizedItems.length === 0) {
+      return FEED_ITEMS;
+    }
+    return [
+      ...personalizedItems.map(mapFeedItemToContentItem),
+      ...FEED_ITEMS.slice(0, 2),
+    ];
+  }, [personalizedItems]);
 
   const { animatedHeight: headerRowHeight, onScroll: handleScroll } =
     useCollapsibleHeader({ headerHeight: HEADER_ROW_HEIGHT });
@@ -218,11 +246,56 @@ export default function DiscoverCategory() {
         </View>
 
         <FlatList
-          data={FEED_ITEMS}
+          data={feedData}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
           onScroll={handleScroll}
           scrollEventThrottle={16}
+          ListHeaderComponent={
+            laParadaProducts && laParadaProducts.length > 0 ? (
+              <View style={styles.convexSection}>
+                <Text style={styles.convexSectionTitle}>La Parada menu</Text>
+                <Text style={styles.convexSectionSub}>
+                  Tap to preview overlay (live aspect ratios)
+                </Text>
+                {laParadaProducts.map((product: (typeof laParadaProducts)[number]) => {
+                  const media: MediaItem | null = product.imageUrl
+                    ? {
+                        uri: product.imageUrl,
+                        type: 'image',
+                        width: product.imageWidth ?? 1080,
+                        height: product.imageHeight ?? 1080,
+                        aspect: toMediaAspect(product.mediaAspect ?? undefined),
+                      }
+                    : null;
+                  return (
+                    <TouchableOpacity
+                      key={product.slug}
+                      style={styles.convexCard}
+                      onPress={() =>
+                        setOverlay({
+                          merchantSlug: 'la-parada',
+                          productSlug: product.slug,
+                        })
+                      }
+                    >
+                      {media ? (
+                        <DynamicMediaRenderer
+                          media={media}
+                          maxHeight={CARD_IMAGE_MAX_HEIGHT * 0.6}
+                          borderRadius={8}
+                        />
+                      ) : null}
+                      <Text style={styles.convexName}>{product.name}</Text>
+                      <Text style={styles.convexAspect}>
+                        {product.mediaAspect ?? 'square'}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : null
+          }
           contentContainerStyle={[
             styles.list,
             { paddingTop: HEADER_MAX_HEIGHT + 12 },
@@ -283,6 +356,15 @@ export default function DiscoverCategory() {
         item={saveTarget}
         onClose={() => setSaveTarget(null)}
       />
+
+      {overlay && (
+        <DiscoverProductOverlay
+          visible
+          merchantSlug={overlay.merchantSlug}
+          productSlug={overlay.productSlug}
+          onDismiss={() => setOverlay(null)}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -400,5 +482,37 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.75)',
     fontSize: 12,
     fontWeight: '600',
+  },
+  convexSection: {
+    gap: 12,
+    marginBottom: 24,
+    paddingBottom: 24,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#333',
+  },
+  convexSectionTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  convexSectionSub: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  convexCard: {
+    gap: 8,
+    marginBottom: 16,
+  },
+  convexName: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  convexAspect: {
+    color: Colors.primary,
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
   },
 });

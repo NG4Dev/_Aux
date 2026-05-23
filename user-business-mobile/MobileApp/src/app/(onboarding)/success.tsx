@@ -1,58 +1,163 @@
 import { useEffect, useState } from "react";
+
 import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+
 import { router } from "expo-router";
 
+import { useUser } from "@clerk/clerk-expo";
+
+import { useMutation } from "convex/react";
+
+import { api } from "@/convex/_generated/api";
+import { authLog } from "@/services/authFlowLogger";
+
+
+
 export default function SuccessScreen() {
+
   const [showSpinner, setShowSpinner] = useState(false);
 
+  const { user } = useUser();
+
+  const updateProfile = useMutation(api.userProfile.updateProfile);
+
+
+
   useEffect(() => {
-    // Show green checkmark for 1.5s, then switch to spinner
+
+    async function syncProfile() {
+
+      if (!user) {
+        authLog('success', 'wait', { reason: 'noUser' });
+        return;
+      }
+
+      authLog('success', 'syncProfileStart', {
+        hasDob: typeof user.unsafeMetadata?.dob === 'string',
+      });
+
+      try {
+
+        const dob = user.unsafeMetadata?.dob;
+
+        if (typeof dob === "string") {
+
+          const isoDate = dob.includes("T") ? dob.split("T")[0] : dob;
+
+          await updateProfile({ dateOfBirth: isoDate });
+          authLog('success', 'dobSynced', { isoDate });
+
+        }
+
+        authLog('success', 'navigate', { to: '/(auth)/post-auth' });
+        router.replace("/(auth)/post-auth");
+
+      } catch (err) {
+
+        authLog('success', 'syncError', {
+          message: err instanceof Error ? err.message : String(err),
+        });
+        console.warn("Failed to sync profile after sign-up", err);
+
+        authLog('success', 'navigate', { to: '/(auth)/post-auth', fallback: true });
+        router.replace("/(auth)/post-auth");
+
+      }
+
+    }
+
+    void syncProfile();
+
+  }, [user, updateProfile]);
+
+
+
+  useEffect(() => {
+
     const checkmarkTimer = setTimeout(() => {
+
       setShowSpinner(true);
+
     }, 1500);
 
-    // After spinner shows for 1.5s, navigate to showcase
-    const navigationTimer = setTimeout(() => {
-      router.replace("/showcase");
-    }, 3000);
+
 
     return () => {
+
       clearTimeout(checkmarkTimer);
-      clearTimeout(navigationTimer);
+
     };
+
   }, []);
 
+
+
   return (
+
     <View style={styles.container}>
+
       {showSpinner ? (
+
         <ActivityIndicator size="large" color="#2ECDA7" />
+
       ) : (
+
         <View style={styles.checkmarkContainer}>
+
             <Text style={styles.checkmark}>✓</Text>
+
         </View>
+
       )}
+
     </View>
+
   );
+
 }
 
+
+
 const styles = StyleSheet.create({
+
   container: {
+
     flex: 1,
+
     justifyContent: "center",
+
     alignItems: "center",
+
     backgroundColor: "#000",
+
   },
+
   checkmarkContainer: {
+
     width: 80,
+
     height: 80,
+
     borderRadius: 40,
-    backgroundColor: '#1D8954', // Spotify Green
+
+    backgroundColor: '#1D8954',
+
     justifyContent: 'center',
+
     alignItems: 'center',
+
   },
+
   checkmark: {
+
     fontSize: 40,
+
     fontWeight: 'bold',
-    color: '#000', // Black checkmark
+
+    color: '#000',
+
   },
+
 });
+
+

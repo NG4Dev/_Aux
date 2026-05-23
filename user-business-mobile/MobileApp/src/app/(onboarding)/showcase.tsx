@@ -4,9 +4,15 @@ import { useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, ImageStyle } from 'react-native';
 import Animated, { FadeIn, FadeOut, SlideInUp } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '@clerk/clerk-expo';
 import FeatureCard from '@/components/FeatureCard';
 import Marquee from '@/components/Marquee';
 import CustomButton from '@/components/CustomButton';
+import {
+  completeGuestOnboarding,
+  markGuestShowcaseSeen,
+} from '@/services/onboarding';
+import { authLog } from '@/services/authFlowLogger';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MARQUEE_HEIGHT = SCREEN_HEIGHT * 0.48;
@@ -45,10 +51,20 @@ const features = [
 ];
 
 export default function ShowcaseScreen() {
+  const { isSignedIn } = useAuth();
   const [activeIndex, setActiveIndex] = useState(0);
 
   const onGetStarted = async () => {
-    router.replace('/preferences');
+    authLog('showcase', 'getStarted', { isSignedIn: !!isSignedIn });
+    if (isSignedIn) {
+      await markGuestShowcaseSeen();
+      authLog('showcase', 'navigate', { to: '/(onboarding)/preferences', reason: 'signedIn' });
+      router.replace('/(onboarding)/preferences');
+      return;
+    }
+    await completeGuestOnboarding();
+    authLog('showcase', 'navigate', { to: '/(tabs)/home', reason: 'guest' });
+    router.replace('/(tabs)/home');
   };
 
   const activeFeature = features[activeIndex];

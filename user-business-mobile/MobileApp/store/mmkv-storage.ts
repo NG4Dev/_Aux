@@ -1,31 +1,61 @@
-import { StateStorage } from 'zustand/middleware'
-import { MMKV } from 'react-native-mmkv'
+import type { StateStorage } from 'zustand/middleware';
+import { createMMKV } from 'react-native-mmkv';
 
-let storage: any;
-try {
-  storage = new MMKV({
-    id: 'balance-storage'
-  });
-} catch (e) {
-  console.warn("MMKV could not be initialized, falling back to mock storage:", e);
+type MmkvLike = {
+  set: (key: string, value: string | number | boolean) => void;
+  getString: (key: string) => string | undefined;
+  delete: (key: string) => void;
+};
+
+let mmkvWarned = false;
+
+function createMockStorage(): MmkvLike {
   const mockStorage = new Map<string, string>();
-  storage = {
-    set: (key: string, value: any) => mockStorage.set(key, String(value)),
-    getString: (key: string) => mockStorage.get(key),
-    delete: (key: string) => mockStorage.delete(key),
+  return {
+    set: (key, value) => mockStorage.set(key, String(value)),
+    getString: (key) => mockStorage.get(key),
+    delete: (key) => mockStorage.delete(key),
   };
 }
 
-//this is an adapter for mmkv storage engine
-export const zustandStorage: StateStorage = {
-  setItem: (name, value) => {
-    return storage.set(name, value)
-  },
-  getItem: (name) => {
-    const value = storage.getString(name)
-    return value ?? null
-  },
-  removeItem: (name) => {
-    return storage.delete(name)
-  },
+const storageCache = new Map<string, MmkvLike>();
+
+function getOrCreateStorage(id: string): MmkvLike {
+  const cached = storageCache.get(id);
+  if (cached) return cached;
+
+  try {
+    const instance = createMMKV({ id });
+    storageCache.set(id, instance);
+    return instance;
+  } catch (e) {
+    if (!mmkvWarned) {
+      mmkvWarned = true;
+      console.warn(
+        'MMKV native module unavailable (rebuild with `npx expo run:android`). Using in-memory storage until then.',
+        e,
+      );
+    }
+    const mock = createMockStorage();
+    storageCache.set(id, mock);
+    return mock;
+  }
 }
+
+export function createMmkvStorage(id: string): StateStorage {
+  return {
+    setItem: (name, value) => {
+      getOrCreateStorage(id).set(name, value);
+    },
+    getItem: (name) => getOrCreateStorage(id).getString(name) ?? null,
+    removeItem: (name) => {
+      getOrCreateStorage(id).delete(name);
+    },
+  };
+}
+
+/** Default store bucket (balance, bookmarks, wallet). */
+export const zustandStorage = createMmkvStorage('ycago-app-storage');
+
+/** Isolated cart persistence. */
+export const cartZustandStorage = createMmkvStorage('ycago-cart');

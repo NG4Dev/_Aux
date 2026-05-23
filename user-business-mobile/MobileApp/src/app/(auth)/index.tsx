@@ -1,46 +1,45 @@
-import React from "react";
-import { StyleSheet, View } from "react-native";
-import { router } from "expo-router";
-import CustomButton from "@/components/CustomButton";
-import { useVideoPlayer, VideoView } from "expo-video";
-import { useAuth } from "@clerk/clerk-expo";
-import { isOnboardingCompleted } from "@/services/onboarding";
+import React, { useEffect } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
+import CustomButton from '@/components/CustomButton';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { useAuth } from '@clerk/clerk-expo';
+import { authLog } from '@/services/authFlowLogger';
 
 export default function AuthSplashScreen() {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, isLoaded } = useAuth();
 
-  React.useEffect(() => {
-    if (isSignedIn) {
-      const checkOnboarding = async () => {
-        const completed = await isOnboardingCompleted();
-        if (completed) {
-          router.replace("/home");
-        } else {
-          router.replace("/showcase");
-        }
-      };
-      checkOnboarding();
-    }
-  }, [isSignedIn]);
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+    authLog('authIndex', 'redirect', {
+      to: '/(auth)/post-auth',
+      reason: 'alreadySignedIn',
+    });
+    router.replace('/(auth)/post-auth');
+  }, [isSignedIn, isLoaded]);
 
   const player = useVideoPlayer(
-    require("@assets/videos/welcome-bg-video.mp4"),
+    require('@assets/videos/welcome-bg-video.mp4'),
     (player) => {
       player.loop = true;
       player.muted = true;
       player.play();
-    }
+    },
   );
 
   if (isSignedIn) {
-    return null;
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#1DB954" />
+      </View>
+    );
   }
 
   return (
     <View style={styles.container}>
       <VideoView
         player={player}
-        style={[StyleSheet.absoluteFill, { pointerEvents: "none" }]}
+        style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}
         contentFit="cover"
         nativeControls={false}
       />
@@ -51,19 +50,24 @@ export default function AuthSplashScreen() {
         <CustomButton
           text="Sign in"
           style={styles.purpleButton}
-          onPress={() => router.push("/(auth)/selection?mode=signin")}
+          onPress={() => router.push('/(auth)/selection?mode=signin')}
         />
 
         <CustomButton
           text="Create account"
           style={styles.greenButton}
-          onPress={() => router.push("/(auth)/selection?mode=signup")}
+          onPress={() => router.push('/(auth)/selection?mode=signup')}
         />
 
         <CustomButton
           text="Continue as guest"
           style={styles.transparentButton}
-          onPress={() => router.replace("/showcase")}
+          onPress={() => {
+            authLog('authIndex', 'continueAsGuest', {
+              to: '/(onboarding)/showcase',
+            });
+            router.replace('/(onboarding)/showcase');
+          }}
         />
       </View>
     </View>
@@ -73,12 +77,18 @@ export default function AuthSplashScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: '#000',
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   content: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   buttonContainer: {
     padding: 20,
@@ -86,12 +96,12 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   purpleButton: {
-    backgroundColor: "#A881E6",
+    backgroundColor: '#A881E6',
   },
   greenButton: {
-    backgroundColor: "#1DB954",
+    backgroundColor: '#1DB954',
   },
   transparentButton: {
-    backgroundColor: "transparent",
+    backgroundColor: 'transparent',
   },
 });

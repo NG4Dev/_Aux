@@ -5,6 +5,7 @@ export default function PayLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" options={{ title: "Pay" }} />
       <Stack.Screen name="wallet" options={{ title: "Wallet" }} />
+      <Stack.Screen name="tickets" options={{ title: "My tickets" }} />
     </Stack>
   );
 }

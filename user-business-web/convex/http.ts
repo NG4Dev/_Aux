@@ -3,6 +3,7 @@ import { Webhook } from "svix";
 import { registerRoutes } from "@convex-dev/stripe";
 import type { WebhookEvent } from "@clerk/nextjs/webhooks";
 import { components, internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { httpAction } from "./_generated/server";
 
 const http = httpRouter();
@@ -25,6 +26,14 @@ registerRoutes(http, components.stripe, {
       const session = event.data.object;
       await ctx.runMutation(internal.orders.cancelExpired, {
         stripeSessionId: session.id,
+      });
+    },
+    "payment_intent.succeeded": async (ctx, event) => {
+      const paymentIntent = event.data.object;
+      const orderId = paymentIntent.metadata?.orderId;
+      await ctx.runMutation(internal.orders.markPaidByPaymentIntent, {
+        paymentIntentId: paymentIntent.id,
+        orderId: orderId ? (orderId as Id<"orders">) : undefined,
       });
     },
   },

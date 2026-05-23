@@ -21,14 +21,24 @@ export default async function AdminLayout({
     redirect("/sign-in");
   }
 
-  const user = await fetchQuery(api.users.currentUser, {}, { token });
-  if (!user || user.role !== "admin") {
+  const adminContext = await fetchQuery(
+    api.users.getAdminContext,
+    {},
+    { token },
+  );
+  if (!adminContext) {
     redirect("/");
   }
 
+  const isPlatform =
+    adminContext.role === "admin" || adminContext.role === "platformAdmin";
+
   return (
     <SidebarProvider defaultOpen>
-      <AppSidebar />
+      <AppSidebar
+        role={isPlatform ? "platform" : "merchant"}
+        merchantSlug={adminContext.merchants[0]?.slug}
+      />
       <SidebarInset>
         <AdminShell>{children}</AdminShell>
       </SidebarInset>

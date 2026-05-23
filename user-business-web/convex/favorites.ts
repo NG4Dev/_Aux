@@ -6,6 +6,7 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 import schema from "./schema";
 
 const productDocValidator = v.object({
@@ -122,6 +123,17 @@ export const toggle = mutation({
       userId: user._id,
       productId: args.productId,
       createdAt: Date.now(),
+    });
+    await ctx.db.insert("userInteractions", {
+      userId: user._id,
+      entityType: "product",
+      entityId: args.productId,
+      action: "favorite",
+      weight: 3,
+      createdAt: Date.now(),
+    });
+    await ctx.scheduler.runAfter(0, internal.userEmbeddings.recomputeForUser, {
+      userId: user._id,
     });
     return true;
   },

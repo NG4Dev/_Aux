@@ -1,6 +1,6 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Tabs, useSegments } from 'expo-router';
+import { Platform, StyleSheet, View } from 'react-native';
+import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import SwipeChatContainer from '@/components/chat/SwipeChatContainer';
@@ -11,6 +11,20 @@ type IconProps = {
   focused: boolean;
 };
 
+function TabBarBackground() {
+  if (Platform.OS === 'ios') {
+    return (
+      <BlurView
+        style={styles.blurBackground}
+        intensity={50}
+        tint="dark"
+        blurReductionFactor={3}
+      />
+    );
+  }
+  return <View style={styles.androidTabBarBackground} />;
+}
+
 const TabsLayout = () => {
   return (
     <SwipeChatContainer>
@@ -19,16 +33,10 @@ const TabsLayout = () => {
           headerShown: false,
           tabBarActiveTintColor: '#fff',
           tabBarInactiveTintColor: 'gray',
-          tabBarBackground: () => (
-            <BlurView
-              style={styles.blurBackground}
-              intensity={50}
-              tint="dark"
-              blurReductionFactor={3}
-            />
-          ),
+          tabBarBackground: () => <TabBarBackground />,
           tabBarStyle: styles.tabBar,
           tabBarLabelStyle: styles.tabLabel,
+          sceneStyle: styles.scene,
         }}
       >
         <Tabs.Screen
@@ -57,11 +65,10 @@ const TabsLayout = () => {
             ),
           }}
         />
-        {/* Chat screen hidden from Tabs as it's now in the SwipeContainer */}
         <Tabs.Screen
           name="chat"
           options={{
-             href: null,
+            href: null,
           }}
         />
         <Tabs.Screen
@@ -96,6 +103,12 @@ const TabsLayout = () => {
             ),
           }}
         />
+        <Tabs.Screen
+          name="cart"
+          options={{
+            href: null,
+          }}
+        />
       </Tabs>
     </SwipeChatContainer>
   );
@@ -104,9 +117,17 @@ const TabsLayout = () => {
 export default TabsLayout;
 
 const styles = StyleSheet.create({
+  scene: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
   blurBackground: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  androidTabBarBackground: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
   },
   tabBar: {
     backgroundColor: 'transparent',
@@ -117,6 +138,8 @@ const styles = StyleSheet.create({
     elevation: 0,
     shadowOpacity: 0,
     borderTopWidth: 0,
+    height: Platform.OS === 'ios' ? 88 : 64,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 8,
   },
   tabLabel: {
     textShadowColor: 'transparent',

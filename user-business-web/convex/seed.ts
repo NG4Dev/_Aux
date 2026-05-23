@@ -493,6 +493,8 @@ async function runSeedCatalogWithImages(ctx: ActionCtx): Promise<{
   // single-action runtime limit and runs in parallel.
   await ctx.runAction(internal.embeddings.backfillAll, { force: true });
 
+  await ctx.runMutation(internal.seedInterests.seedInterestCategories, {});
+
   return {
     categoriesInserted: inserted.categoriesInserted,
     productsInserted: inserted.productsInserted,

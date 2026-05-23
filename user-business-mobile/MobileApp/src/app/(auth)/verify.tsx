@@ -19,6 +19,7 @@ import { useState, useEffect } from "react";
 import { useSignUp, isClerkAPIResponseError } from "@clerk/clerk-expo";
 import Svg, { Circle } from 'react-native-svg';
 import { Ionicons } from "@expo/vector-icons";
+import { authLog } from "@/services/authFlowLogger";
 
 const ProgressCircle = ({ progress }: { progress: number }) => {
   const size = 24;
@@ -113,23 +114,33 @@ export default function VerifyScreen() {
   const onVerify = async ({code}: VerifyFields) => {
     if (!isLoaded) return;
 
+    authLog('verify', 'start', {});
+
     try {
       const signUpAttempt = await signUp.attemptEmailAddressVerification({ 
         code,
       });
 
+      authLog('verify', 'clerkStatus', { status: signUpAttempt.status });
+
       if (signUpAttempt.status === 'complete') {
         await setActive({ session: signUpAttempt.createdSessionId });
+        authLog('verify', 'navigate', { to: '/(onboarding)/success' });
         router.replace("/(onboarding)/success");
       } else {
-        console.log('Verification failed', signUpAttempt.status);
+        authLog('verify', 'incomplete', { status: signUpAttempt.status });
         setError('root', { message: 'Could not complete signing up' });
       }
 
     } catch (error) {
       if (isClerkAPIResponseError(error)) {
+        authLog('verify', 'clerkError', {
+          code: error.errors[0]?.code,
+          message: error.errors[0]?.longMessage,
+        });
         setError('root', { message: error.errors[0]?.longMessage || 'An error occurred' });
       } else {
+        authLog('verify', 'error', { message: 'unknown' });
         setError('root', { message: 'Unknown error' });
       }
     }

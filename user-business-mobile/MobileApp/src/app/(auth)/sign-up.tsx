@@ -23,9 +23,11 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { useSignUp } from "@clerk/clerk-expo";
 import { isClerkAPIResponseError } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
-import { useHeaderHeight } from "@react-navigation/elements";
+import { useHeaderHeight } from "expo-router/react-navigation";
 import Svg, { Circle } from "react-native-svg";
 import { Toast } from "@/components/Toast";
+import DateOfBirthPicker, { DEFAULT_DOB } from "@/components/onboarding/DateOfBirthPicker";
+import { authLog } from "@/services/authFlowLogger";
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const YEAR_LIST = Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - i);
@@ -280,7 +282,7 @@ export default function SignUpScreen() {
     resolver: zodResolver(signUpSchema),
     mode: "onChange",
     defaultValues: {
-      dob: new Date(),
+      dob: DEFAULT_DOB,
     }
   });
 
@@ -316,6 +318,8 @@ export default function SignUpScreen() {
   const onSignUp = async (data: SignUpFields) => {
     if (!isLoaded) return;
 
+    authLog('signUp', 'start', { email: data.email, hasDob: !!data.dob });
+
     try {
       await signUp.create({
         emailAddress: data.email,
@@ -327,11 +331,14 @@ export default function SignUpScreen() {
         }
       });
 
+      authLog('signUp', 'created', { status: signUp.status });
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      authLog('signUp', 'navigate', { to: '/(auth)/verify' });
       router.push("/(auth)/verify");
     } catch (err) {
       if (isClerkAPIResponseError(err)) {
         const error = err.errors[0];
+        authLog('signUp', 'clerkError', { code: error.code, message: error.longMessage });
         let stepToNavigate = undefined;
         if (error.meta?.paramName === 'email_address') stepToNavigate = 1;
         else if (error.meta?.paramName === 'password') stepToNavigate = 2;
@@ -351,7 +358,7 @@ export default function SignUpScreen() {
     let isValid = false;
     if (step === 1) isValid = await trigger('email');
     if (step === 2) isValid = await trigger('password');
-    if (step === 3) isValid = true; 
+    if (step === 3) isValid = await trigger('dob');
     if (step === 4) isValid = await trigger(['firstName', 'lastName']);
 
     if (isValid) {
@@ -424,30 +431,10 @@ export default function SignUpScreen() {
       <View style={{ flex: 1, paddingBottom: keyboardHeight }}>
         {step === 3 ? (
           <View style={[styles.contentContainer, { flex: 1 }]}>
-            <View style={styles.stepContainer}>
-              <Text style={styles.stepTitle}>What's your date of birth?</Text>
-              
-              <View style={styles.wheelContainer}>
-                <View style={styles.wheelBackground} />
-                <WheelColumn
-                  data={monthList}
-                  selectedIndex={currentMonth}
-                  onSelect={(idx) => updateDate('month', idx)}
-                />
-                <View style={styles.wheelColumnDivider} />
-                <WheelColumn
-                  data={daysArray}
-                  selectedIndex={Math.min(currentDay - 1, daysInMonth - 1)}
-                  onSelect={(idx) => updateDate('day', idx + 1)}
-                />
-                <View style={styles.wheelColumnDivider} />
-                <WheelColumn
-                  data={yearList}
-                  selectedIndex={yearList.indexOf(currentYear)}
-                  onSelect={(idx) => updateDate('year', yearList[idx])}
-                />
-              </View>
-            </View>
+            <DateOfBirthPicker
+              value={dob}
+              onChange={(date) => setValue('dob', date, { shouldValidate: true })}
+            />
           </View>
         ) : (
           <ScrollView
