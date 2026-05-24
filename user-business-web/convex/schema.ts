@@ -137,6 +137,18 @@ export const locationValidator = v.object({
   lng: v.optional(v.number()),
 });
 
+export const feedBadgeValidator = v.object({
+  label: v.string(),
+  color: v.string(),
+});
+
+export const operatingStatusValidator = v.union(
+  v.literal("open"),
+  v.literal("closed"),
+  v.literal("upcoming"),
+  v.literal("live"),
+);
+
 export default defineSchema({
   users: defineTable({
     clerkUserId: v.string(),
@@ -194,7 +206,15 @@ export default defineSchema({
     email: v.optional(v.string()),
     phone: v.optional(v.string()),
     logoStorageId: v.optional(v.id("_storage")),
+    coverStorageId: v.optional(v.id("_storage")),
+    galleryStorageIds: v.optional(v.array(v.id("_storage"))),
     linkedPlaceId: v.optional(v.id("places")),
+    interestCategoryIds: v.optional(v.array(v.id("categories"))),
+    feedCategories: v.optional(v.array(v.string())),
+    /** Discover home tile slugs for filtered feeds (e.g. beach-bars). */
+    discoverCategorySlugs: v.optional(v.array(v.string())),
+    feedBadge: v.optional(feedBadgeValidator),
+    operatingStatus: v.optional(operatingStatusValidator),
     stripeConnectId: v.optional(v.string()),
     isActive: v.boolean(),
     embedding: v.optional(v.array(v.float64())),
@@ -217,6 +237,16 @@ export default defineSchema({
     placeKind: placeKindValidator,
     linkedMerchantId: v.optional(v.id("merchants")),
     ownerUserId: v.optional(v.id("users")),
+    coverStorageId: v.optional(v.id("_storage")),
+    galleryStorageIds: v.optional(v.array(v.id("_storage"))),
+    mediaAspect: v.optional(mediaAspectValidator),
+    imageWidth: v.optional(v.number()),
+    imageHeight: v.optional(v.number()),
+    interestCategoryIds: v.optional(v.array(v.id("categories"))),
+    feedCategories: v.optional(v.array(v.string())),
+    discoverCategorySlugs: v.optional(v.array(v.string())),
+    feedBadge: v.optional(feedBadgeValidator),
+    operatingStatus: v.optional(operatingStatusValidator),
     isActive: v.boolean(),
     embedding: v.optional(v.array(v.float64())),
     createdAt: v.number(),
@@ -251,9 +281,12 @@ export default defineSchema({
     name: v.string(),
     slug: v.string(),
     imageStorageId: v.optional(v.id("_storage")),
+    tileColor: v.optional(v.string()),
     sortOrder: v.number(),
     /** Onboarding/discover grouping, e.g. "Eating & Drinking". */
     discoverGroup: v.optional(v.string()),
+    /** When true, shown on Discover home grid tiles. */
+    showOnDiscoverHome: v.optional(v.boolean()),
     /** Text embedding for interest-only categories (before catalog exists). */
     embedding: v.optional(v.array(v.float64())),
   })
@@ -275,6 +308,11 @@ export default defineSchema({
     stock: v.number(),
     unit: v.string(),
     productKind: v.optional(v.string()),
+    interestCategoryIds: v.optional(v.array(v.id("categories"))),
+    feedCategories: v.optional(v.array(v.string())),
+    discoverCategorySlugs: v.optional(v.array(v.string())),
+    feedBadge: v.optional(feedBadgeValidator),
+    feedHighlight: v.optional(v.boolean()),
     isActive: v.boolean(),
     createdAt: v.number(),
     embedding: v.optional(v.array(v.float64())),
@@ -283,6 +321,7 @@ export default defineSchema({
     .index("by_category", ["categoryId"])
     .index("by_merchant", ["merchantId"])
     .index("by_active", ["isActive"])
+    .index("by_feed_highlight", ["feedHighlight", "isActive"])
     .searchIndex("search_name", {
       searchField: "name",
       filterFields: ["categoryId", "isActive", "merchantId"],
@@ -310,12 +349,41 @@ export default defineSchema({
     mediaAspect: v.optional(mediaAspectValidator),
     imageWidth: v.optional(v.number()),
     imageHeight: v.optional(v.number()),
+    galleryStorageIds: v.optional(v.array(v.id("_storage"))),
+    interestCategoryIds: v.optional(v.array(v.id("categories"))),
+    feedCategories: v.optional(v.array(v.string())),
+    discoverCategorySlugs: v.optional(v.array(v.string())),
+    feedBadge: v.optional(feedBadgeValidator),
+    chyron: v.optional(v.string()),
     isCancelled: v.optional(v.boolean()),
     createdAt: v.number(),
   })
     .index("by_merchant", ["merchantId"])
     .index("by_slug", ["slug"])
     .index("by_startTime", ["startTime"]),
+
+  posts: defineTable({
+    merchantId: v.id("merchants"),
+    slug: v.string(),
+    title: v.string(),
+    subtitle: v.optional(v.string()),
+    caption: v.string(),
+    imageStorageId: v.optional(v.id("_storage")),
+    mediaAspect: v.optional(mediaAspectValidator),
+    imageWidth: v.optional(v.number()),
+    imageHeight: v.optional(v.number()),
+    galleryStorageIds: v.optional(v.array(v.id("_storage"))),
+    interestCategoryIds: v.optional(v.array(v.id("categories"))),
+    feedCategories: v.optional(v.array(v.string())),
+    discoverCategorySlugs: v.optional(v.array(v.string())),
+    feedBadge: v.optional(feedBadgeValidator),
+    operatingStatus: v.optional(operatingStatusValidator),
+    isActive: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_merchant", ["merchantId"])
+    .index("by_active", ["isActive"]),
 
   ticketTypes: defineTable({
     eventId: v.id("events"),

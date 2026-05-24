@@ -7,19 +7,18 @@ type AuthRouter = {
 
 export type SsoStrategy = 'oauth_google' | 'oauth_facebook' | 'oauth_apple';
 
-type StartSSOFlowResult = {
+/** Minimal shape read from Clerk startSSOFlow — intentionally loose for @clerk/expo compat. */
+export type StartSSOFlow = (params: {
+  strategy: SsoStrategy;
+  redirectUrl: string;
+}) => Promise<{
   createdSessionId: string | null;
   setActive?: (params: { session: string }) => Promise<void>;
   signIn?: {
-    status: string;
-    createdSessionId: string | null;
-  };
-};
-
-type StartSSOFlow = (params: {
-  strategy: SsoStrategy;
-  redirectUrl: string;
-}) => Promise<StartSSOFlowResult>;
+    status?: string | null;
+    createdSessionId?: string | null;
+  } | null;
+}>;
 
 export function getOAuthRedirectUrl(): string {
   return AuthSession.makeRedirectUri({

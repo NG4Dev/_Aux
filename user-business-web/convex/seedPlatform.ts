@@ -636,13 +636,17 @@ export const seedPlatform = internalAction({
       eventImages,
     });
 
+    const showcase = await ctx.runAction(internal.seedShowcase.run, {
+      clerkUserId: args.clerkUserId,
+    });
+
     await ctx.runAction(internal.embeddingsMerchants.backfillAll, { force: true });
     await ctx.runAction(internal.embeddingsPlaces.backfillAll, { force: true });
     await ctx.runAction(internal.embeddings.backfillAll, { force: true });
 
     return {
       ...result,
-      imagesUploaded: productImages.length + eventImages.length,
+      imagesUploaded: productImages.length + eventImages.length + showcase.imagesUploaded,
     };
   },
 });

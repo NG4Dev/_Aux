@@ -1,42 +1,63 @@
-import type { ContentItem } from '@/types/content';
+import type { ContentItem, ContentStatus, MediaItem } from '@/types/content';
+
+export type FeedBadge = {
+  label: string;
+  color: string;
+};
+
+export type FeedMediaItem = {
+  uri: string;
+  type: 'image' | 'video';
+  width: number;
+  height: number;
+  aspect?: MediaItem['aspect'];
+};
 
 export type PersonalizedFeedItem = {
-  kind: 'product' | 'merchant';
+  kind: 'product' | 'merchant' | 'place' | 'event' | 'post';
+  contentType: ContentItem['contentType'];
   id: string;
   title: string;
   subtitle?: string;
   description?: string;
-  imageUrl: string | null;
+  media: FeedMediaItem[];
+  badge?: FeedBadge;
+  status?: ContentStatus;
+  chyron?: string;
+  profileName: string;
+  profileAvatar: string | null;
   merchantSlug?: string;
   productSlug?: string;
-  score?: number;
+  businessId?: string;
+  categories: string[];
+  verified?: boolean;
   personalized: boolean;
+  score?: number;
 };
 
 export function mapFeedItemToContentItem(item: PersonalizedFeedItem): ContentItem {
   return {
     id: item.id,
-    contentType: item.kind === 'merchant' ? 'place' : 'product',
+    contentType: item.contentType,
     title: item.title,
     subtitle: item.subtitle,
     description: item.description,
-    media: item.imageUrl
-      ? [
-          {
-            uri: item.imageUrl,
-            type: 'image',
-            width: 1080,
-            height: 1080,
-            aspect: 'square',
-          },
-        ]
-      : [],
-    profileName: item.subtitle ?? item.title,
-    profileAvatar: `https://i.pravatar.cc/80?u=${encodeURIComponent(item.id)}`,
+    media: item.media.map((m) => ({
+      uri: m.uri,
+      type: m.type,
+      width: m.width,
+      height: m.height,
+      aspect: m.aspect,
+    })),
+    badge: item.badge,
+    status: item.status,
+    chyron: item.chyron,
+    profileName: item.profileName,
+    profileAvatar: item.profileAvatar ?? `https://i.pravatar.cc/80?u=${encodeURIComponent(item.id)}`,
     merchantSlug: item.merchantSlug,
     productSlug: item.productSlug,
-    businessId: item.merchantSlug,
-    categories: item.personalized ? ['For you'] : ['Discover'],
-    verified: item.personalized,
+    businessId: item.businessId ?? item.merchantSlug,
+    categories: item.categories.length > 0 ? item.categories : ['Discover'],
+    verified: item.verified,
   };
 }

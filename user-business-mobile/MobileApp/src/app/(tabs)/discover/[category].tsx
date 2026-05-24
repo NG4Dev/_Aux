@@ -16,8 +16,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
-import { FEED_ITEMS, DISCOVER_FILTER_CATEGORIES } from '@/data/mockFeed';
-import { usePersonalizedFeed } from '@/hooks/usePersonalizedFeed';
+import { DISCOVER_FILTER_CATEGORIES } from '@/data/mockFeed';
+import { useDiscoverFeed } from '@/hooks/usePersonalizedFeed';
 import { mapFeedItemToContentItem } from '@/utils/personalizedFeed';
 import { USE_CONVEX_DATA } from '@/config/features';
 import IdentityRow from '@/components/feed/IdentityRow';
@@ -148,16 +148,11 @@ export default function DiscoverCategory() {
     api.platform.merchants.listProducts,
     USE_CONVEX_DATA ? { merchantSlug: 'la-parada' } : 'skip',
   );
-  const { items: personalizedItems } = usePersonalizedFeed(12);
-  const feedData = useMemo(() => {
-    if (personalizedItems.length === 0) {
-      return FEED_ITEMS;
-    }
-    return [
-      ...personalizedItems.map(mapFeedItemToContentItem),
-      ...FEED_ITEMS.slice(0, 2),
-    ];
-  }, [personalizedItems]);
+  const { items: personalizedItems } = useDiscoverFeed(category, 12);
+  const feedData = useMemo(
+    () => personalizedItems.map(mapFeedItemToContentItem),
+    [personalizedItems],
+  );
 
   const { animatedHeight: headerRowHeight, onScroll: handleScroll } =
     useCollapsibleHeader({ headerHeight: HEADER_ROW_HEIGHT });

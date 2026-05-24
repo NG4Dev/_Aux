@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,14 @@ import {
   FlatList,
   Image,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQuery } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import { USE_CONVEX_DATA } from '@/config/features';
 import { DISCOVER_CATEGORIES, DISCOVER_TABS } from '@/data/mockFeed';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -24,6 +28,23 @@ export default function DiscoverIndex() {
   const [activeTab, setActiveTab] = useState<(typeof DISCOVER_TABS)[number]>(
     DISCOVER_TABS[0],
   );
+
+  const convexCategories = useQuery(
+    api.platform.categories.listDiscoverHome,
+    USE_CONVEX_DATA ? {} : 'skip',
+  );
+
+  const categories = useMemo(() => {
+    if (USE_CONVEX_DATA && convexCategories && convexCategories.length > 0) {
+      return convexCategories.map((c) => ({
+        id: c.id,
+        label: c.label,
+        color: c.color,
+        image: c.image ?? DISCOVER_CATEGORIES.find((m) => m.id === c.id)?.image ?? '',
+      }));
+    }
+    return DISCOVER_CATEGORIES;
+  }, [convexCategories]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
@@ -57,33 +78,41 @@ export default function DiscoverIndex() {
         ))}
       </View>
 
-      <FlatList
-        data={DISCOVER_CATEGORIES}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        columnWrapperStyle={styles.row}
-        contentContainerStyle={styles.grid}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[styles.tile, { backgroundColor: item.color }]}
-            activeOpacity={0.8}
-            onPress={() =>
-              router.push({
-                pathname: '/(tabs)/discover/[category]',
-                params: { category: item.id, label: item.label },
-              })
-            }
-          >
-            <Text style={styles.tileLabel}>{item.label}</Text>
-            <Image
-              source={{ uri: item.image }}
-              style={styles.tileImage}
-              resizeMode="cover"
-            />
-          </TouchableOpacity>
-        )}
-      />
+      {USE_CONVEX_DATA && convexCategories === undefined ? (
+        <View style={styles.loading}>
+          <ActivityIndicator color="#fff" />
+        </View>
+      ) : (
+        <FlatList
+          data={categories}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          columnWrapperStyle={styles.row}
+          contentContainerStyle={styles.grid}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[styles.tile, { backgroundColor: item.color }]}
+              activeOpacity={0.8}
+              onPress={() =>
+                router.push({
+                  pathname: '/(tabs)/discover/[category]',
+                  params: { category: item.id, label: item.label },
+                })
+              }
+            >
+              <Text style={styles.tileLabel}>{item.label}</Text>
+              {item.image ? (
+                <Image
+                  source={{ uri: item.image }}
+                  style={styles.tileImage}
+                  resizeMode="cover"
+                />
+              ) : null}
+            </TouchableOpacity>
+          )}
+        />
+      )}
     </View>
   );
 }
@@ -168,5 +197,10 @@ const styles = StyleSheet.create({
     height: TILE_HEIGHT * 0.75,
     borderTopLeftRadius: 10,
     transform: [{ rotate: '8deg' }, { translateX: 8 }, { translateY: 4 }],
+  },
+  loading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

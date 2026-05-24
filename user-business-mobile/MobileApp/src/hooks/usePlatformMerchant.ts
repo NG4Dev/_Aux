@@ -10,7 +10,7 @@ import {
 
 export function useMerchantBySlug(slug: string | undefined) {
   const convexMerchant = useQuery(
-    api.platform.merchants.getBySlug,
+    api.platform.merchants.getBySlugWithMedia,
     USE_CONVEX_DATA && slug ? { slug } : 'skip',
   );
 
@@ -26,13 +26,28 @@ export function useMerchantBySlug(slug: string | undefined) {
     return { merchant: getBusinessById(slug), isLoading: false };
   }
 
+  const gallery =
+    convexMerchant.gallery.length > 0
+      ? convexMerchant.gallery
+      : convexMerchant.coverUrl
+        ? [
+            {
+              uri: convexMerchant.coverUrl,
+              type: 'image' as const,
+              width: 1080,
+              height: 1080,
+              aspect: 'square' as const,
+            },
+          ]
+        : [];
+
   return {
     merchant: {
       id: convexMerchant.slug,
       name: convexMerchant.name,
       tagline: convexMerchant.tagline ?? '',
       type: convexMerchant.type,
-      logo: '',
+      logo: convexMerchant.logoUrl ?? `https://i.pravatar.cc/160?u=${encodeURIComponent(convexMerchant.slug)}`,
       description: convexMerchant.description ?? '',
       hours: [],
       location: convexMerchant.location?.address
@@ -45,7 +60,7 @@ export function useMerchantBySlug(slug: string | undefined) {
       locationGiven: Boolean(convexMerchant.location?.address),
       isFollowing: false,
       links: {},
-      gallery: [],
+      gallery,
     },
     isLoading: false,
   };
