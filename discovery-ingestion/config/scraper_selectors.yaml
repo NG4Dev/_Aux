@@ -1,0 +1,95 @@
+# CSS/API selectors discovered during recon — extend per source
+sources:
+  quicket:
+    type: api
+    notes: Algolia products index; algoliaKey auto-fetched from quicket.co.za bundle
+    algolia:
+      app_id: QAUIPDMSEL
+      index: products
+      search_api_key: ""
+
+  computicket:
+    type: playwright
+    list_url: "https://www.computicket.com/events/"
+    selectors:
+      event_card: ".event-card, [data-event-id]"
+      title: "h2.event-title, .event-name"
+      date: ".event-date"
+      venue: ".venue-name"
+      price: ".price-from"
+      link: "a.event-link"
+
+  howler:
+    type: api
+    notes: Algolia Event index; credentials auto-fetched from howler.co.za/active APP_CONFIG
+    list_url: "https://www.howler.co.za/active"
+    algolia:
+      index: Event
+      application_id: K4FPULVWDS
+      api_key: ""
+
+  webtickets:
+    type: playwright
+    list_url: "https://www.webtickets.co.za/v2/Event.aspx"
+    selectors:
+      event_row: "tr.event-row, .event-listing"
+      title: ".event-title"
+      date: ".event-date"
+      venue: ".venue"
+
+  fever:
+    type: playwright
+    list_url: "https://feverup.com/en/johannesburg"
+    selectors:
+      experience_card: "[data-testid='planning-card'], .card"
+      title: "h3"
+      date: ".date"
+      link: "a"
+
+  airdosh:
+    type: playwright
+    list_url: "https://www.airdosh.co.za/events"
+    selectors:
+      event_card: ".event-card"
+      title: "h2"
+      date: ".date"
+      organizer: ".organizer"
+
+  bandsintown:
+    type: playwright
+    list_url: "https://www.bandsintown.com/c/johannesburg-south-africa/all-dates/genre/all-genres"
+    selectors:
+      event_card: "[data-testid='event-card'], .event-card"
+      artist: ".artist-name"
+      venue: ".venue-name"
+      date: "time"
+
+  fomosa:
+    type: playwright
+    list_url: "https://www.fomosa.co.za/experiences"
+    selectors:
+      deal_card: ".experience-card, .deal-item"
+      title: "h3"
+      price: ".price"
+      link: "a"
+
+  hyperli:
+    type: playwright
+    list_url: "https://www.hyperli.com/deals/johannesburg"
+    selectors:
+      deal_card: ".deal-card, article"
+      title: "h2, h3"
+      price: ".deal-price"
+      link: "a.deal-link"
+
+  google_places:
+    type: api
+    notes: Places API Text Search + Place Details
+
+  menu_web:
+    type: playwright
+    selectors:
+      menu_section: "nav a[href*='menu'], .menu-link"
+      menu_item: ".menu-item, .dish, li.menu-entry"
+      item_name: ".item-name, h3, h4"
+      item_price: ".price, .item-price"
