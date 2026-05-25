@@ -42,7 +42,7 @@ export function mapFeedItemToContentItem(item: PersonalizedFeedItem): ContentIte
     title: item.title,
     subtitle: item.subtitle,
     description: item.description,
-    media: item.media.map((m) => ({
+    media: (item.media ?? []).map((m) => ({
       uri: m.uri,
       type: m.type,
       width: m.width,
@@ -57,7 +57,7 @@ export function mapFeedItemToContentItem(item: PersonalizedFeedItem): ContentIte
     merchantSlug: item.merchantSlug,
     productSlug: item.productSlug,
     businessId: item.businessId ?? item.merchantSlug,
-    categories: item.categories.length > 0 ? item.categories : ['Discover'],
+    categories: (item.categories?.length ?? 0) > 0 ? item.categories : ['Discover'],
     verified: item.verified,
   };
 }

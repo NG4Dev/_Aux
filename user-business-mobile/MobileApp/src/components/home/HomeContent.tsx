@@ -7,12 +7,16 @@ import { usePersonalizedFeed } from '@/hooks/usePersonalizedFeed';
 import { mapFeedItemToContentItem } from '@/utils/personalizedFeed';
 import { authLog } from '@/services/authFlowLogger';
 
+import { useCartStore } from '@/features/cart/cartStore';
+
 export default function HomeContent() {
   const router = useRouter();
+  const cartLines = useCartStore((s) => s.lines);
+  const cartCount = cartLines.reduce((sum, line) => sum + line.quantity, 0);
   const { items, meta, loading, error } = usePersonalizedFeed(16);
 
   const feedData = useMemo(
-    () => items.map(mapFeedItemToContentItem),
+    () => (items ?? []).map(mapFeedItemToContentItem),
     [items],
   );
 
@@ -36,6 +40,7 @@ export default function HomeContent() {
   return (
     <View style={styles.container}>
       <TopActionRow
+        cartCount={cartCount}
         onCart={() => router.push('/(tabs)/cart')}
       />
       {loading && feedData.length === 0 ? (

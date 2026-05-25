@@ -11,6 +11,7 @@ import { useAuth } from '@clerk/clerk-expo';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import {
+  CONVEX_JWT_TEMPLATE,
   resolveAuthSession,
   waitForClerkToken,
 } from '@/services/resolveAuthSession';
@@ -48,7 +49,10 @@ export default function PostAuthScreen() {
               authLog('postAuth', 'newUserToast', {});
               setInfoToast('Signing you up…');
             },
-            waitForConvexAuth: () => waitForClerkToken(() => getToken()),
+            waitForConvexAuth: () =>
+              waitForClerkToken(() =>
+                getToken({ template: CONVEX_JWT_TEMPLATE }),
+              ),
           },
         );
         authLog('postAuth', 'success', {
@@ -60,7 +64,12 @@ export default function PostAuthScreen() {
         const message = err instanceof Error ? err.message : String(err);
         authLog('postAuth', 'error', { message });
         console.warn('post-auth resolve failed', err);
-        setError('Could not finish sign-in. Please try again.');
+        const emailClaimMissing = message.includes('missing an email claim');
+        setError(
+          emailClaimMissing
+            ? 'Sign-in succeeded but your account could not sync. Try email sign-in, or contact support if this persists.'
+            : 'Could not finish sign-in. Please try again.',
+        );
         startedRef.current = false;
       }
     })();

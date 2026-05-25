@@ -1,0 +1,33 @@
+{
+  "cli": {
+    "version": ">= 15.0.10",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_CONVEX_URL": "https://tacit-iguana-891.eu-west-1.convex.cloud",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_ZmFjdHVhbC1naXJhZmZlLTQ1LmNsZXJrLmFjY291bnRzLmRldiQ",
+        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_test_51RH00203n6RN6QTRWFCf4zaLgdfvI5NMzeLJ0Pa70Qh9GT9hK6fZZkQGGgeqGKnvdPngVxQJigD7Q7YGJyEvy6MF00uldelE1W"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "prebuildCommand": "npx expo prebuild --platform android --clean"
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

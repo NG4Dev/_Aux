@@ -1,0 +1,24 @@
+# Monorepo: mobile EAS builds only need MobileApp (exclude sibling projects)
+user-business-web/**
+discovery-ingestion/**
+DesignSystem/**
+future-plans/**
+scripts/**
+
+# Reference / docs (not part of the app bundle)
+user-business-mobile/reference apps/**
+*.md
+
+# Never upload local native folders — EAS must prebuild on Linux
+user-business-mobile/MobileApp/android/**
+user-business-mobile/MobileApp/ios/**
+
+# Never upload local deps or native build caches (EAS runs npm ci)
+**/node_modules/**
+**/.cxx/**
+**/android/build/**
+**/android/.gradle/**
+
+# Local secrets (use EAS env vars / secrets instead)
+**/.env
+**/.env.*

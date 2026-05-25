@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
@@ -13,6 +14,8 @@ import Colors from '@/constants/Colors';
 type SimilarItem = {
   id: string;
   name: string;
+  slug?: string;
+  imageUrl?: string | null;
   kind: 'product' | 'merchant' | 'place';
 };
 
@@ -23,10 +26,12 @@ type ProductDetailSheetProps = {
   currency: string;
   merchantName: string;
   onAddCart: () => void;
+  onMyCart?: () => void;
   inCart: boolean;
   similarProducts?: SimilarItem[];
   similarPlaces?: SimilarItem[];
   loadingSimilar?: boolean;
+  onSelectSimilar?: (slug: string) => void;
 };
 
 export default function ProductDetailSheet({
@@ -36,10 +41,12 @@ export default function ProductDetailSheet({
   currency,
   merchantName,
   onAddCart,
+  onMyCart,
   inCart,
   similarProducts = [],
   similarPlaces = [],
   loadingSimilar,
+  onSelectSimilar,
 }: ProductDetailSheetProps) {
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -68,14 +75,17 @@ export default function ProductDetailSheet({
         </View>
       </View>
 
-      <TouchableOpacity style={styles.cartBtn} onPress={onAddCart}>
+      <TouchableOpacity
+        style={styles.cartBtn}
+        onPress={inCart ? onMyCart : onAddCart}
+      >
         <Ionicons
           name={inCart ? 'cart' : 'cart-outline'}
           size={20}
           color="#fff"
         />
         <Text style={styles.cartBtnText}>
-          {inCart ? 'In cart — tap to add more' : 'Add to cart'}
+          {inCart ? 'My Cart' : 'Add to cart'}
         </Text>
       </TouchableOpacity>
 
@@ -86,11 +96,30 @@ export default function ProductDetailSheet({
       {similarProducts.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>You might also like</Text>
-          {similarProducts.map((item) => (
-            <Text key={item.id} style={styles.similarItem}>
-              {item.name}
-            </Text>
-          ))}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.similarScroll}
+          >
+            {similarProducts.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.similarCard}
+                activeOpacity={0.85}
+                onPress={() => item.slug && onSelectSimilar?.(item.slug)}
+                disabled={!item.slug}
+              >
+                {item.imageUrl ? (
+                  <Image source={{ uri: item.imageUrl }} style={styles.similarImage} />
+                ) : (
+                  <View style={[styles.similarImage, styles.similarImageEmpty]} />
+                )}
+                <Text style={styles.similarName} numberOfLines={2}>
+                  {item.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
       )}
 
@@ -207,7 +236,28 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+    marginBottom: 12,
+  },
+  similarScroll: {
+    gap: 12,
+    paddingRight: 8,
+  },
+  similarCard: {
+    width: 120,
+  },
+  similarImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 8,
     marginBottom: 8,
+  },
+  similarImageEmpty: {
+    backgroundColor: '#333',
+  },
+  similarName: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 13,
+    fontWeight: '600',
   },
   similarItem: {
     color: 'rgba(255,255,255,0.7)',

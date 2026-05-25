@@ -1,458 +1,1329 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+
 import {
+
   View,
+
   Text,
+
   StyleSheet,
+
   Modal,
+
   TouchableOpacity,
+
   Dimensions,
+
   Share,
+
   Alert,
+
   ActivityIndicator,
+
 } from 'react-native';
+
 import { Ionicons } from '@expo/vector-icons';
+
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+
 import Animated, {
+
   useAnimatedStyle,
+
   useSharedValue,
+
   withSpring,
+
   runOnJS,
+
 } from 'react-native-reanimated';
+
 import { useQuery, useAction, useMutation } from 'convex/react';
+
 import { useAuth } from '@clerk/clerk-expo';
+
 import { LinearGradient } from 'expo-linear-gradient';
+
+import { useRouter } from 'expo-router';
+
 import { api } from '@/convex/_generated/api';
+
 import type { Id } from '@/convex/_generated/dataModel';
-import DynamicMediaRenderer from '@/components/feed/DynamicMediaRenderer';
+
 import ProductSegmentedControl from '@/components/commerce/ProductSegmentedControl';
+
 import ProductNowPlayingBar from '@/components/commerce/ProductNowPlayingBar';
+
 import MerchantMenuList from '@/components/commerce/MerchantMenuList';
+
 import ProductDetailSheet from '@/components/commerce/ProductDetailSheet';
+
 import ProductExpandedView from '@/components/commerce/ProductExpandedView';
+
+import ProductHeroMedia from '@/components/commerce/ProductHeroMedia';
+
+import PurchasableContextMenu from '@/components/commerce/PurchasableContextMenu';
+
+import SaveToCollectionSheet from '@/components/bookmarks/SaveToCollectionSheet';
+
+import GuestAuthSheet from '@/components/GuestAuthSheet';
+
 import {
-  getSheetSnapPoints,
+
   snapHeight,
+
   toMediaAspect,
+
 } from '@/components/commerce/getSheetSnapPoints';
-import type { MediaAspect, MediaItem } from '@/types/content';
+
+import type { ContentItem, MediaAspect, MediaItem } from '@/types/content';
+
 import { useCartStore } from '@/features/cart/cartStore';
+
+
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+const EXPANDED_SHEET_H = SCREEN_HEIGHT * 0.88;
+
+const MENU_SHEET_H = SCREEN_HEIGHT * 0.72;
+
+
+
 type DiscoverProductOverlayProps = {
+
   visible: boolean;
+
   merchantSlug: string;
+
   productSlug: string;
+
   onDismiss: () => void;
+
   dismissible?: boolean;
+
 };
 
+
+
 export default function DiscoverProductOverlay({
+
   visible,
+
   merchantSlug,
+
   productSlug,
+
   onDismiss,
+
   dismissible = true,
+
 }: DiscoverProductOverlayProps) {
+
   const insets = useSafeAreaInsets();
+
+  const router = useRouter();
+
   const { isSignedIn } = useAuth();
+
   const [activeTab, setActiveTab] = useState<'product' | 'menu'>('product');
+
   const [imageMode, setImageMode] = useState<'minimized' | 'expanded'>(
+
     'minimized',
+
   );
+
+  const [showImageOverlay, setShowImageOverlay] = useState(false);
+
+  const [contextMenuVisible, setContextMenuVisible] = useState(false);
+
+  const [showGuestAuth, setShowGuestAuth] = useState(false);
+
+  const [saveTarget, setSaveTarget] = useState<ContentItem | null>(null);
+
   const [selectedSlug, setSelectedSlug] = useState(productSlug);
 
+  const [isLiked, setIsLiked] = useState(false);
+
+
+
+  const activeTabRef = useRef(activeTab);
+
+  activeTabRef.current = activeTab;
+
+  const hasOpenedRef = useRef(false);
+
+
+
   const products = useQuery(api.platform.merchants.listProducts, {
+
     merchantSlug,
+
   });
+
   const productData = useQuery(api.platform.merchants.getProduct, {
+
     merchantSlug,
+
     productSlug: selectedSlug,
+
   });
 
-  const findSimilarProducts = useAction(api.products.findSimilar);
-  const findSimilarPlaces = useAction(api.platform.discovery.findSimilarPlaces);
-  const logInteraction = useMutation(api.userProfile.logInteraction);
-  const loggedViewRef = useRef<string | null>(null);
 
-  const [similarProducts, setSimilarProducts] = useState<
-    Array<{ id: string; name: string; kind: 'product' }>
-  >([]);
-  const [similarPlaces, setSimilarPlaces] = useState<
-    Array<{ id: string; name: string; kind: 'merchant' | 'place' }>
-  >([]);
-  const [loadingSimilar, setLoadingSimilar] = useState(false);
-
-  const addLine = useCartStore((s) => s.addLine);
-  const cartLines = useCartStore((s) => s.lines);
-
-  useEffect(() => {
-    setSelectedSlug(productSlug);
-    setActiveTab('product');
-    setImageMode('minimized');
-  }, [productSlug, visible]);
 
   const selectedProduct = productData?.product;
+
   const merchant = productData?.merchant;
-  const mediaAspect: MediaAspect = toMediaAspect(
-    selectedProduct?.mediaAspect ?? undefined,
+
+
+
+  const favorited = useQuery(
+
+    api.favorites.isFavorited,
+
+    isSignedIn && selectedProduct?._id
+
+      ? { productId: selectedProduct._id as Id<'products'> }
+
+      : 'skip',
+
   );
-  const snapConfig = getSheetSnapPoints(mediaAspect);
-  const sheetH = snapHeight(mediaAspect);
-  const menuSheetH = SCREEN_HEIGHT * 0.72;
 
-  const translateY = useSharedValue(sheetH);
+
+
+  const findSimilarProducts = useAction(api.products.findSimilar);
+
+  const findSimilarPlaces = useAction(api.platform.discovery.findSimilarPlaces);
+
+  const logInteraction = useMutation(api.userProfile.logInteraction);
+
+  const toggleFavorite = useMutation(api.favorites.toggle);
+
+  const loggedViewRef = useRef<string | null>(null);
+
+
+
+  const [similarProducts, setSimilarProducts] = useState<
+
+    Array<{ id: string; name: string; slug?: string; imageUrl?: string | null; kind: 'product' }>
+
+  >([]);
+
+  const [similarPlaces, setSimilarPlaces] = useState<
+
+    Array<{ id: string; name: string; kind: 'merchant' | 'place' }>
+
+  >([]);
+
+  const [loadingSimilar, setLoadingSimilar] = useState(false);
+
+
+
+  const addLine = useCartStore((s) => s.addLine);
+
+  const removeLine = useCartStore((s) => s.removeLine);
+
+  const cartLines = useCartStore((s) => s.lines);
+
+
+
+  const mediaAspect: MediaAspect = toMediaAspect(
+
+    selectedProduct?.mediaAspect ?? undefined,
+
+  );
+
+  const collapsedSheetH =
+
+    activeTab === 'menu' ? MENU_SHEET_H : snapHeight(mediaAspect);
+
+  const collapsedOffset = EXPANDED_SHEET_H - collapsedSheetH;
+
+
+
+  const sheetTranslateY = useSharedValue(collapsedOffset);
+
+  const dragStartY = useSharedValue(0);
+
+
 
   useEffect(() => {
-    if (activeTab === 'menu') {
-      translateY.value = withSpring(menuSheetH);
-    } else {
-      translateY.value = withSpring(
-        imageMode === 'expanded' ? SCREEN_HEIGHT * 0.85 : sheetH,
-      );
+
+    setSelectedSlug(productSlug);
+
+    setActiveTab('product');
+
+    setImageMode('minimized');
+
+    setShowImageOverlay(false);
+
+    setContextMenuVisible(false);
+
+    setShowGuestAuth(false);
+
+  }, [productSlug, visible]);
+
+
+
+  useEffect(() => {
+
+    if (!visible) {
+
+      hasOpenedRef.current = false;
+
+      return;
+
     }
-  }, [activeTab, imageMode, sheetH, menuSheetH, translateY]);
+
+    if (hasOpenedRef.current) return;
+
+    hasOpenedRef.current = true;
+
+    sheetTranslateY.value = EXPANDED_SHEET_H;
+
+    sheetTranslateY.value = withSpring(collapsedOffset);
+
+  }, [visible, collapsedOffset, sheetTranslateY]);
+
+
 
   useEffect(() => {
+
+    sheetTranslateY.value = withSpring(collapsedOffset);
+
+  }, [collapsedOffset, sheetTranslateY]);
+
+
+
+  useEffect(() => {
+
+    setIsLiked(favorited === true);
+
+  }, [favorited]);
+
+
+
+  useEffect(() => {
+
     if (!isSignedIn || !visible || !selectedProduct?._id) return;
+
     const key = String(selectedProduct._id);
+
     if (loggedViewRef.current === key) return;
+
     loggedViewRef.current = key;
+
     void logInteraction({
+
       entityType: 'product',
+
       entityId: key,
+
       action: 'view',
+
     }).catch(() => {
+
       loggedViewRef.current = null;
+
     });
+
   }, [isSignedIn, visible, selectedProduct?._id, logInteraction]);
 
-  useEffect(() => {
-    if (!selectedProduct?._id) return;
-    let cancelled = false;
-    setLoadingSimilar(true);
-    Promise.all([
-      findSimilarProducts({ productId: selectedProduct._id as Id<'products'>, limit: 4 }),
-      merchant
-        ? findSimilarPlaces({
-            sourceMerchantId: merchant._id as Id<'merchants'>,
-            limit: 4,
-          })
-        : Promise.resolve([]),
-    ])
-      .then(([prods, places]) => {
-        if (cancelled) return;
-        setSimilarProducts(
-          prods.map((p: { _id: string; name: string }) => ({
-            id: p._id,
-            name: p.name,
-            kind: 'product' as const,
-          })),
-        );
-        setSimilarPlaces(
-          places.map((p: { id: string; name: string; kind: 'merchant' | 'place' }) => ({
-            id: p.id,
-            name: p.name,
-            kind: p.kind,
-          })),
-        );
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingSimilar(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedProduct?._id, merchant?._id]);
 
-  const media: MediaItem | null = useMemo(() => {
-    if (!selectedProduct?.imageUrl) return null;
-    return {
-      uri: selectedProduct.imageUrl,
-      type: 'image',
-      width: selectedProduct.imageWidth ?? 1080,
-      height: selectedProduct.imageHeight ?? 1080,
-      aspect: mediaAspect,
-    };
-  }, [selectedProduct, mediaAspect]);
 
-  const inCart = cartLines.some(
-    (l) => l.productId === String(selectedProduct?._id),
+  const menuProducts = useMemo(
+
+    () =>
+
+      products?.map((p: NonNullable<typeof products>[number]) => ({
+
+        _id: String(p._id),
+
+        slug: p.slug,
+
+        name: p.name,
+
+        description: p.description,
+
+        priceCents: p.priceCents,
+
+        currency: p.currency,
+
+        imageUrl: p.imageUrl,
+
+      })) ?? [],
+
+    [products],
+
   );
 
-  const handleAddCart = useCallback(() => {
-    if (!selectedProduct || !merchant) return;
-    addLine({
-      productId: String(selectedProduct._id),
-      merchantSlug,
-      merchantName: merchant.name,
-      name: selectedProduct.name,
+
+
+  useEffect(() => {
+
+    if (!selectedProduct?._id) return;
+
+    let cancelled = false;
+
+    setLoadingSimilar(true);
+
+    Promise.all([
+
+      findSimilarProducts({ productId: selectedProduct._id as Id<'products'>, limit: 4 }),
+
+      merchant
+
+        ? findSimilarPlaces({
+
+            sourceMerchantId: merchant._id as Id<'merchants'>,
+
+            limit: 4,
+
+          })
+
+        : Promise.resolve([]),
+
+    ])
+
+      .then(([prods, places]) => {
+
+        if (cancelled) return;
+
+        let mappedProducts = prods.map((p: { _id: string; name: string; slug?: string; imageUrl?: string }) => ({
+
+          id: p._id,
+
+          name: p.name,
+
+          slug: p.slug,
+
+          imageUrl: p.imageUrl,
+
+          kind: 'product' as const,
+
+        }));
+
+        if (mappedProducts.length === 0) {
+
+          mappedProducts = menuProducts
+
+            .filter((p) => p.slug !== selectedSlug)
+
+            .slice(0, 4)
+
+            .map((p) => ({
+
+              id: p._id,
+
+              name: p.name,
+
+              slug: p.slug,
+
+              imageUrl: p.imageUrl,
+
+              kind: 'product' as const,
+
+            }));
+
+        }
+
+        setSimilarProducts(mappedProducts);
+
+        setSimilarPlaces(
+
+          places.map((p: { id: string; name: string; kind: 'merchant' | 'place' }) => ({
+
+            id: p.id,
+
+            name: p.name,
+
+            kind: p.kind,
+
+          })),
+
+        );
+
+      })
+
+      .finally(() => {
+
+        if (!cancelled) setLoadingSimilar(false);
+
+      });
+
+    return () => {
+
+      cancelled = true;
+
+    };
+
+  }, [selectedProduct?._id, merchant?._id, menuProducts, selectedSlug, findSimilarProducts, findSimilarPlaces]);
+
+
+
+  const media: MediaItem | null = useMemo(() => {
+
+    if (!selectedProduct?.imageUrl) return null;
+
+    return {
+
+      uri: selectedProduct.imageUrl,
+
+      type: 'image',
+
+      width: selectedProduct.imageWidth ?? 1080,
+
+      height: selectedProduct.imageHeight ?? 1080,
+
+      aspect: mediaAspect,
+
+    };
+
+  }, [selectedProduct, mediaAspect]);
+
+
+
+  const saveItem: ContentItem | null = useMemo(() => {
+
+    if (!selectedProduct || !merchant || !media) return null;
+
+    return {
+
+      id: String(selectedProduct._id),
+
+      contentType: 'product',
+
+      title: selectedProduct.name,
+
       description: selectedProduct.description,
+
+      media: [media],
+
+      profileName: merchant.name,
+
+      profileAvatar: `https://i.pravatar.cc/80?u=${encodeURIComponent(merchantSlug)}`,
+
+      merchantSlug,
+
+      productSlug: selectedSlug,
+
+      businessId: merchantSlug,
+
+      categories: ['Discover'],
+
+    };
+
+  }, [selectedProduct, merchant, media, merchantSlug, selectedSlug]);
+
+
+
+  const inCart = cartLines.some(
+
+    (l) => l.productId === String(selectedProduct?._id),
+
+  );
+
+
+
+  const promptGuestAuth = useCallback(() => {
+
+    setShowGuestAuth(true);
+
+    setShowImageOverlay(false);
+
+    setContextMenuVisible(false);
+
+  }, []);
+
+
+
+  const handleAddCart = useCallback(() => {
+
+    if (!selectedProduct || !merchant) return;
+
+    if (!isSignedIn) {
+
+      promptGuestAuth();
+
+      return;
+
+    }
+
+    addLine({
+
+      productId: String(selectedProduct._id),
+
+      merchantSlug,
+
+      merchantName: merchant.name,
+
+      name: selectedProduct.name,
+
+      description: selectedProduct.description,
+
       imageUrl: selectedProduct.imageUrl ?? undefined,
+
       priceCents: selectedProduct.priceCents,
+
       currency: selectedProduct.currency,
+
     });
-  }, [selectedProduct, merchant, merchantSlug, addLine]);
+
+    setShowImageOverlay(false);
+
+  }, [selectedProduct, merchant, merchantSlug, addLine, isSignedIn, promptGuestAuth]);
+
+
+
+  const handleRemoveCart = useCallback(() => {
+
+    if (!selectedProduct?._id) return;
+
+    if (!isSignedIn) {
+
+      promptGuestAuth();
+
+      return;
+
+    }
+
+    removeLine(String(selectedProduct._id));
+
+    setContextMenuVisible(false);
+
+  }, [selectedProduct?._id, isSignedIn, removeLine, promptGuestAuth]);
+
+
+
+  const handleMyCart = useCallback(() => {
+
+    router.push({
+
+      pathname: '/(tabs)/business/[businessId]/cart',
+
+      params: { businessId: merchantSlug },
+
+    });
+
+  }, [router, merchantSlug]);
+
+
 
   const handleShare = useCallback(async () => {
+
     if (!selectedProduct) return;
+
     await Share.share({
+
       message: `${selectedProduct.name} at ${merchant?.name ?? merchantSlug}`,
+
     });
+
+    setShowImageOverlay(false);
+
   }, [selectedProduct, merchant, merchantSlug]);
 
-  const handleMenuSelect = (slug: string) => {
-    setSelectedSlug(slug);
-    setActiveTab('product');
-    setImageMode(
-      getSheetSnapPoints(toMediaAspect(undefined)).expandedPreferred
-        ? 'expanded'
-        : 'minimized',
+
+
+  const handleAddToList = useCallback(() => {
+
+    if (!saveItem) return;
+
+    if (!isSignedIn) {
+
+      promptGuestAuth();
+
+      return;
+
+    }
+
+    setSaveTarget(saveItem);
+
+    setShowImageOverlay(false);
+
+    setContextMenuVisible(false);
+
+  }, [saveItem, isSignedIn, promptGuestAuth]);
+
+
+
+  const handleLike = useCallback(async () => {
+
+    if (!selectedProduct?._id) return;
+
+    if (!isSignedIn) {
+
+      promptGuestAuth();
+
+      return;
+
+    }
+
+    try {
+
+      const liked = await toggleFavorite({
+
+        productId: selectedProduct._id as Id<'products'>,
+
+      });
+
+      setIsLiked(liked);
+
+    } catch {
+
+      Alert.alert('Could not update like', 'Please try again.');
+
+    }
+
+  }, [selectedProduct?._id, isSignedIn, toggleFavorite, promptGuestAuth]);
+
+
+
+  const handleRecommendSimilar = useCallback(() => {
+
+    if (!selectedProduct?._id) return;
+
+    if (isSignedIn) {
+
+      void logInteraction({
+
+        entityType: 'product',
+
+        entityId: String(selectedProduct._id),
+
+        action: 'view',
+
+      });
+
+    }
+
+    Alert.alert('Got it', 'We will show you more products like this.');
+
+    setContextMenuVisible(false);
+
+  }, [selectedProduct?._id, isSignedIn, logInteraction]);
+
+
+
+  const handleDoNotRecommendSimilar = useCallback(() => {
+
+    Alert.alert('Preference saved', 'Similar products will be shown less often.');
+
+    setContextMenuVisible(false);
+
+  }, []);
+
+
+
+  const handleDoNotRecommendBusiness = useCallback(() => {
+
+    Alert.alert('Preference saved', 'This business will be shown less often.');
+
+    setContextMenuVisible(false);
+
+  }, []);
+
+
+
+  const handleReport = useCallback(() => {
+
+    Alert.alert(
+
+      'Report this item?',
+
+      'Our team will review this report.',
+
+      [
+
+        { text: 'Cancel', style: 'cancel' },
+
+        {
+
+          text: 'Report',
+
+          style: 'destructive',
+
+          onPress: () => setContextMenuVisible(false),
+
+        },
+
+      ],
+
     );
+
+  }, []);
+
+
+
+  const handleMenuSelect = (slug: string) => {
+
+    setSelectedSlug(slug);
+
+    setActiveTab('product');
+
+    setImageMode('minimized');
+
+    setShowImageOverlay(false);
+
   };
 
-  const dismissOverlay = () => {
+
+
+  const dismissOverlay = useCallback(() => {
+
     if (dismissible) onDismiss();
-  };
+
+  }, [dismissible, onDismiss]);
+
+
+
+  const snapToCollapsed = useCallback(() => {
+
+    sheetTranslateY.value = withSpring(collapsedOffset);
+
+  }, [collapsedOffset, sheetTranslateY]);
+
+
+
+  const snapToExpanded = useCallback(() => {
+
+    sheetTranslateY.value = withSpring(0);
+
+  }, [sheetTranslateY]);
+
+
+
+  const handlePanEnd = useCallback(
+
+    (translationY: number, currentPosition: number) => {
+
+      const mid = collapsedOffset / 2;
+
+
+
+      if (translationY > 80) {
+
+        if (currentPosition < mid) {
+
+          snapToCollapsed();
+
+        } else if (activeTabRef.current === 'menu') {
+
+          snapToCollapsed();
+
+          setActiveTab('product');
+
+        } else {
+
+          dismissOverlay();
+
+        }
+
+        return;
+
+      }
+
+
+
+      if (translationY < -40 || currentPosition < mid) {
+
+        snapToExpanded();
+
+      } else {
+
+        snapToCollapsed();
+
+      }
+
+    },
+
+    [collapsedOffset, dismissOverlay, snapToCollapsed, snapToExpanded],
+
+  );
+
+
 
   const panGesture = Gesture.Pan()
-    .onUpdate((e) => {
-      const base = activeTab === 'menu' ? menuSheetH : sheetH;
-      translateY.value = Math.max(0, base + e.translationY);
+
+    .onBegin(() => {
+
+      dragStartY.value = sheetTranslateY.value;
+
     })
+
+    .onUpdate((e) => {
+
+      const next = dragStartY.value + e.translationY;
+
+      sheetTranslateY.value = Math.min(collapsedOffset + 120, Math.max(0, next));
+
+    })
+
     .onEnd((e) => {
-      const base = activeTab === 'menu' ? menuSheetH : sheetH;
-      if (e.translationY > 80) {
-        if (activeTab === 'menu') {
-          translateY.value = withSpring(sheetH);
-          runOnJS(setActiveTab)('product');
-        } else if (imageMode === 'expanded') {
-          translateY.value = withSpring(sheetH);
-          runOnJS(setImageMode)('minimized');
-        } else {
-          runOnJS(dismissOverlay)();
-        }
-      } else {
-        translateY.value = withSpring(base);
-      }
+
+      runOnJS(handlePanEnd)(e.translationY, sheetTranslateY.value);
+
     });
 
+
+
   const sheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
+
+    transform: [{ translateY: sheetTranslateY.value }],
+
   }));
 
+
+
   const handleHeaderBack = () => {
-    if (imageMode === 'expanded') {
-      setImageMode('minimized');
+
+    if (contextMenuVisible) {
+
+      setContextMenuVisible(false);
+
       return;
+
     }
+
     if (activeTab === 'menu') {
+
       setActiveTab('product');
+
       return;
+
     }
+
     dismissOverlay();
+
   };
+
+
 
   if (!visible) return null;
 
+
+
   if (productData === undefined || products === undefined) {
+
     return (
+
       <Modal visible animationType="slide" presentationStyle="fullScreen">
+
         <View style={styles.loading}>
+
           <ActivityIndicator color="#00BFA5" size="large" />
+
         </View>
+
       </Modal>
+
     );
+
   }
+
+
 
   if (!selectedProduct || !merchant || !media) {
+
     return (
+
       <Modal visible animationType="slide" presentationStyle="fullScreen">
+
         <View style={styles.loading}>
+
           <Text style={{ color: '#fff' }}>Product not found</Text>
+
           <TouchableOpacity onPress={onDismiss}>
+
             <Text style={{ color: '#00BFA5', marginTop: 12 }}>Close</Text>
+
           </TouchableOpacity>
+
         </View>
+
       </Modal>
+
     );
+
   }
 
-  if (imageMode === 'expanded') {
-    return (
-      <Modal visible animationType="fade" presentationStyle="fullScreen">
-        <ProductExpandedView
-          media={media}
-          productName={selectedProduct.name}
-          description={selectedProduct.description}
-          priceCents={selectedProduct.priceCents}
-          currency={selectedProduct.currency}
-          imageUrl={selectedProduct.imageUrl}
-          onCollapse={() => setImageMode('minimized')}
-          onShare={handleShare}
-          onAddCart={handleAddCart}
-        />
-      </Modal>
-    );
-  }
 
-  const menuProducts =
-    products?.map((p: NonNullable<typeof products>[number]) => ({
-      _id: String(p._id),
-      slug: p.slug,
-      name: p.name,
-      description: p.description,
-      priceCents: p.priceCents,
-      currency: p.currency,
-      imageUrl: p.imageUrl,
-    })) ?? [];
 
   return (
+
     <Modal visible animationType="slide" presentationStyle="fullScreen">
+
       <View style={styles.root}>
+
         <LinearGradient
+
           colors={['#3d2a1f', '#000000']}
+
           style={StyleSheet.absoluteFill}
+
         />
 
+
+
         <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
+
           <TouchableOpacity onPress={handleHeaderBack} style={styles.headerBtn}>
+
             <Ionicons name="chevron-down" size={24} color="#fff" />
+
           </TouchableOpacity>
+
           <ProductSegmentedControl
+
             activeTab={activeTab}
+
             onChange={setActiveTab}
+
           />
+
           <TouchableOpacity
+
             style={styles.headerBtn}
-            onPress={() =>
-              Alert.alert('Options', undefined, [
-                { text: 'Share', onPress: handleShare },
-                { text: 'Add to cart', onPress: handleAddCart },
-                { text: 'Report', style: 'destructive' },
-                { text: 'Cancel', style: 'cancel' },
-              ])
-            }
+
+            onPress={() => setContextMenuVisible(true)}
+
           >
+
             <Ionicons name="ellipsis-vertical" size={20} color="#fff" />
+
           </TouchableOpacity>
+
         </View>
 
+
+
         {activeTab === 'menu' && (
+
           <ProductNowPlayingBar
+
             imageUrl={selectedProduct.imageUrl}
+
             productName={selectedProduct.name}
+
             merchantName={merchant.name}
+
           />
+
         )}
+
+
 
         {activeTab === 'product' && (
-          <TouchableOpacity
-            activeOpacity={0.95}
-            onPress={() =>
-              setImageMode(
-                snapConfig.expandedPreferred ? 'expanded' : 'expanded',
-              )
-            }
-            style={styles.heroWrap}
-          >
-            <DynamicMediaRenderer
+
+          <View style={styles.heroWrap}>
+
+            <ProductHeroMedia
+
               media={media}
+
               maxHeight={SCREEN_HEIGHT * 0.5}
-              borderRadius={8}
+
+              showOverlay={showImageOverlay}
+
+              onToggleOverlay={() => setShowImageOverlay((v) => !v)}
+
+              onMaximize={() => {
+
+                setShowImageOverlay(false);
+
+                setImageMode('expanded');
+
+              }}
+
+              onShare={handleShare}
+
+              onAddCart={handleAddCart}
+
+              onAddToList={handleAddToList}
+
             />
+
             <Text style={styles.heroTitle}>{selectedProduct.name}</Text>
+
             <Text style={styles.heroSubtitle} numberOfLines={1}>
+
               {selectedProduct.description}
+
             </Text>
-          </TouchableOpacity>
+
+          </View>
+
         )}
 
+
+
         <GestureDetector gesture={panGesture}>
+
           <Animated.View
+
             style={[
+
               styles.sheet,
+
               {
+
                 height: SCREEN_HEIGHT,
-                top: SCREEN_HEIGHT - (activeTab === 'menu' ? menuSheetH : sheetH),
+
+                top: SCREEN_HEIGHT - EXPANDED_SHEET_H,
+
               },
+
               sheetStyle,
+
             ]}
+
           >
+
             {activeTab === 'menu' ? (
+
               <MerchantMenuList
+
                 products={menuProducts}
+
                 selectedSlug={selectedSlug}
+
                 onSelectProduct={handleMenuSelect}
+
               />
+
             ) : (
+
               <ProductDetailSheet
+
                 productName={selectedProduct.name}
+
                 description={selectedProduct.description}
+
                 priceCents={selectedProduct.priceCents}
+
                 currency={selectedProduct.currency}
+
                 merchantName={merchant.name}
+
                 onAddCart={handleAddCart}
+
+                onMyCart={handleMyCart}
+
                 inCart={inCart}
+
                 similarProducts={similarProducts}
+
                 similarPlaces={similarPlaces}
+
                 loadingSimilar={loadingSimilar}
+
+                onSelectSimilar={(slug) => handleMenuSelect(slug)}
+
               />
+
             )}
+
           </Animated.View>
+
         </GestureDetector>
+
+
+
+        {imageMode === 'expanded' && (
+
+          <View style={styles.expandedOverlay}>
+
+            <ProductExpandedView
+
+              media={media}
+
+              onCollapse={() => setImageMode('minimized')}
+
+            />
+
+          </View>
+
+        )}
+
+
+
+        <PurchasableContextMenu
+
+          visible={contextMenuVisible}
+
+          onClose={() => setContextMenuVisible(false)}
+
+          productName={selectedProduct.name}
+
+          productSubtitle={selectedProduct.description}
+
+          imageUrl={selectedProduct.imageUrl}
+
+          profileName={merchant.name}
+
+          profileAvatar={`https://i.pravatar.cc/80?u=${encodeURIComponent(merchantSlug)}`}
+
+          inCart={inCart}
+
+          isLiked={isLiked}
+
+          onLike={handleLike}
+
+          onAddCart={handleAddCart}
+
+          onRemoveCart={handleRemoveCart}
+
+          onShare={handleShare}
+
+          onAddToList={handleAddToList}
+
+          onRecommendSimilar={handleRecommendSimilar}
+
+          onDoNotRecommendSimilar={handleDoNotRecommendSimilar}
+
+          onDoNotRecommendBusiness={handleDoNotRecommendBusiness}
+
+          onReport={handleReport}
+
+        />
+
+
+
+        {showGuestAuth && (
+
+          <GuestAuthSheet onDismiss={() => setShowGuestAuth(false)} />
+
+        )}
+
+
+
+        <SaveToCollectionSheet
+
+          item={saveTarget}
+
+          onClose={() => setSaveTarget(null)}
+
+        />
+
       </View>
+
     </Modal>
+
   );
+
 }
 
+
+
 const styles = StyleSheet.create({
+
   root: { flex: 1, backgroundColor: '#000' },
+
   loading: {
+
     flex: 1,
+
     backgroundColor: '#000',
+
     alignItems: 'center',
+
     justifyContent: 'center',
+
   },
+
   header: {
+
     flexDirection: 'row',
+
     alignItems: 'center',
+
     justifyContent: 'space-between',
+
     paddingHorizontal: 12,
+
     paddingBottom: 8,
+
     zIndex: 10,
+
   },
+
   headerBtn: {
+
     width: 40,
+
     height: 40,
+
     alignItems: 'center',
+
     justifyContent: 'center',
+
   },
+
   heroWrap: {
+
     paddingHorizontal: 16,
+
     paddingTop: 8,
+
   },
+
   heroTitle: {
+
     color: '#fff',
+
     fontSize: 22,
+
     fontWeight: '700',
+
     textAlign: 'center',
+
     marginTop: 12,
+
   },
+
   heroSubtitle: {
+
     color: 'rgba(255,255,255,0.55)',
+
     fontSize: 14,
+
     textAlign: 'center',
+
     marginTop: 4,
+
     marginBottom: 8,
+
   },
+
   sheet: {
+
     position: 'absolute',
+
     left: 0,
+
     right: 0,
+
     backgroundColor: '#1a1a1a',
+
     borderTopLeftRadius: 16,
+
     borderTopRightRadius: 16,
+
   },
+
+  expandedOverlay: {
+
+    ...StyleSheet.absoluteFillObject,
+
+    zIndex: 40,
+
+    backgroundColor: '#000',
+
+  },
+
 });
+
+

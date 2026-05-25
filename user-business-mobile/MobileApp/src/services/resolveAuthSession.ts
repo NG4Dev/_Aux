@@ -16,6 +16,11 @@ export type AuthSessionStatus = {
 
 const SHOWCASE_PATH = '/(onboarding)/showcase';
 
+/** Must match Convex auth.config.ts applicationID and Clerk JWT template name. */
+export const CONVEX_JWT_TEMPLATE = 'convex';
+
+export type GetConvexToken = () => Promise<string | null>;
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -26,7 +31,7 @@ function isNotSignedInError(err: unknown): boolean {
 }
 
 export async function waitForClerkToken(
-  getToken: () => Promise<string | null>,
+  getToken: GetConvexToken,
   maxAttempts = 10,
   delayMs = 200,
 ): Promise<void> {

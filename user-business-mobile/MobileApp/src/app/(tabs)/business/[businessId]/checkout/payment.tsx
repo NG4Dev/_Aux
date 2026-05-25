@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -29,7 +29,11 @@ export default function PaymentScreen() {
   const [loading, setLoading] = useState(false);
   const slug = businessId ?? '';
 
-  const lines = useCartStore((s) => s.lines.filter((l) => l.merchantSlug === slug));
+  const allLines = useCartStore((s) => s.lines);
+  const lines = useMemo(
+    () => allLines.filter((l) => l.merchantSlug === slug),
+    [allLines, slug],
+  );
   const clearMerchant = useCartStore((s) => s.clearMerchant);
 
   const ensureUser = useMutation(api.users.ensureCurrent);
@@ -91,7 +95,7 @@ export default function PaymentScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
           <Ionicons name="chevron-back" size={22} color="#fff" />

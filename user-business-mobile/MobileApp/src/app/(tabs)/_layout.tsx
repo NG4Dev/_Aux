@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
-import { Tabs } from 'expo-router';
+import { Tabs, useSegments } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import SwipeChatContainer from '@/components/chat/SwipeChatContainer';
@@ -25,7 +25,27 @@ function TabBarBackground() {
   return <View style={styles.androidTabBarBackground} />;
 }
 
+function shouldHideTabBar(segments: string[]): boolean {
+  if (segments.includes('cart')) return true;
+  const businessIndex = segments.indexOf('business');
+  if (businessIndex === -1) return false;
+  const afterBusinessId = segments.slice(businessIndex + 2);
+  return afterBusinessId[0] === 'cart' || afterBusinessId[0] === 'checkout';
+}
+
+const hiddenTabBarStyle = { display: 'none' } as const;
+
 const TabsLayout = () => {
+  const segments = useSegments();
+  const hideTabBar = useMemo(
+    () => shouldHideTabBar(segments as string[]),
+    [segments],
+  );
+  const tabBarStyle = useMemo(
+    () => (hideTabBar ? hiddenTabBarStyle : styles.tabBar),
+    [hideTabBar],
+  );
+
   return (
     <SwipeChatContainer>
       <Tabs
@@ -34,7 +54,7 @@ const TabsLayout = () => {
           tabBarActiveTintColor: '#fff',
           tabBarInactiveTintColor: 'gray',
           tabBarBackground: () => <TabBarBackground />,
-          tabBarStyle: styles.tabBar,
+          tabBarStyle,
           tabBarLabelStyle: styles.tabLabel,
           sceneStyle: styles.scene,
         }}

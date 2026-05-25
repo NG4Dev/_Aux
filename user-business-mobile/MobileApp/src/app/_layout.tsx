@@ -1,7 +1,7 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { ClerkProvider, ClerkLoaded, useAuth } from '@clerk/clerk-expo';
 import { tokenCache } from '@clerk/clerk-expo/token-cache';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useQuery } from 'convex/react';
 import ConvexClerkProvider from '@/providers/ConvexClerkProvider';
@@ -31,16 +31,32 @@ if (!publishableKey) {
 
 function useSafeReplace(router: ReturnType<typeof useRouter>, scope: string) {
   const lastRedirectRef = useRef<string | null>(null);
+  const mountedRef = useRef(false);
 
-  return (path: string, reason: string) => {
-    if (lastRedirectRef.current === path) {
-      authLog(scope, 'redirectSkipped', { path, reason, duplicate: true });
-      return;
-    }
-    lastRedirectRef.current = path;
-    authLog(scope, 'redirect', { path, reason });
-    router.replace(path as never);
-  };
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  return useCallback(
+    (path: string, reason: string) => {
+      if (lastRedirectRef.current === path) {
+        authLog(scope, 'redirectSkipped', { path, reason, duplicate: true });
+        return;
+      }
+      lastRedirectRef.current = path;
+      authLog(scope, 'redirect', { path, reason });
+
+      // Defer until after mount — avoids expo-router linking race on cold start.
+      requestAnimationFrame(() => {
+        if (!mountedRef.current) return;
+        router.replace(path as never);
+      });
+    },
+    [router, scope],
+  );
 }
 
 function RootStack() {
@@ -106,7 +122,12 @@ function GuestOnlyLayout() {
     });
 
     if (!segments[0]) {
-      safeReplace('/(auth)', 'emptySegment');
+      safeReplace(
+        unlocked ? '/(tabs)/home' : '/(auth)',
+        unlocked ? 'emptySegmentGuestUnlocked' : 'emptySegment',
+      );
+    } else if (unlocked && inAuthGroup) {
+      safeReplace('/(tabs)/home', 'guestBrowseUnlocked');
     } else if (!unlocked && !inOnboardingGroup && !inAuthGroup) {
       safeReplace(SHOWCASE_PATH, 'guestNotUnlocked');
     } else {
@@ -242,7 +263,12 @@ function ProfileAwareLayout() {
         authLog('layout.profile', 'guardNoAction', { branch: 'signedIn' });
       }
     } else if (!segments[0]) {
-      safeReplace('/(auth)', 'emptySegment');
+      safeReplace(
+        onboardingComplete ? '/(tabs)/home' : '/(auth)',
+        onboardingComplete ? 'emptySegmentGuestUnlocked' : 'emptySegment',
+      );
+    } else if (onboardingComplete && inAuthGroup) {
+      safeReplace('/(tabs)/home', 'guestBrowseUnlocked');
     } else if (!onboardingComplete && !inOnboardingGroup && !inAuthGroup) {
       safeReplace(SHOWCASE_PATH, 'guestNotUnlocked');
     } else {
@@ -278,6 +304,10 @@ function InitialLayout() {
 }
 
 export default function RootLayout() {
+  useEffect(() => {
+    void isGuestBrowseUnlocked();
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>

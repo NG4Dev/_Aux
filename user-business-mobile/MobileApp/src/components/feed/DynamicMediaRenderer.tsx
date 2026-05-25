@@ -8,6 +8,7 @@ type DynamicMediaRendererProps = {
   maxHeight?: number;
   borderRadius?: number;
   autoPlay?: boolean;
+  contentFit?: 'cover' | 'contain';
 };
 
 const ASPECT_MAP: Record<string, number> = {
@@ -71,8 +72,10 @@ export default function DynamicMediaRenderer({
   maxHeight,
   borderRadius = 0,
   autoPlay = false,
+  contentFit = 'cover',
 }: DynamicMediaRendererProps) {
   const aspect = resolveAspect(media);
+  const resizeMode = contentFit === 'contain' ? 'contain' : 'cover';
 
   if (media.type === 'video') {
     return (
@@ -83,6 +86,25 @@ export default function DynamicMediaRenderer({
         borderRadius={borderRadius}
         autoPlay={autoPlay}
       />
+    );
+  }
+
+  if (contentFit === 'contain') {
+    return (
+      <View
+        style={[
+          styles.container,
+          styles.containContainer,
+          maxHeight ? { maxHeight, height: maxHeight } : styles.containFlex,
+          { borderRadius },
+        ]}
+      >
+        <Image
+          source={{ uri: media.uri }}
+          style={styles.containImage}
+          resizeMode={resizeMode}
+        />
+      </View>
     );
   }
 
@@ -97,7 +119,7 @@ export default function DynamicMediaRenderer({
       <Image
         source={{ uri: media.uri }}
         style={[styles.image, { aspectRatio: aspect }]}
-        resizeMode="cover"
+        resizeMode={resizeMode}
       />
     </View>
   );
@@ -108,6 +130,19 @@ const styles = StyleSheet.create({
     width: '100%',
     overflow: 'hidden',
     backgroundColor: '#111',
+  },
+  containContainer: {
+    width: '100%',
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  containFlex: {
+    flex: 1,
+  },
+  containImage: {
+    width: '100%',
+    height: '100%',
   },
   image: {
     width: '100%',

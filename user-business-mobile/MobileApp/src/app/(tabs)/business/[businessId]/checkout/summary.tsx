@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -21,14 +21,21 @@ export default function SummaryScreen() {
   }>();
   const router = useRouter();
   const slug = businessId ?? '';
-  const lines = useCartStore((s) => s.lines.filter((l) => l.merchantSlug === slug));
-  const subtotal = useCartStore((s) => s.merchantSubtotalCents(slug));
+  const allLines = useCartStore((s) => s.lines);
+  const lines = useMemo(
+    () => allLines.filter((l) => l.merchantSlug === slug),
+    [allLines, slug],
+  );
+  const subtotal = useMemo(
+    () => lines.reduce((sum, line) => sum + line.priceCents * line.quantity, 0),
+    [lines],
+  );
   const isPickup = fulfillment === 'pickup';
   const deliveryFee = isPickup ? 0 : DELIVERY_FEE_CENTS;
   const total = subtotal + SERVICE_FEE_CENTS + deliveryFee;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
           <Ionicons name="chevron-back" size={22} color="#fff" />

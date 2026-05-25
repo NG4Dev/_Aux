@@ -23,6 +23,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-dev-client",
       "expo-video",
       "expo-font",
       [
@@ -41,6 +42,12 @@
         }
       ],
       "@react-native-community/datetimepicker"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "83c8e834-27c8-4681-961c-a40b215cf9a2"
+      }
+    }
   }
 }

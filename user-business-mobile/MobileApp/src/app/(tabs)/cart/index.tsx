@@ -18,12 +18,16 @@ import { useCartStore } from '@/features/cart/cartStore';
 export default function GlobalCartsScreen() {
   const router = useRouter();
   const lines = useCartStore((s) => s.lines);
-  const linesByMerchant = useCartStore((s) => s.linesByMerchant());
   const clearMerchant = useCartStore((s) => s.clearMerchant);
   const merchants = useQuery(api.platform.merchants.listActive);
 
   const merchantCards = useMemo(() => {
-    const map = linesByMerchant;
+    const map = new Map<string, typeof lines>();
+    for (const line of lines) {
+      const list = map.get(line.merchantSlug) ?? [];
+      list.push(line);
+      map.set(line.merchantSlug, list);
+    }
     return [...map.entries()].map(([slug, merchantLines]) => {
       const subtotal = merchantLines.reduce(
         (s, l) => s + l.priceCents * l.quantity,
@@ -36,14 +40,14 @@ export default function GlobalCartsScreen() {
         slug;
       return { slug, merchantName, subtotal, count, currency: merchantLines[0]?.currency ?? 'gbp' };
     });
-  }, [linesByMerchant, merchants]);
+  }, [lines, merchants]);
 
   const orders = useQuery(api.orders.listMine);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Carts</Text>
+        <Text style={styles.headerTitle}>My Cart</Text>
         <TouchableOpacity onPress={() => router.push('/(tabs)/cart/orders')}>
           <Text style={styles.ordersLink}>Orders</Text>
         </TouchableOpacity>

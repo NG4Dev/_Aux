@@ -56,20 +56,14 @@ async function ensureCurrentUserRecord(ctx: MutationCtx): Promise<{
   }
 
   const existing = await getUserByClerkId(ctx, identity.subject);
-  const email = identity.email;
-  if (!email) {
-    throw new Error(
-      "Clerk identity is missing an email claim — cannot create Convex user. " +
-        "Verify the Clerk JWT template includes the email scope.",
-    );
-  }
+  const email = identity.email ?? undefined;
   const name = identity.name ?? undefined;
   const imageUrl =
     typeof identity.pictureUrl === "string" ? identity.pictureUrl : undefined;
 
   if (existing !== null) {
     const patch: Partial<Doc<"users">> = {};
-    if (email && existing.email !== email) {
+    if (email !== undefined && existing.email !== email) {
       patch.email = email;
     }
     if (name !== undefined && existing.name !== name) {
@@ -87,6 +81,13 @@ async function ensureCurrentUserRecord(ctx: MutationCtx): Promise<{
       return { user: updated, isNewUser: false };
     }
     return { user: existing, isNewUser: false };
+  }
+
+  if (!email) {
+    throw new Error(
+      "Clerk identity is missing an email claim — cannot create Convex user. " +
+        "Verify the Clerk JWT template includes the email scope.",
+    );
   }
 
   const userId = await ctx.db.insert("users", {
