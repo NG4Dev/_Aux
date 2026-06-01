@@ -4,20 +4,25 @@ import {
   StyleSheet,
   TouchableOpacity,
   Pressable,
+  Text,
 } from 'react-native';
+import Animated, { type AnimatedStyle } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import DynamicMediaRenderer from '@/components/feed/DynamicMediaRenderer';
 import type { MediaItem } from '@/types/content';
 
 type ProductHeroMediaProps = {
   media: MediaItem;
-  maxHeight: number;
+  imageSlotHeight: number;
   showOverlay: boolean;
   onToggleOverlay: () => void;
   onMaximize: () => void;
   onShare: () => void;
   onAddCart: () => void;
   onAddToList: () => void;
+  productName: string;
+  productSubtitle?: string;
+  captionStyle?: AnimatedStyle;
 };
 
 function ActionChip({
@@ -34,26 +39,46 @@ function ActionChip({
   );
 }
 
+function RailButton({
+  icon,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity style={styles.railBtn} onPress={onPress} activeOpacity={0.85}>
+      <Ionicons name={icon} size={20} color="#fff" />
+    </TouchableOpacity>
+  );
+}
+
 export default function ProductHeroMedia({
   media,
-  maxHeight,
+  imageSlotHeight,
   showOverlay,
   onToggleOverlay,
   onMaximize,
   onShare,
   onAddCart,
   onAddToList,
+  productName,
+  productSubtitle,
+  captionStyle,
 }: ProductHeroMediaProps) {
   return (
     <View style={styles.wrap}>
-      <Pressable onPress={onToggleOverlay} style={styles.mediaPressable}>
-        <DynamicMediaRenderer
-          media={media}
-          maxHeight={maxHeight}
-          borderRadius={8}
-        />
+      <View style={[styles.imageSlot, { height: imageSlotHeight }]}>
+        <Pressable onPress={onToggleOverlay} style={styles.mediaPressable}>
+          <DynamicMediaRenderer
+            media={media}
+            maxHeight={imageSlotHeight}
+            borderRadius={8}
+          />
+        </Pressable>
+
         {showOverlay && (
-          <View style={styles.overlay}>
+          <View style={styles.overlay} pointerEvents="box-none">
             <View style={styles.overlayActions}>
               <ActionChip icon="share-outline" onPress={onShare} />
               <ActionChip icon="cart-outline" onPress={onAddCart} />
@@ -61,27 +86,50 @@ export default function ProductHeroMedia({
             </View>
           </View>
         )}
-      </Pressable>
 
-      <TouchableOpacity
-        style={styles.maximizeBtn}
-        onPress={onMaximize}
-        activeOpacity={0.85}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <Ionicons name="expand-outline" size={18} color="#fff" />
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.maximizeBtn}
+          onPress={onMaximize}
+          activeOpacity={0.85}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="expand-outline" size={18} color="#fff" />
+        </TouchableOpacity>
+      </View>
+
+      <View style={[styles.actionRail, showOverlay && styles.actionRailDimmed]}>
+        <RailButton icon="share-outline" onPress={onShare} />
+        <RailButton icon="cart-outline" onPress={onAddCart} />
+        <RailButton icon="bookmark-outline" onPress={onAddToList} />
+        <RailButton icon="expand-outline" onPress={onMaximize} />
+      </View>
+
+      <Animated.View style={[styles.captionWrap, captionStyle]}>
+        <Text style={styles.heroTitle}>{productName}</Text>
+        {productSubtitle ? (
+          <Text style={styles.heroSubtitle} numberOfLines={1}>
+            {productSubtitle}
+          </Text>
+        ) : null}
+      </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: {
-    position: 'relative',
+    width: '100%',
   },
-  mediaPressable: {
+  imageSlot: {
+    position: 'relative',
+    width: '100%',
     borderRadius: 8,
     overflow: 'hidden',
+    backgroundColor: '#111',
+  },
+  mediaPressable: {
+    flex: 1,
+    width: '100%',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
@@ -118,5 +166,39 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
     zIndex: 2,
+  },
+  actionRail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 28,
+    height: 48,
+    marginTop: 8,
+  },
+  actionRailDimmed: {
+    opacity: 0.55,
+  },
+  railBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  captionWrap: {
+    overflow: 'hidden',
+  },
+  heroTitle: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  heroSubtitle: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 4,
   },
 });

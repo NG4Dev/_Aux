@@ -3,11 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   ActivityIndicator,
   Image,
 } from 'react-native';
+import Animated, { type AnimatedRef } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 
@@ -16,6 +16,9 @@ type SimilarItem = {
   name: string;
   slug?: string;
   imageUrl?: string | null;
+  tagline?: string;
+  priceCents?: number;
+  currency?: string;
   kind: 'product' | 'merchant' | 'place';
 };
 
@@ -32,6 +35,8 @@ type ProductDetailSheetProps = {
   similarPlaces?: SimilarItem[];
   loadingSimilar?: boolean;
   onSelectSimilar?: (slug: string) => void;
+  scrollRef?: AnimatedRef<Animated.ScrollView>;
+  contentPaddingBottom?: number;
 };
 
 export default function ProductDetailSheet({
@@ -47,10 +52,17 @@ export default function ProductDetailSheet({
   similarPlaces = [],
   loadingSimilar,
   onSelectSimilar,
+  scrollRef,
+  contentPaddingBottom = 40,
 }: ProductDetailSheetProps) {
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.handle} />
+    <Animated.ScrollView
+      ref={scrollRef}
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
+      showsVerticalScrollIndicator={false}
+      bounces
+    >
       <View style={styles.headerRow}>
         <Text style={styles.title}>{productName}</Text>
         <Text style={styles.price}>
@@ -96,7 +108,7 @@ export default function ProductDetailSheet({
       {similarProducts.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>You might also like</Text>
-          <ScrollView
+          <Animated.ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.similarScroll}
@@ -117,9 +129,14 @@ export default function ProductDetailSheet({
                 <Text style={styles.similarName} numberOfLines={2}>
                   {item.name}
                 </Text>
+                {item.priceCents != null && item.currency ? (
+                  <Text style={styles.similarPrice}>
+                    {(item.priceCents / 100).toFixed(0)} {item.currency.toUpperCase()}
+                  </Text>
+                ) : null}
               </TouchableOpacity>
             ))}
-          </ScrollView>
+          </Animated.ScrollView>
         </View>
       )}
 
@@ -128,34 +145,51 @@ export default function ProductDetailSheet({
           <Text style={styles.sectionTitle}>
             Places similar to {merchantName}
           </Text>
-          {similarPlaces.map((item) => (
-            <Text key={item.id} style={styles.similarItem}>
-              {item.name}
-            </Text>
-          ))}
+          <Animated.ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.similarScroll}
+          >
+            {similarPlaces.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.placeCard}
+                activeOpacity={0.85}
+                onPress={() => item.slug && onSelectSimilar?.(item.slug)}
+                disabled={!item.slug}
+              >
+                {item.imageUrl ? (
+                  <Image source={{ uri: item.imageUrl }} style={styles.placeImage} />
+                ) : (
+                  <View style={[styles.placeImage, styles.similarImageEmpty]}>
+                    <Ionicons
+                      name={item.kind === 'place' ? 'location-outline' : 'storefront-outline'}
+                      size={28}
+                      color="rgba(255,255,255,0.4)"
+                    />
+                  </View>
+                )}
+                <Text style={styles.placeName} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                {item.tagline ? (
+                  <Text style={styles.placeBio} numberOfLines={2}>
+                    {item.tagline}
+                  </Text>
+                ) : null}
+              </TouchableOpacity>
+            ))}
+          </Animated.ScrollView>
         </View>
       )}
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
     paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    alignSelf: 'center',
-    marginTop: 10,
-    marginBottom: 16,
   },
   headerRow: {
     flexDirection: 'row',
@@ -253,15 +287,38 @@ const styles = StyleSheet.create({
   },
   similarImageEmpty: {
     backgroundColor: '#333',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   similarName: {
     color: 'rgba(255,255,255,0.85)',
     fontSize: 13,
     fontWeight: '600',
   },
-  similarItem: {
-    color: 'rgba(255,255,255,0.7)',
+  similarPrice: {
+    color: Colors.primary,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  placeCard: {
+    width: 200,
+  },
+  placeImage: {
+    width: 200,
+    height: 112,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  placeName: {
+    color: '#fff',
     fontSize: 14,
-    paddingVertical: 4,
+    fontWeight: '700',
+  },
+  placeBio: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 12,
+    marginTop: 4,
+    lineHeight: 16,
   },
 });

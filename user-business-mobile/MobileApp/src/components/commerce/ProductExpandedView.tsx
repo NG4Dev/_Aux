@@ -3,13 +3,15 @@ import { View, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DynamicMediaRenderer from '@/components/feed/DynamicMediaRenderer';
-import type { MediaItem } from '@/types/content';
+import type { MediaAspect, MediaItem } from '@/types/content';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type ProductExpandedViewProps = {
   media: MediaItem;
   onCollapse: () => void;
+  /** Reserved for Phase 3 landscape fullscreen layout. */
+  aspect?: MediaAspect;
 };
 
 export default function ProductExpandedView({

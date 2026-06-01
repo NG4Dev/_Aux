@@ -30,6 +30,8 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import Animated, {
 
+  useAnimatedRef,
+
   useAnimatedStyle,
 
   useSharedValue,
@@ -37,6 +39,10 @@ import Animated, {
   withSpring,
 
   runOnJS,
+
+  interpolate,
+
+  Extrapolation,
 
 } from 'react-native-reanimated';
 
@@ -72,6 +78,10 @@ import GuestAuthSheet from '@/components/GuestAuthSheet';
 
 import {
 
+  expandedSheetHeight,
+
+  imageSlotHeight,
+
   snapHeight,
 
   toMediaAspect,
@@ -86,7 +96,7 @@ import { useCartStore } from '@/features/cart/cartStore';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const EXPANDED_SHEET_H = SCREEN_HEIGHT * 0.88;
+const EXPANDED_SHEET_H = expandedSheetHeight();
 
 const MENU_SHEET_H = SCREEN_HEIGHT * 0.72;
 
@@ -208,13 +218,43 @@ export default function DiscoverProductOverlay({
 
   const [similarProducts, setSimilarProducts] = useState<
 
-    Array<{ id: string; name: string; slug?: string; imageUrl?: string | null; kind: 'product' }>
+    Array<{
+
+      id: string;
+
+      name: string;
+
+      slug?: string;
+
+      imageUrl?: string | null;
+
+      priceCents?: number;
+
+      currency?: string;
+
+      kind: 'product';
+
+    }>
 
   >([]);
 
   const [similarPlaces, setSimilarPlaces] = useState<
 
-    Array<{ id: string; name: string; kind: 'merchant' | 'place' }>
+    Array<{
+
+      id: string;
+
+      name: string;
+
+      slug?: string;
+
+      tagline?: string;
+
+      imageUrl?: string | null;
+
+      kind: 'merchant' | 'place';
+
+    }>
 
   >([]);
 
@@ -247,6 +287,16 @@ export default function DiscoverProductOverlay({
   const sheetTranslateY = useSharedValue(collapsedOffset);
 
   const dragStartY = useSharedValue(0);
+
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
+
+  const heroSlotHeight = useMemo(
+
+    () => imageSlotHeight(mediaAspect),
+
+    [mediaAspect],
+
+  );
 
 
 
@@ -392,7 +442,21 @@ export default function DiscoverProductOverlay({
 
         if (cancelled) return;
 
-        let mappedProducts = prods.map((p: { _id: string; name: string; slug?: string; imageUrl?: string }) => ({
+        let mappedProducts = prods.map((p: {
+
+          _id: string;
+
+          name: string;
+
+          slug?: string;
+
+          imageUrl?: string;
+
+          priceCents?: number;
+
+          currency?: string;
+
+        }) => ({
 
           id: p._id,
 
@@ -401,6 +465,10 @@ export default function DiscoverProductOverlay({
           slug: p.slug,
 
           imageUrl: p.imageUrl,
+
+          priceCents: p.priceCents,
+
+          currency: p.currency,
 
           kind: 'product' as const,
 
@@ -424,6 +492,10 @@ export default function DiscoverProductOverlay({
 
               imageUrl: p.imageUrl,
 
+              priceCents: p.priceCents,
+
+              currency: p.currency,
+
               kind: 'product' as const,
 
             }));
@@ -434,13 +506,35 @@ export default function DiscoverProductOverlay({
 
         setSimilarPlaces(
 
-          places.map((p: { id: string; name: string; kind: 'merchant' | 'place' }) => ({
+          places.map((p: {
+
+            id: string;
+
+            name: string;
+
+            kind: 'merchant' | 'place';
+
+            slug?: string;
+
+            tagline?: string;
+
+          }) => ({
 
             id: p.id,
 
             name: p.name,
 
             kind: p.kind,
+
+            slug: p.slug,
+
+            tagline: p.tagline,
+
+            imageUrl: p.slug
+
+              ? `https://i.pravatar.cc/400?u=${encodeURIComponent(p.slug)}`
+
+              : null,
 
           })),
 
@@ -848,6 +942,8 @@ export default function DiscoverProductOverlay({
 
   const panGesture = Gesture.Pan()
 
+    .simultaneousWithExternalGesture(scrollRef)
+
     .onBegin(() => {
 
       dragStartY.value = sheetTranslateY.value;
@@ -875,6 +971,46 @@ export default function DiscoverProductOverlay({
     transform: [{ translateY: sheetTranslateY.value }],
 
   }));
+
+
+
+  const heroCaptionStyle = useAnimatedStyle(() => {
+
+    const progress =
+
+      collapsedOffset > 0 ? 1 - sheetTranslateY.value / collapsedOffset : 0;
+
+    return {
+
+      opacity: interpolate(
+
+        progress,
+
+        [0, 0.35, 1],
+
+        [1, 0.3, 0],
+
+        Extrapolation.CLAMP,
+
+      ),
+
+      maxHeight: interpolate(
+
+        progress,
+
+        [0, 0.5, 1],
+
+        [80, 40, 0],
+
+        Extrapolation.CLAMP,
+
+      ),
+
+      marginBottom: interpolate(progress, [0, 1], [8, 0], Extrapolation.CLAMP),
+
+    };
+
+  });
 
 
 
@@ -1024,7 +1160,7 @@ export default function DiscoverProductOverlay({
 
               media={media}
 
-              maxHeight={SCREEN_HEIGHT * 0.5}
+              imageSlotHeight={heroSlotHeight}
 
               showOverlay={showImageOverlay}
 
@@ -1044,15 +1180,13 @@ export default function DiscoverProductOverlay({
 
               onAddToList={handleAddToList}
 
+              productName={selectedProduct.name}
+
+              productSubtitle={selectedProduct.description}
+
+              captionStyle={heroCaptionStyle}
+
             />
-
-            <Text style={styles.heroTitle}>{selectedProduct.name}</Text>
-
-            <Text style={styles.heroSubtitle} numberOfLines={1}>
-
-              {selectedProduct.description}
-
-            </Text>
 
           </View>
 
@@ -1060,75 +1194,87 @@ export default function DiscoverProductOverlay({
 
 
 
-        <GestureDetector gesture={panGesture}>
+        <Animated.View
 
-          <Animated.View
+          style={[
 
-            style={[
+            styles.sheet,
 
-              styles.sheet,
+            {
 
-              {
+              height: SCREEN_HEIGHT,
 
-                height: SCREEN_HEIGHT,
+              top: SCREEN_HEIGHT - EXPANDED_SHEET_H,
 
-                top: SCREEN_HEIGHT - EXPANDED_SHEET_H,
+            },
 
-              },
+            sheetStyle,
 
-              sheetStyle,
+          ]}
 
-            ]}
+        >
 
-          >
+          <GestureDetector gesture={panGesture}>
 
-            {activeTab === 'menu' ? (
+            <View style={styles.handleZone}>
 
-              <MerchantMenuList
+              <View style={styles.handle} />
 
-                products={menuProducts}
+            </View>
 
-                selectedSlug={selectedSlug}
+          </GestureDetector>
 
-                onSelectProduct={handleMenuSelect}
 
-              />
 
-            ) : (
+          {activeTab === 'menu' ? (
 
-              <ProductDetailSheet
+            <MerchantMenuList
 
-                productName={selectedProduct.name}
+              products={menuProducts}
 
-                description={selectedProduct.description}
+              selectedSlug={selectedSlug}
 
-                priceCents={selectedProduct.priceCents}
+              onSelectProduct={handleMenuSelect}
 
-                currency={selectedProduct.currency}
+            />
 
-                merchantName={merchant.name}
+          ) : (
 
-                onAddCart={handleAddCart}
+            <ProductDetailSheet
 
-                onMyCart={handleMyCart}
+              scrollRef={scrollRef}
 
-                inCart={inCart}
+              contentPaddingBottom={insets.bottom + 24}
 
-                similarProducts={similarProducts}
+              productName={selectedProduct.name}
 
-                similarPlaces={similarPlaces}
+              description={selectedProduct.description}
 
-                loadingSimilar={loadingSimilar}
+              priceCents={selectedProduct.priceCents}
 
-                onSelectSimilar={(slug) => handleMenuSelect(slug)}
+              currency={selectedProduct.currency}
 
-              />
+              merchantName={merchant.name}
 
-            )}
+              onAddCart={handleAddCart}
 
-          </Animated.View>
+              onMyCart={handleMyCart}
 
-        </GestureDetector>
+              inCart={inCart}
+
+              similarProducts={similarProducts}
+
+              similarPlaces={similarPlaces}
+
+              loadingSimilar={loadingSimilar}
+
+              onSelectSimilar={(slug) => handleMenuSelect(slug)}
+
+            />
+
+          )}
+
+        </Animated.View>
 
 
 
@@ -1139,6 +1285,8 @@ export default function DiscoverProductOverlay({
             <ProductExpandedView
 
               media={media}
+
+              aspect={mediaAspect}
 
               onCollapse={() => setImageMode('minimized')}
 
@@ -1270,34 +1418,6 @@ const styles = StyleSheet.create({
 
   },
 
-  heroTitle: {
-
-    color: '#fff',
-
-    fontSize: 22,
-
-    fontWeight: '700',
-
-    textAlign: 'center',
-
-    marginTop: 12,
-
-  },
-
-  heroSubtitle: {
-
-    color: 'rgba(255,255,255,0.55)',
-
-    fontSize: 14,
-
-    textAlign: 'center',
-
-    marginTop: 4,
-
-    marginBottom: 8,
-
-  },
-
   sheet: {
 
     position: 'absolute',
@@ -1311,6 +1431,30 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 16,
 
     borderTopRightRadius: 16,
+
+    overflow: 'hidden',
+
+  },
+
+  handleZone: {
+
+    paddingTop: 10,
+
+    paddingBottom: 12,
+
+    alignItems: 'center',
+
+  },
+
+  handle: {
+
+    width: 36,
+
+    height: 4,
+
+    borderRadius: 2,
+
+    backgroundColor: 'rgba(255,255,255,0.3)',
 
   },
 
