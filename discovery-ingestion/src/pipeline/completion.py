@@ -114,7 +114,7 @@ def fetch_completion_report(conn: sqlite3.Connection, city_slug: str | None = No
         INNER JOIN (
             SELECT source_provider, city_slug, MAX(id) AS max_id
             FROM scrape_runs
-            WHERE status IN ('completed', 'completed_with_warnings', 'failed')
+            WHERE status IN ('completed', 'completed_with_warnings', 'failed', 'skipped_fresh')
             {city_filter}
             GROUP BY source_provider, city_slug
         ) latest ON sr.id = latest.max_id

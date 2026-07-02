@@ -1,7 +1,23 @@
 import React from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import type { MediaItem } from '@/types/content';
+import {
+  aspectFrameHeight,
+  aspectRatioFor,
+  heroContentFit,
+  imageSlotHeight,
+  overlayHeroUsesLetterbox,
+} from '@/components/commerce/getSheetSnapPoints';
+import type { MediaAspect, MediaItem } from '@/types/content';
+
+export type MediaRenderMode =
+  | 'feed'
+  | 'feedCover'
+  | 'feedLetterbox'
+  | 'hero'
+  | 'heroCover'
+  | 'heroLetterbox'
+  | 'fill';
 
 type DynamicMediaRendererProps = {
   media: MediaItem;
@@ -9,20 +25,14 @@ type DynamicMediaRendererProps = {
   borderRadius?: number;
   autoPlay?: boolean;
   contentFit?: 'cover' | 'contain';
-};
-
-const ASPECT_MAP: Record<string, number> = {
-  square: 1,
-  landscape: 1080 / 608,
-  portrait: 1080 / 1350,
-  portrait45: 1080 / 1350,
-  portrait34: 1080 / 1440,
-  story: 9 / 16,
+  mode?: MediaRenderMode;
+  contentWidth?: number;
+  letterboxColor?: string;
 };
 
 function resolveAspect(media: MediaItem): number {
-  if (media.aspect && ASPECT_MAP[media.aspect]) {
-    return ASPECT_MAP[media.aspect];
+  if (media.aspect) {
+    return aspectRatioFor(media.aspect);
   }
   if (media.width && media.height) {
     return media.width / media.height;
@@ -30,18 +40,31 @@ function resolveAspect(media: MediaItem): number {
   return 1;
 }
 
+function resolveAspectKey(media: MediaItem): MediaAspect {
+  return media.aspect ?? 'square';
+}
+
+function intrinsicAspect(media: MediaItem): number {
+  if (media.width && media.height) {
+    return media.width / media.height;
+  }
+  return resolveAspect(media);
+}
+
 function VideoMedia({
   uri,
-  aspect,
-  maxHeight,
+  slotHeight,
   borderRadius,
   autoPlay,
+  contentFit,
+  letterboxColor,
 }: {
   uri: string;
-  aspect: number;
-  maxHeight?: number;
+  slotHeight: number;
   borderRadius: number;
   autoPlay: boolean;
+  contentFit: 'cover' | 'contain';
+  letterboxColor?: string;
 }) {
   const player = useVideoPlayer(uri, (p) => {
     p.loop = true;
@@ -53,14 +76,17 @@ function VideoMedia({
     <View
       style={[
         styles.container,
-        maxHeight ? { maxHeight } : undefined,
-        { borderRadius },
+        contentFit === 'contain' && styles.containContainer,
+        contentFit === 'contain' && letterboxColor
+          ? { backgroundColor: letterboxColor }
+          : undefined,
+        { height: slotHeight, borderRadius },
       ]}
     >
       <VideoView
         player={player}
-        style={[styles.video, { aspectRatio: aspect }]}
-        contentFit="cover"
+        style={contentFit === 'cover' ? styles.coverMedia : styles.containImage}
+        contentFit={contentFit}
         nativeControls={false}
       />
     </View>
@@ -72,36 +98,74 @@ export default function DynamicMediaRenderer({
   maxHeight,
   borderRadius = 0,
   autoPlay = false,
-  contentFit = 'cover',
+  contentFit,
+  mode = 'fill',
+  contentWidth,
+  letterboxColor = '#f2f2f2',
 }: DynamicMediaRendererProps) {
-  const aspect = resolveAspect(media);
-  const resizeMode = contentFit === 'contain' ? 'contain' : 'cover';
+  const aspectKey = resolveAspectKey(media);
+  const width = contentWidth ?? undefined;
+  const intrinsic = intrinsicAspect(media);
+
+  let slotHeight: number;
+  let fit: 'cover' | 'contain';
+  let bgColor: string | undefined;
+
+  if (mode === 'feed' || mode === 'feedCover') {
+    slotHeight = maxHeight ?? aspectFrameHeight(aspectKey, width);
+    fit = 'cover';
+  } else if (mode === 'feedLetterbox' || mode === 'heroLetterbox') {
+    slotHeight = maxHeight ?? aspectFrameHeight('portrait45', width);
+    fit = 'contain';
+    bgColor = letterboxColor;
+  } else if (mode === 'heroCover') {
+    const letterbox = overlayHeroUsesLetterbox(aspectKey, media);
+    if (letterbox) {
+      slotHeight = maxHeight ?? aspectFrameHeight('portrait45', width);
+      fit = 'contain';
+      bgColor = letterboxColor;
+    } else {
+      slotHeight = maxHeight ?? aspectFrameHeight(aspectKey, width);
+      fit = 'cover';
+    }
+  } else if (mode === 'hero') {
+    slotHeight = maxHeight ?? imageSlotHeight(aspectKey, width);
+    fit = contentFit ?? heroContentFit(aspectKey);
+    bgColor = fit === 'contain' ? letterboxColor : undefined;
+  } else {
+    slotHeight = maxHeight ?? aspectFrameHeight(aspectKey, width);
+    fit = contentFit ?? 'cover';
+  }
+
+  const resizeMode = fit === 'contain' ? 'contain' : 'cover';
+  const containerBg =
+    fit === 'contain' ? (bgColor ?? letterboxColor) : 'transparent';
 
   if (media.type === 'video') {
     return (
       <VideoMedia
         uri={media.uri}
-        aspect={aspect}
-        maxHeight={maxHeight}
+        slotHeight={slotHeight}
         borderRadius={borderRadius}
         autoPlay={autoPlay}
+        contentFit={fit}
+        letterboxColor={bgColor}
       />
     );
   }
 
-  if (contentFit === 'contain') {
+  if (fit === 'contain') {
     return (
       <View
         style={[
           styles.container,
           styles.containContainer,
-          maxHeight ? { maxHeight, height: maxHeight } : styles.containFlex,
-          { borderRadius },
+          { height: slotHeight, borderRadius, backgroundColor: containerBg },
         ]}
       >
         <Image
           source={{ uri: media.uri }}
-          style={styles.containImage}
+          style={{ width: '100%', aspectRatio: intrinsic }}
           resizeMode={resizeMode}
         />
       </View>
@@ -112,13 +176,12 @@ export default function DynamicMediaRenderer({
     <View
       style={[
         styles.container,
-        maxHeight ? { maxHeight } : undefined,
-        { borderRadius },
+        { height: slotHeight, borderRadius, backgroundColor: containerBg },
       ]}
     >
       <Image
         source={{ uri: media.uri }}
-        style={[styles.image, { aspectRatio: aspect }]}
+        style={styles.coverMedia}
         resizeMode={resizeMode}
       />
     </View>
@@ -129,25 +192,17 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     overflow: 'hidden',
-    backgroundColor: '#111',
   },
   containContainer: {
-    width: '100%',
-    backgroundColor: '#000',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  containFlex: {
-    flex: 1,
   },
   containImage: {
     width: '100%',
     height: '100%',
   },
-  image: {
+  coverMedia: {
     width: '100%',
-  },
-  video: {
-    width: '100%',
+    height: '100%',
   },
 });

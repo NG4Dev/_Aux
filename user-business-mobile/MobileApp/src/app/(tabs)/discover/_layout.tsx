@@ -1,8 +1,9 @@
 import { Stack } from 'expo-router';
+import { DARK_STACK_OPTIONS } from '@/navigation/stackOptions';
 
 export default function DiscoverLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack screenOptions={DARK_STACK_OPTIONS}>
       <Stack.Screen name="index" />
       <Stack.Screen name="[category]" />
       <Stack.Screen

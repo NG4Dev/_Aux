@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS scrape_runs (
     started_at TEXT NOT NULL DEFAULT (datetime('now')),
     finished_at TEXT,
     status TEXT NOT NULL DEFAULT 'running'
-        CHECK (status IN ('running', 'completed', 'completed_with_warnings', 'failed')),
+                CHECK (status IN ('running', 'completed', 'completed_with_warnings', 'failed', 'skipped_fresh')),
     records_found INTEGER DEFAULT 0,
     records_inserted INTEGER DEFAULT 0,
     error_message TEXT,

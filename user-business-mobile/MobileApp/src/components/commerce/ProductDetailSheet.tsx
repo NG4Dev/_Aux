@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,19 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
-import Animated, { type AnimatedRef } from 'react-native-reanimated';
+import Animated, {
+  type AnimatedRef,
+  type SharedValue,
+  useAnimatedScrollHandler,
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import {
+  OVERLAY_PRICE_GREEN,
+  OVERLAY_SECTION_ACCENT,
+} from '@/components/commerce/getSheetSnapPoints';
 import Colors from '@/constants/Colors';
+import { discoverLog } from '@/services/discoverFlowLogger';
 
 type SimilarItem = {
   id: string;
@@ -28,15 +38,30 @@ type ProductDetailSheetProps = {
   priceCents: number;
   currency: string;
   merchantName: string;
+  merchantSlug?: string;
+  productSlug?: string;
+  merchantLogoUrl?: string | null;
+  categoryLabels?: string[];
+  isFollowing?: boolean;
+  onFollow?: () => void;
   onAddCart: () => void;
-  onMyCart?: () => void;
-  inCart: boolean;
+  onIncrementCart?: () => void;
+  onDecrementCart?: () => void;
+  cartQuantity?: number;
   similarProducts?: SimilarItem[];
   similarPlaces?: SimilarItem[];
   loadingSimilar?: boolean;
-  onSelectSimilar?: (slug: string) => void;
+  onSelectSimilarProduct?: (slug: string) => void;
+  onSelectSimilarPlace?: (slug: string) => void;
   scrollRef?: AnimatedRef<Animated.ScrollView>;
   contentPaddingBottom?: number;
+  productImageUrl?: string | null;
+  productSubtitle?: string;
+  sheetTranslateY?: SharedValue<number>;
+  collapsedOffsetSV?: SharedValue<number>;
+  sheetScrollY?: SharedValue<number>;
+  hidePeekHeaderAtCollapse?: boolean;
+  nativeScrollGesture?: ReturnType<typeof Gesture.Native>;
 };
 
 export default function ProductDetailSheet({
@@ -45,157 +70,256 @@ export default function ProductDetailSheet({
   priceCents,
   currency,
   merchantName,
+  merchantSlug,
+  productSlug,
+  merchantLogoUrl,
+  categoryLabels = [],
+  isFollowing,
+  onFollow,
   onAddCart,
-  onMyCart,
-  inCart,
+  onIncrementCart,
+  onDecrementCart,
+  cartQuantity = 0,
   similarProducts = [],
   similarPlaces = [],
   loadingSimilar,
-  onSelectSimilar,
+  onSelectSimilarProduct,
+  onSelectSimilarPlace,
   scrollRef,
   contentPaddingBottom = 40,
+  sheetScrollY,
+  hidePeekHeaderAtCollapse = false,
+  nativeScrollGesture,
 }: ProductDetailSheetProps) {
-  return (
+  const inCart = cartQuantity > 0;
+  const priceLabel = `${(priceCents / 100).toFixed(0)} ${currency.toUpperCase()}`;
+
+  const peekHeaderHRef = useRef(0);
+  const merchantBlockHRef = useRef(0);
+  const scrollContentHRef = useRef(0);
+
+  const logLayout = useCallback(
+    (source: 'peekHeader' | 'merchantBlock' | 'scrollContent', height: number) => {
+      if (source === 'peekHeader') peekHeaderHRef.current = height;
+      if (source === 'merchantBlock') merchantBlockHRef.current = height;
+      if (source === 'scrollContent') scrollContentHRef.current = height;
+
+      discoverLog('overlay', 'productSheetLayout', {
+        merchantSlug,
+        productSlug,
+        source,
+        descriptionLen: description.length,
+        peekHeaderH: peekHeaderHRef.current,
+        merchantBlockH: merchantBlockHRef.current,
+        scrollContentH: scrollContentHRef.current,
+        contentFlow: true,
+        staticContent: true,
+        contentTransforms: false,
+        pinnedFooter: false,
+      });
+    },
+    [merchantSlug, productSlug, description.length],
+  );
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      if (sheetScrollY) {
+        sheetScrollY.value = event.contentOffset.y;
+      }
+    },
+  });
+
+  const productHeader = hidePeekHeaderAtCollapse ? null : (
+    <View onLayout={(e) => logLayout('peekHeader', e.nativeEvent.layout.height)}>
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>{productName}</Text>
+        <Text style={styles.price}>{priceLabel}</Text>
+      </View>
+      <Text style={styles.description}>{description}</Text>
+    </View>
+  );
+
+  const merchantBlock = (
+    <View onLayout={(e) => logLayout('merchantBlock', e.nativeEvent.layout.height)}>
+      <View style={styles.merchantRow}>
+        {merchantLogoUrl ? (
+          <Image source={{ uri: merchantLogoUrl }} style={styles.merchantAvatar} />
+        ) : (
+          <View style={styles.merchantAvatar}>
+            <Ionicons name="storefront-outline" size={18} color="#fff" />
+          </View>
+        )}
+        <Text style={styles.merchantName}>{merchantName}</Text>
+        <TouchableOpacity style={styles.followBtn} onPress={onFollow}>
+          <Text style={styles.followText}>
+            {isFollowing ? 'Following' : 'Follow'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+      {categoryLabels.length > 0 ? (
+        <View style={styles.chips}>
+          {categoryLabels.map((label) => (
+            <View key={label} style={styles.chip}>
+              <Text style={styles.chipText}>{label}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+
+  const cartBlock = inCart ? (
+    <View style={styles.stepperRow}>
+      <TouchableOpacity
+        style={styles.stepperBtn}
+        onPress={onDecrementCart}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="remove" size={22} color="#fff" />
+      </TouchableOpacity>
+      <Text style={styles.stepperQty}>{cartQuantity}</Text>
+      <TouchableOpacity
+        style={styles.stepperBtn}
+        onPress={onIncrementCart}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="add" size={22} color="#fff" />
+      </TouchableOpacity>
+    </View>
+  ) : (
+    <TouchableOpacity style={styles.cartBtn} onPress={onAddCart}>
+      <Ionicons name="cart-outline" size={20} color="#fff" />
+      <Text style={styles.cartBtnText}>Add to cart</Text>
+    </TouchableOpacity>
+  );
+
+  const scrollView = (
     <Animated.ScrollView
       ref={scrollRef}
       style={styles.container}
       contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
       showsVerticalScrollIndicator={false}
       bounces
+      onScroll={sheetScrollY ? scrollHandler : undefined}
+      scrollEventThrottle={16}
     >
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>{productName}</Text>
-        <Text style={styles.price}>
-          {(priceCents / 100).toFixed(0)} {currency.toUpperCase()}
-        </Text>
-      </View>
-      <Text style={styles.description}>{description}</Text>
+      <View onLayout={(e) => logLayout('scrollContent', e.nativeEvent.layout.height)}>
+        {productHeader}
+        {merchantBlock}
+        {cartBlock}
 
-      <View style={styles.merchantRow}>
-        <View style={styles.merchantAvatar}>
-          <Ionicons name="storefront-outline" size={18} color="#fff" />
-        </View>
-        <Text style={styles.merchantName}>{merchantName}</Text>
-        <TouchableOpacity style={styles.followBtn}>
-          <Text style={styles.followText}>Follow</Text>
-        </TouchableOpacity>
-      </View>
+        {loadingSimilar ? (
+          <ActivityIndicator color={Colors.primary} style={{ marginTop: 16 }} />
+        ) : null}
 
-      <View style={styles.chips}>
-        <View style={styles.chip}>
-          <Text style={styles.chipText}>Category</Text>
-        </View>
-      </View>
-
-      <TouchableOpacity
-        style={styles.cartBtn}
-        onPress={inCart ? onMyCart : onAddCart}
-      >
-        <Ionicons
-          name={inCart ? 'cart' : 'cart-outline'}
-          size={20}
-          color="#fff"
-        />
-        <Text style={styles.cartBtnText}>
-          {inCart ? 'My Cart' : 'Add to cart'}
-        </Text>
-      </TouchableOpacity>
-
-      {loadingSimilar ? (
-        <ActivityIndicator color={Colors.primary} style={{ marginTop: 16 }} />
-      ) : null}
-
-      {similarProducts.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>You might also like</Text>
-          <Animated.ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.similarScroll}
-          >
-            {similarProducts.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.similarCard}
-                activeOpacity={0.85}
-                onPress={() => item.slug && onSelectSimilar?.(item.slug)}
-                disabled={!item.slug}
-              >
-                {item.imageUrl ? (
-                  <Image source={{ uri: item.imageUrl }} style={styles.similarImage} />
-                ) : (
-                  <View style={[styles.similarImage, styles.similarImageEmpty]} />
-                )}
-                <Text style={styles.similarName} numberOfLines={2}>
-                  {item.name}
-                </Text>
-                {item.priceCents != null && item.currency ? (
-                  <Text style={styles.similarPrice}>
-                    {(item.priceCents / 100).toFixed(0)} {item.currency.toUpperCase()}
+        {similarProducts.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>You might also like this</Text>
+            <Animated.ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.similarScroll}
+            >
+              {similarProducts.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.similarCard}
+                  activeOpacity={0.85}
+                  onPress={() => item.slug && onSelectSimilarProduct?.(item.slug)}
+                  disabled={!item.slug}
+                >
+                  {item.imageUrl ? (
+                    <Image source={{ uri: item.imageUrl }} style={styles.similarImage} />
+                  ) : (
+                    <View style={[styles.similarImage, styles.similarImageEmpty]} />
+                  )}
+                  <Text style={styles.similarName} numberOfLines={2}>
+                    {item.name}
                   </Text>
-                ) : null}
-              </TouchableOpacity>
-            ))}
-          </Animated.ScrollView>
-        </View>
-      )}
+                  {item.priceCents != null && item.currency ? (
+                    <Text style={styles.similarPrice}>
+                      {(item.priceCents / 100).toFixed(0)} {item.currency.toUpperCase()}
+                    </Text>
+                  ) : null}
+                </TouchableOpacity>
+              ))}
+            </Animated.ScrollView>
+          </View>
+        ) : null}
 
-      {similarPlaces.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Places similar to {merchantName}
-          </Text>
-          <Animated.ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.similarScroll}
-          >
-            {similarPlaces.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.placeCard}
-                activeOpacity={0.85}
-                onPress={() => item.slug && onSelectSimilar?.(item.slug)}
-                disabled={!item.slug}
-              >
-                {item.imageUrl ? (
-                  <Image source={{ uri: item.imageUrl }} style={styles.placeImage} />
-                ) : (
-                  <View style={[styles.placeImage, styles.similarImageEmpty]}>
-                    <Ionicons
-                      name={item.kind === 'place' ? 'location-outline' : 'storefront-outline'}
-                      size={28}
-                      color="rgba(255,255,255,0.4)"
-                    />
-                  </View>
-                )}
-                <Text style={styles.placeName} numberOfLines={1}>
-                  {item.name}
-                </Text>
-                {item.tagline ? (
-                  <Text style={styles.placeBio} numberOfLines={2}>
-                    {item.tagline}
+        {similarPlaces.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              Places similar to {merchantName}
+            </Text>
+            <Animated.ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.similarScroll}
+            >
+              {similarPlaces.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.placeCard}
+                  activeOpacity={0.85}
+                  onPress={() => item.slug && onSelectSimilarPlace?.(item.slug)}
+                  disabled={!item.slug}
+                >
+                  {item.imageUrl ? (
+                    <Image source={{ uri: item.imageUrl }} style={styles.placeImage} />
+                  ) : (
+                    <View style={[styles.placeImage, styles.similarImageEmpty]}>
+                      <Ionicons
+                        name={
+                          item.kind === 'place' ? 'location-outline' : 'storefront-outline'
+                        }
+                        size={28}
+                        color="rgba(255,255,255,0.4)"
+                      />
+                    </View>
+                  )}
+                  <Text style={styles.placeName} numberOfLines={1}>
+                    {item.name}
                   </Text>
-                ) : null}
-              </TouchableOpacity>
-            ))}
-          </Animated.ScrollView>
-        </View>
-      )}
+                  {item.tagline ? (
+                    <Text style={styles.placeBio} numberOfLines={2}>
+                      {item.tagline}
+                    </Text>
+                  ) : null}
+                </TouchableOpacity>
+              ))}
+            </Animated.ScrollView>
+          </View>
+        ) : null}
+      </View>
     </Animated.ScrollView>
+  );
+
+  return (
+    <View style={styles.wrapper}>
+      {nativeScrollGesture ? (
+        <GestureDetector gesture={nativeScrollGesture}>{scrollView}</GestureDetector>
+      ) : (
+        scrollView
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: 12,
+    marginTop: 4,
   },
   title: {
     flex: 1,
@@ -204,7 +328,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   price: {
-    color: Colors.primary,
+    color: OVERLAY_PRICE_GREEN,
     fontSize: 18,
     fontWeight: '700',
   },
@@ -218,7 +342,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginTop: 20,
+    marginTop: 16,
     paddingTop: 16,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#333',
@@ -230,6 +354,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#333',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   merchantName: {
     flex: 1,
@@ -245,7 +370,13 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   followText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-  chips: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+    alignSelf: 'flex-start',
+  },
   chip: {
     borderWidth: 1,
     borderColor: '#444',
@@ -265,9 +396,32 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   cartBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  stepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 24,
+    marginTop: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
+  },
+  stepperBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperQty: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+    minWidth: 32,
+    textAlign: 'center',
+  },
   section: { marginTop: 24 },
   sectionTitle: {
-    color: '#fff',
+    color: OVERLAY_SECTION_ACCENT,
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 12,
@@ -296,7 +450,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   similarPrice: {
-    color: Colors.primary,
+    color: OVERLAY_PRICE_GREEN,
     fontSize: 12,
     fontWeight: '700',
     marginTop: 4,

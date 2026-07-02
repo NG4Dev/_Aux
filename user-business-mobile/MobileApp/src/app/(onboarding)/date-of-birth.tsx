@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { useMutation } from 'convex/react';
 import CustomButton from '@/components/CustomButton';
@@ -11,6 +11,7 @@ import DateOfBirthPicker, {
 } from '@/components/onboarding/DateOfBirthPicker';
 import { api } from '@/convex/_generated/api';
 import { getSignedInIncompleteOnboardingRoute } from '@/services/resolveAuthSession';
+import { useOnboardingExitGuard } from '@/hooks/useOnboardingExitGuard';
 
 export default function DateOfBirthScreen() {
   const { isSignedIn, isLoaded } = useAuth();
@@ -19,6 +20,8 @@ export default function DateOfBirthScreen() {
   const [dob, setDob] = useState(DEFAULT_DOB);
   const [saving, setSaving] = useState(false);
   const [touched, setTouched] = useState(false);
+  const allowExitRef = useRef(false);
+  const { gestureEnabled } = useOnboardingExitGuard({ allowExitRef });
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
@@ -32,6 +35,7 @@ export default function DateOfBirthScreen() {
       await updateProfile({ dateOfBirth: formatDateOfBirth(dob) });
       await completeStep({ step: 'dob' });
       const nextRoute = await getSignedInIncompleteOnboardingRoute();
+      allowExitRef.current = true;
       router.replace(nextRoute as never);
     } finally {
       setSaving(false);
@@ -48,6 +52,7 @@ export default function DateOfBirthScreen() {
 
   return (
     <View style={styles.container}>
+      <Stack.Screen options={{ gestureEnabled }} />
       <SafeAreaView style={styles.safeArea}>
         <DateOfBirthPicker
           value={dob}

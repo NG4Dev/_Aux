@@ -1,12 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   StyleSheet,
   View,
   Text,
-  Keyboard,
-  Platform,
-  LayoutAnimation,
-  UIManager,
   ScrollView,
   Pressable,
 } from "react-native";
@@ -19,6 +15,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Ionicons } from "@expo/vector-icons";
 import { useUser } from "@clerk/clerk-expo";
 import { Toast } from "@/components/Toast";
+import { useAuthKeyboardHeight } from "@/hooks/useAuthKeyboardHeight";
 
 const passwordSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
@@ -29,7 +26,7 @@ type PasswordFields = z.infer<typeof passwordSchema>;
 // Layout animation is enabled by default in new arch
 
 export default function ResetPasswordScreen() {
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const keyboardHeight = useAuthKeyboardHeight();
   const { user, isLoaded: isUserLoaded } = useUser();
   const [errorToast, setErrorToast] = useState<{ message: string; code?: string } | null>(null);
 
@@ -44,28 +41,6 @@ export default function ResetPasswordScreen() {
   });
 
   const password = watch("password");
-
-  useEffect(() => {
-    const showSubscription = Keyboard.addListener(
-      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
-      (e) => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setKeyboardHeight(e.endCoordinates.height);
-      }
-    );
-    const hideSubscription = Keyboard.addListener(
-      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
-      () => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setKeyboardHeight(0);
-      }
-    );
-
-    return () => {
-      showSubscription.remove();
-      hideSubscription.remove();
-    };
-  }, []);
 
   const onReset = async (data: PasswordFields) => {
     if (!isUserLoaded || !user) return;

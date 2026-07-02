@@ -14,3 +14,8 @@ output/
 
 # Probe/debug dumps
 scripts/*.html
+
+# Local agent workspace (templates, recon notes, dated snapshots)
+.local/
+agent-docs/
+recon/

@@ -57,7 +57,7 @@ export default CustomButton;
 
 const styles = StyleSheet.create({
     button:{
-      backgroundColor: '#fff',
+      backgroundColor: 'transparent',
       height: 56, 
       borderRadius: 6, // Perfect pill shape
       alignItems: 'center',

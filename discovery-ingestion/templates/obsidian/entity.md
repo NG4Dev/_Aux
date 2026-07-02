@@ -5,16 +5,17 @@ entity_type: {{entity_type}}
 source_provider: {{source_provider}}
 source_external_id: {{source_external_id}}
 city_slug: {{city_slug}}
+display_name: {{display_name}}
 vetting_status: {{vetting_status}}
-tags: {{tags}}
+{{tags}}
 exported_at: {{exported_at}}
 ---
 
-# {{name}}
+# {{display_name}}
 
 {{callout}}
 
----
+{{catalog_entry}}
 
 {{key_details}}
 
@@ -27,3 +28,7 @@ exported_at: {{exported_at}}
 ## Vetting notes
 
 <!-- Add outreach notes, duplicate checks, approval rationale -->
+
+---
+
+{{related_section}}

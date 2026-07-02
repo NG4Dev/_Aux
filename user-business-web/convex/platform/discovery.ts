@@ -376,7 +376,7 @@ async function composeFeed(
 
   if (!hasPersonalization || !profile?.embedding) {
     let feed = buildGuestFeed(showcase, limit, dailySeed);
-    if (feed.length === 0) {
+    if (feed.length === 0 && showcase.length > 0) {
       feed = shuffleWithSeed(showcase, dailySeed)
         .slice(0, limit)
         .map((c) => ({ ...c, personalized: false }));
@@ -385,16 +385,39 @@ async function composeFeed(
   }
 
   const tastePool = await buildTastePool(ctx, profile.embedding, limit);
-  const tasteKeys = new Set(tastePool.map(cardKey));
-  const explorePool = shuffleWithSeed(
-    showcase.filter((c) => !tasteKeys.has(cardKey(c))),
-    dailySeed + 7,
-  );
 
-  const { feed } = composeDiscoveryFeed(tastePool, explorePool, limit);
-  if (feed.length === 0) {
+  if (tastePool.length === 0) {
+    let feed = buildGuestFeed(showcase, limit, dailySeed);
+    if (feed.length === 0 && showcase.length > 0) {
+      feed = shuffleWithSeed(showcase, dailySeed)
+        .slice(0, limit)
+        .map((c) => ({ ...c, personalized: false }));
+    }
+    return feed;
+  }
+
+  const explorePool = shuffleWithSeed(showcase, dailySeed + 7);
+
+  let { feed } = composeDiscoveryFeed(tastePool, explorePool, limit);
+
+  if (feed.length === 0 && showcase.length > 0) {
     return buildGuestFeed(showcase, limit, dailySeed);
   }
+
+  const minExplore = Math.ceil(limit * 0.35);
+  let exploreCount = feed.filter((c) => !c.personalized).length;
+  if (exploreCount < minExplore) {
+    const seen = new Set(feed.map(cardKey));
+    for (const card of shuffleWithSeed(showcase, dailySeed + 11)) {
+      if (feed.length >= limit && exploreCount >= minExplore) break;
+      const key = cardKey(card);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      feed.push({ ...card, personalized: false });
+      exploreCount += 1;
+    }
+  }
+
   if (feed.length < limit) {
     const seen = new Set(feed.map(cardKey));
     for (const card of shuffleWithSeed(showcase, dailySeed + 9)) {
@@ -405,6 +428,7 @@ async function composeFeed(
       feed.push({ ...card, personalized: false });
     }
   }
+
   return feed.slice(0, limit);
 }
 

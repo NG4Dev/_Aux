@@ -35,11 +35,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: 'rgba(255,255,255,0.12)',
     borderRadius: 10,
-    padding: 3,
+    padding: 2,
+    maxWidth: '100%',
   },
   tab: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: 8,
   },
   tabActive: {
@@ -47,7 +48,7 @@ const styles = StyleSheet.create({
   },
   label: {
     color: 'rgba(255,255,255,0.75)',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     textTransform: 'capitalize',
   },

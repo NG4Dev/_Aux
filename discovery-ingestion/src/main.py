@@ -108,6 +108,7 @@ def cmd_scrape(args: argparse.Namespace) -> int:
                 conn=conn,
                 on_progress=on_progress,
                 force=args.force,
+                incremental=args.incremental,
                 strict_city_filter=getattr(args, "city_filter", "infer") == "strict",
             )
         finally:
@@ -347,6 +348,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--force",
         action="store_true",
         help="Re-scrape even if content hash is unchanged",
+    )
+    scrape_p.add_argument(
+        "--incremental",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Incremental Google Places mode: skip fresh runs, cap new IDs, stop on 429 (default: on)",
     )
     scrape_p.add_argument(
         "--json",

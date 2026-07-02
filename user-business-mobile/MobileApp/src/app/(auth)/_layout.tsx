@@ -1,8 +1,9 @@
 import { Stack } from 'expo-router';
+import { AUTH_HEADER_OPTIONS, DARK_STACK_OPTIONS } from '@/navigation/stackOptions';
 
 export default function AuthLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack screenOptions={DARK_STACK_OPTIONS}>
       <Stack.Screen name="index" options={{ title: 'Welcome' }} />
       <Stack.Screen name="selection" options={{ title: 'Get Started' }} />
       <Stack.Screen
@@ -10,10 +11,7 @@ export default function AuthLayout() {
         options={{
           headerShown: true,
           title: 'Sign in',
-          headerStyle: { backgroundColor: '#000' },
-          headerTintColor: '#fff',
-          headerTitleAlign: 'center',
-          headerShadowVisible: false,
+          ...AUTH_HEADER_OPTIONS,
         }}
       />
       <Stack.Screen
@@ -21,10 +19,7 @@ export default function AuthLayout() {
         options={{
           headerShown: true,
           title: 'Create account',
-          headerTitleAlign: 'center',
-          headerStyle: { backgroundColor: '#000' },
-          headerTintColor: '#fff',
-          headerShadowVisible: false,
+          ...AUTH_HEADER_OPTIONS,
         }}
       />
       <Stack.Screen
@@ -32,10 +27,7 @@ export default function AuthLayout() {
         options={{
           headerShown: true,
           title: 'Verify',
-          headerStyle: { backgroundColor: '#000' },
-          headerTintColor: '#fff',
-          headerTitleAlign: 'center',
-          headerShadowVisible: false,
+          ...AUTH_HEADER_OPTIONS,
         }}
       />
       <Stack.Screen
@@ -50,10 +42,7 @@ export default function AuthLayout() {
         options={{
           headerShown: true,
           title: 'Create account',
-          headerStyle: { backgroundColor: '#000' },
-          headerTintColor: '#fff',
-          headerTitleAlign: 'center',
-          headerShadowVisible: false,
+          ...AUTH_HEADER_OPTIONS,
         }}
       />
     </Stack>

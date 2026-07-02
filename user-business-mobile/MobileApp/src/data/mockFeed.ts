@@ -174,6 +174,7 @@ export const FEED_ITEMS: ContentItem[] = [
         type: 'video',
         width: 600,
         height: 750,
+        aspect: 'story',
       },
     ],
     badge: { label: 'FEATURED', color: '#7C4DFF' },
@@ -236,6 +237,48 @@ export const FEED_ITEMS: ContentItem[] = [
     businessId: 'keinemusik-co',
     categories: ['Events', 'Music'],
     chyron: 'Afropunk returns to Johannesburg for the biggest edition yet',
+  },
+  {
+    id: '9',
+    contentType: 'post',
+    title: 'Golden hour at Clifton',
+    subtitle: 'Photo dump',
+    description:
+      'Nothing beats a Cape Town sunset from the rocks. Tag someone you would bring here.',
+    media: [
+      {
+        uri: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1080&q=80',
+        type: 'image',
+        width: 1080,
+        height: 1920,
+        aspect: 'story',
+      },
+    ],
+    verified: true,
+    profileName: 'Clifton Views',
+    profileAvatar: 'https://i.pravatar.cc/80?u=clifton',
+    categories: ['Beach bars', 'Sundowners'],
+  },
+  {
+    id: '10',
+    contentType: 'post',
+    title: 'Portrait shot in landscape frame',
+    subtitle: 'Letterbox test',
+    description:
+      'Feed tile uses a tall 4:5 letterbox when landscape aspect is declared but the asset is portrait.',
+    media: [
+      {
+        uri: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1080&q=80',
+        type: 'image',
+        width: 1080,
+        height: 1350,
+        aspect: 'landscape',
+      },
+    ],
+    verified: false,
+    profileName: 'Layout QA',
+    profileAvatar: 'https://i.pravatar.cc/80?u=layoutqa',
+    categories: ['Beach bars'],
   },
 ];
 

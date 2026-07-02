@@ -24,7 +24,6 @@ BASE_QUERY_TEMPLATES = (
     "night clubs {suffix}",
     "food venues {suffix}",
 )
-# Extra templates only when GOOGLE_PLACES_EXPANDED=1
 EXPANDED_QUERY_TEMPLATES = (
     "breweries {suffix}",
     "bakeries {suffix}",
@@ -51,10 +50,37 @@ class GooglePlacesScraper(BaseScraper):
             finish_scrape_run(self, result, run_id)
             return result
 
+        incremental = self._incremental_enabled()
+        max_new = self._max_new_cap(incremental)
+        api_requests_made = 0
+        skipped_known = 0
+        new_fetched = 0
+        stopped_reason: str | None = None
+
         try:
+            if incremental and not self.force:
+                skip_fresh, existing_count = self._should_skip_fresh_run(run_id)
+                if skip_fresh:
+                    result.status = "skipped_fresh"
+                    result.expected_total = existing_count
+                    self.finish_run(
+                        run_id,
+                        status="skipped_fresh",
+                        records_found=existing_count,
+                        records_inserted=0,
+                        metadata={
+                            "skipped_fresh": True,
+                            "existing_places": existing_count,
+                            "api_requests_made": 0,
+                            "incremental": True,
+                        },
+                    )
+                    return result
+
             suffix = self.city.get("google_query_suffix", self.city["name"])
             queries = self._build_queries(suffix)
-            seen_ids: set[str] = set()
+            known_ids = self._preload_known_place_ids()
+            seen_ids: set[str] = set(known_ids)
             all_places: list[dict[str, Any]] = []
             self.set_progress_total(len(queries))
             headers = {
@@ -64,22 +90,74 @@ class GooglePlacesScraper(BaseScraper):
             }
 
             with self.http_client() as client:
-                if not self._wait_for_api(client, headers, suffix, result):
-                    result.errors.append(
-                        "Google Places API still rate-limited — try again in a few minutes"
+                if not self._wait_for_api(
+                    client, headers, suffix, result, incremental=incremental
+                ):
+                    api_requests_made += 1
+                    if incremental and any("rate-limited" in e.lower() for e in result.errors):
+                        stopped_reason = "rate_limited"
+                    else:
+                        result.errors.append(
+                            "Google Places API still rate-limited — try again in a few minutes"
+                        )
+                    self._finish_partial(
+                        run_id,
+                        result,
+                        seen_ids,
+                        api_requests_made,
+                        skipped_known,
+                        new_fetched,
+                        stopped_reason,
+                        len(queries),
                     )
-                    finish_scrape_run(self, result, run_id, status="completed_with_warnings")
                     return result
+                api_requests_made += 1
 
                 for query_idx, query in enumerate(queries, start=1):
-                    batch = self._search_query(client, headers, query, result)
-                    new_places = [p for p in batch if p.get("id") and p["id"] not in seen_ids]
-                    for place in new_places:
-                        seen_ids.add(place["id"])
+                    if incremental and new_fetched >= max_new:
+                        break
+
+                    batch, rate_limited, requests = self._search_query(
+                        client,
+                        headers,
+                        query,
+                        result,
+                        incremental=incremental,
+                    )
+                    api_requests_made += requests
+                    if rate_limited:
+                        stopped_reason = "rate_limited"
+                        break
+
+                    for place in batch:
+                        place_id = place.get("id")
+                        if not place_id:
+                            continue
+                        if place_id in seen_ids:
+                            if place_id in known_ids:
+                                skipped_known += 1
+                            continue
+
+                        skip, _ = self.should_skip("places", place_id, place)
+                        if incremental and new_fetched >= max_new and not skip:
+                            break
+
+                        seen_ids.add(place_id)
                         all_places.append(place)
+                        inserted_before = result.inserted
+                        updated_before = result.updated
                         self._upsert_place_record(place, api_key, result)
-                    if new_places:
                         self.conn.commit()
+
+                        if not skip and (
+                            result.inserted > inserted_before or result.updated > updated_before
+                        ):
+                            new_fetched += 1
+                        elif skip:
+                            skipped_known += 1
+
+                        if incremental and new_fetched >= max_new:
+                            break
 
                     result.records = all_places
                     result.expected_total = len(seen_ids)
@@ -94,25 +172,33 @@ class GooglePlacesScraper(BaseScraper):
                                 "city": self.city_slug,
                             },
                         )
+                    if stopped_reason or (incremental and new_fetched >= max_new):
+                        break
                     time.sleep(8.0)
 
-            if not seen_ids:
+            if not seen_ids and not known_ids:
                 result.errors.append("Google Places search returned no results")
                 finish_scrape_run(self, result, run_id, status="completed_with_warnings")
                 return result
 
-            result.status = "completed"
+            final_status = "completed_with_warnings" if stopped_reason or result.errors else "completed"
+            result.status = final_status
             self.finish_run(
                 run_id,
-                status="completed",
+                status=final_status,
                 records_found=len(seen_ids),
                 records_inserted=result.inserted + result.updated,
                 metadata={
                     "inserted": result.inserted,
                     "updated": result.updated,
                     "skipped": result.skipped,
-                    "queries_run": len(queries),
+                    "skipped_known": skipped_known,
+                    "new_fetched": new_fetched,
+                    "queries_run": query_idx if "query_idx" in locals() else 0,
                     "expected_total": len(seen_ids),
+                    "api_requests_made": api_requests_made,
+                    "incremental": incremental,
+                    "stopped_reason": stopped_reason,
                 },
             )
         except Exception as exc:
@@ -130,13 +216,97 @@ class GooglePlacesScraper(BaseScraper):
                         "inserted": result.inserted,
                         "updated": result.updated,
                         "skipped": result.skipped,
+                        "skipped_known": skipped_known,
+                        "api_requests_made": api_requests_made,
                         "partial": True,
+                        "stopped_reason": stopped_reason,
                     },
                 )
             else:
                 finish_scrape_run(self, result, run_id, error=str(exc))
 
         return result
+
+    def _incremental_enabled(self) -> bool:
+        env_ok = os.getenv("GOOGLE_PLACES_INCREMENTAL", "1").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+        }
+        return bool(self.incremental and env_ok)
+
+    @staticmethod
+    def _max_new_cap(incremental: bool) -> int:
+        default = "50" if incremental else "99999"
+        try:
+            return int(os.getenv("GOOGLE_PLACES_MAX_NEW", default))
+        except ValueError:
+            return 50 if incremental else 99999
+
+    def _preload_known_place_ids(self) -> set[str]:
+        rows = self.conn.execute(
+            """
+            SELECT source_external_id FROM places
+            WHERE source_provider = ? AND city_slug = ?
+            """,
+            (self.source_provider, self.city_slug),
+        ).fetchall()
+        return {row["source_external_id"] for row in rows if row["source_external_id"]}
+
+    def _should_skip_fresh_run(self, run_id: int) -> tuple[bool, int]:
+        row = self.conn.execute(
+            """
+            SELECT finished_at, status FROM scrape_runs
+            WHERE source_provider = ? AND city_slug = ?
+              AND status IN ('completed', 'completed_with_warnings', 'skipped_fresh')
+              AND id != ?
+            ORDER BY id DESC LIMIT 1
+            """,
+            (self.source_provider, self.city_slug, run_id),
+        ).fetchone()
+        if not row or not row["finished_at"]:
+            return False, 0
+        if not self._within_ttl(row["finished_at"]):
+            return False, 0
+        count_row = self.conn.execute(
+            """
+            SELECT COUNT(*) AS c FROM places
+            WHERE source_provider = ? AND city_slug = ?
+            """,
+            (self.source_provider, self.city_slug),
+        ).fetchone()
+        existing = int(count_row["c"]) if count_row else 0
+        return True, existing
+
+    def _finish_partial(
+        self,
+        run_id: int,
+        result: ScrapeResult,
+        seen_ids: set[str],
+        api_requests_made: int,
+        skipped_known: int,
+        new_fetched: int,
+        stopped_reason: str | None,
+        queries_total: int,
+    ) -> None:
+        result.status = "completed_with_warnings"
+        self.finish_run(
+            run_id,
+            status="completed_with_warnings",
+            records_found=len(seen_ids),
+            records_inserted=result.inserted + result.updated,
+            metadata={
+                "inserted": result.inserted,
+                "updated": result.updated,
+                "skipped": result.skipped,
+                "skipped_known": skipped_known,
+                "new_fetched": new_fetched,
+                "api_requests_made": api_requests_made,
+                "stopped_reason": stopped_reason,
+                "queries_total": queries_total,
+                "incremental": self._incremental_enabled(),
+            },
+        )
 
     def _upsert_place_record(
         self,
@@ -181,7 +351,6 @@ class GooglePlacesScraper(BaseScraper):
             templates.extend(EXPANDED_QUERY_TEMPLATES)
             suburb_stems = ("restaurants", "bars", "cafes")
         else:
-            # High-yield suburb passes only (matches ~410 probe set)
             suburb_stems = ("restaurants",)
 
         queries = [template.format(suffix=suffix) for template in templates]
@@ -205,10 +374,20 @@ class GooglePlacesScraper(BaseScraper):
         suffix: str,
         result: ScrapeResult,
         *,
+        incremental: bool = False,
         max_wait_sec: int = 300,
     ) -> bool:
-        """Block until API accepts a probe request or timeout."""
         probe = {"textQuery": f"restaurants {suffix}", "pageSize": 1}
+        if incremental:
+            resp = client.post(SEARCH_URL, headers=headers, json=probe)
+            if resp.status_code == 200:
+                return True
+            if resp.status_code == 429:
+                result.errors.append("Google Places probe rate-limited (HTTP 429) — stop and retry later")
+                return False
+            result.errors.append(f"Google Places probe failed: HTTP {resp.status_code}")
+            return False
+
         waited = 0
         delay = 15
         while waited <= max_wait_sec:
@@ -230,15 +409,25 @@ class GooglePlacesScraper(BaseScraper):
         headers: dict[str, str],
         query: str,
         result: ScrapeResult,
-    ) -> list[dict[str, Any]]:
+        *,
+        incremental: bool = False,
+    ) -> tuple[list[dict[str, Any]], bool, int]:
         by_id: dict[str, dict[str, Any]] = {}
         page_token: str | None = None
+        rate_limited = False
+        requests = 0
 
         while True:
             body: dict[str, Any] = {"textQuery": query, "pageSize": 20}
             if page_token:
                 body["pageToken"] = page_token
-            search_data = self._post_search(client, headers, body, query, result)
+            search_data, status, requests_delta = self._post_search(
+                client, headers, body, query, result, incremental=incremental
+            )
+            requests += requests_delta
+            if status == 429:
+                rate_limited = True
+                break
             if search_data is None:
                 break
 
@@ -252,7 +441,7 @@ class GooglePlacesScraper(BaseScraper):
                 break
             time.sleep(3.0)
 
-        return list(by_id.values())
+        return list(by_id.values()), rate_limited, requests
 
     def _post_search(
         self,
@@ -261,7 +450,29 @@ class GooglePlacesScraper(BaseScraper):
         body: dict[str, Any],
         query: str,
         result: ScrapeResult,
-    ) -> dict[str, Any] | None:
+        *,
+        incremental: bool = False,
+    ) -> tuple[dict[str, Any] | None, int, int]:
+        if incremental:
+            search_resp = client.post(SEARCH_URL, headers=headers, json=body)
+            if search_resp.status_code == 429:
+                result.errors.append(
+                    f"Google Places rate limited ({query[:40]}); stopping incremental run"
+                )
+                return None, 429, 1
+            if search_resp.status_code >= 400:
+                result.errors.append(
+                    f"Google Places HTTP {search_resp.status_code} ({query[:40]})"
+                )
+                return None, search_resp.status_code, 1
+            search_data = search_resp.json()
+            if search_data.get("error"):
+                err = search_data["error"]
+                message = err.get("message", str(err))
+                result.errors.append(f"Google Places API error ({query[:40]}): {message}")
+                return None, 400, 1
+            return search_data, 200, 1
+
         for attempt in range(8):
             search_resp = client.post(SEARCH_URL, headers=headers, json=body)
             if search_resp.status_code == 429:
@@ -275,16 +486,16 @@ class GooglePlacesScraper(BaseScraper):
                 result.errors.append(
                     f"Google Places HTTP {search_resp.status_code} ({query[:40]})"
                 )
-                return None
+                return None, search_resp.status_code, 1
             search_data = search_resp.json()
             if search_data.get("error"):
                 err = search_data["error"]
                 message = err.get("message", str(err))
                 result.errors.append(f"Google Places API error ({query[:40]}): {message}")
-                return None
-            return search_data
+                return None, 400, 1
+            return search_data, 200, 1
         result.errors.append(f"Google Places rate limit exceeded ({query[:40]})")
-        return None
+        return None, 429, 8
 
     @staticmethod
     def _display_name(place: dict[str, Any]) -> str:

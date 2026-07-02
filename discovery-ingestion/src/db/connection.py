@@ -61,6 +61,37 @@ def _migrate(conn: sqlite3.Connection) -> None:
         except sqlite3.OperationalError:
             pass
     _migrate_scrape_runs_status(conn)
+    _migrate_scrape_runs_skipped_fresh(conn)
+
+
+def _migrate_scrape_runs_skipped_fresh(conn: sqlite3.Connection) -> None:
+    row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='scrape_runs'"
+    ).fetchone()
+    if not row or not row["sql"]:
+        return
+    if "skipped_fresh" in row["sql"]:
+        return
+    conn.executescript(
+        """
+        CREATE TABLE scrape_runs_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source_provider TEXT NOT NULL,
+            city_slug TEXT NOT NULL,
+            started_at TEXT NOT NULL DEFAULT (datetime('now')),
+            finished_at TEXT,
+            status TEXT NOT NULL DEFAULT 'running'
+                CHECK (status IN ('running', 'completed', 'completed_with_warnings', 'failed', 'skipped_fresh')),
+            records_found INTEGER DEFAULT 0,
+            records_inserted INTEGER DEFAULT 0,
+            error_message TEXT,
+            metadata_json TEXT
+        );
+        INSERT INTO scrape_runs_new SELECT * FROM scrape_runs;
+        DROP TABLE scrape_runs;
+        ALTER TABLE scrape_runs_new RENAME TO scrape_runs;
+        """
+    )
 
 
 def _migrate_scrape_runs_status(conn: sqlite3.Connection) -> None:

@@ -61,6 +61,7 @@ def run_scrape(
     *,
     on_progress: ProgressCallback | None = None,
     force: bool = False,
+    incremental: bool = False,
     strict_city_filter: bool = False,
 ) -> ScrapeResult:
     if source not in SCRAPER_REGISTRY:
@@ -76,6 +77,7 @@ def run_scrape(
         city_slug,
         db,
         force=force,
+        incremental=incremental if source == "google_places" else False,
         on_progress=on_progress,
         strict_city_filter=strict_city_filter,
     )

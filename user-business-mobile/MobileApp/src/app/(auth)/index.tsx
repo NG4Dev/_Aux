@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import CustomButton from '@/components/CustomButton';
@@ -8,6 +8,15 @@ import { authLog } from '@/services/authFlowLogger';
 
 export default function AuthSplashScreen() {
   const { isSignedIn, isLoaded } = useAuth();
+  const [videoReady, setVideoReady] = useState(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return;
@@ -20,12 +29,24 @@ export default function AuthSplashScreen() {
 
   const player = useVideoPlayer(
     require('@assets/videos/welcome-bg-video.mp4'),
-    (player) => {
-      player.loop = true;
-      player.muted = true;
-      player.play();
+    (p) => {
+      if (!mountedRef.current) return;
+      p.loop = true;
+      p.muted = true;
+      p.play();
+      setVideoReady(true);
     },
   );
+
+  useEffect(() => {
+    return () => {
+      try {
+        player.pause();
+      } catch {
+        // Player may already be released on unmount.
+      }
+    };
+  }, [player]);
 
   if (isSignedIn) {
     return (
@@ -37,12 +58,14 @@ export default function AuthSplashScreen() {
 
   return (
     <View style={styles.container}>
-      <VideoView
-        player={player}
-        style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}
-        contentFit="cover"
-        nativeControls={false}
-      />
+      {videoReady ? (
+        <VideoView
+          player={player}
+          style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}
+          contentFit="cover"
+          nativeControls={false}
+        />
+      ) : null}
 
       <View style={styles.content} />
 

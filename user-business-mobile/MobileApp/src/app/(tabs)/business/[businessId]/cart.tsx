@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   FlatList,
   Image,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -17,6 +18,8 @@ import Colors from '@/constants/Colors';
 import { useCartStore } from '@/features/cart/cartStore';
 import { useMerchantBySlug } from '@/hooks/usePlatformMerchant';
 
+const RECOMPUTE_MS = 300;
+
 export default function CartScreen() {
   const { businessId } = useLocalSearchParams<{ businessId: string }>();
   const router = useRouter();
@@ -25,6 +28,19 @@ export default function CartScreen() {
   const lines = useCartStore((s) => s.lines);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const removeLine = useCartStore((s) => s.removeLine);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const recomputeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const beginRecompute = () => {
+    if (recomputeTimerRef.current) {
+      clearTimeout(recomputeTimerRef.current);
+    }
+    setIsUpdating(true);
+    recomputeTimerRef.current = setTimeout(() => {
+      setIsUpdating(false);
+      recomputeTimerRef.current = null;
+    }, RECOMPUTE_MS);
+  };
 
   const merchantLines = useMemo(
     () => lines.filter((l) => l.merchantSlug === slug),
@@ -42,7 +58,10 @@ export default function CartScreen() {
       {
         text: 'Remove',
         style: 'destructive',
-        onPress: () => removeLine(productId),
+        onPress: () => {
+          beginRecompute();
+          removeLine(productId);
+        },
       },
     ]);
   };
@@ -52,7 +71,13 @@ export default function CartScreen() {
       confirmRemove(productId, name);
       return;
     }
+    beginRecompute();
     updateQuantity(productId, qty - 1);
+  };
+
+  const handleIncrement = (productId: string, qty: number) => {
+    beginRecompute();
+    updateQuantity(productId, qty + 1);
   };
 
   return (
@@ -105,7 +130,7 @@ export default function CartScreen() {
               </TouchableOpacity>
               <Text style={styles.qty}>{item.quantity}</Text>
               <TouchableOpacity
-                onPress={() => updateQuantity(item.productId, item.quantity + 1)}
+                onPress={() => handleIncrement(item.productId, item.quantity)}
                 style={styles.qtyBtn}
               >
                 <Ionicons name="add" size={16} color="#fff" />
@@ -118,13 +143,21 @@ export default function CartScreen() {
       <View style={styles.footer}>
         <View style={styles.subtotalRow}>
           <Text style={styles.subtotalLabel}>Subtotal</Text>
-          <Text style={styles.subtotalValue}>
-            {(subtotal / 100).toFixed(2)}
-          </Text>
+          <View style={styles.subtotalValueWrap}>
+            {isUpdating ? (
+              <ActivityIndicator size="small" color="#fff" style={styles.subtotalSpinner} />
+            ) : null}
+            <Text style={[styles.subtotalValue, isUpdating && styles.subtotalValueMuted]}>
+              {(subtotal / 100).toFixed(2)}
+            </Text>
+          </View>
         </View>
         <TouchableOpacity
-          style={[styles.primaryBtn, merchantLines.length === 0 && styles.disabled]}
-          disabled={merchantLines.length === 0}
+          style={[
+            styles.primaryBtn,
+            (merchantLines.length === 0 || isUpdating) && styles.disabled,
+          ]}
+          disabled={merchantLines.length === 0 || isUpdating}
           onPress={() =>
             router.push({
               pathname: '/(tabs)/business/[businessId]/checkout/fulfillment',
@@ -175,16 +208,18 @@ const styles = StyleSheet.create({
   },
   qty: { color: '#fff', minWidth: 20, textAlign: 'center', fontWeight: '700' },
   footer: { padding: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#333', gap: 12 },
-  subtotalRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  subtotalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   subtotalLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 15 },
+  subtotalValueWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  subtotalSpinner: { marginRight: 2 },
   subtotalValue: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  subtotalValueMuted: { opacity: 0.45 },
   primaryBtn: {
     backgroundColor: Colors.primary,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
   },
-  disabled: { opacity: 0.5 },
+  disabled: { opacity: 0.45 },
   primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });
-

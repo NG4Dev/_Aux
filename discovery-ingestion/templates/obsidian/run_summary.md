@@ -3,7 +3,7 @@ date: {{date}}
 time: {{time}}
 source: discovery-ingestion
 city: {{city_slug}}
-tags: [discovery-catalog, {{city_slug}}]
+{{tags}}
 exported_at: {{exported_at}}
 ---
 

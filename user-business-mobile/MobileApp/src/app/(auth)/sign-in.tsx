@@ -4,11 +4,8 @@ import {
   Text,
   View,
   ScrollView,
-  Platform,
-  Keyboard,
-  LayoutAnimation,
-  UIManager,
   Pressable,
+  Keyboard,
 } from "react-native";
 import CustomTextInput from "@/components/CustomTextInput";
 import CustomButton from "@/components/CustomButton";
@@ -16,13 +13,14 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, router, Stack } from "expo-router";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { isClerkAPIResponseError, useSignIn } from "@clerk/clerk-expo";
 import SignInWith from "@/components/SignInWith";
-import { useHeaderHeight } from 'expo-router/react-navigation';
 import Svg, { Circle } from 'react-native-svg';
 import { Toast } from "@/components/Toast";
 import { authLog } from "@/services/authFlowLogger";
+import { useAuthKeyboardHeight } from "@/hooks/useAuthKeyboardHeight";
+import { useStepBackGesture } from "@/hooks/useStepBackGesture";
 
 const ProgressCircle = ({ step }: { step: number }) => {
   const size = 24;
@@ -92,31 +90,10 @@ export default function SignInScreen() {
   });
 
   const { signIn, isLoaded, setActive } = useSignIn();
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const keyboardHeight = useAuthKeyboardHeight();
+  const { gestureEnabled } = useStepBackGesture(step, setStep);
   const email = watch('email');
   const password = watch('password');
-
-  useEffect(() => {
-    const showSubscription = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (e) => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setKeyboardHeight(e.endCoordinates.height);
-      }
-    );
-    const hideSubscription = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setKeyboardHeight(0);
-      }
-    );
-
-    return () => {
-      showSubscription.remove();
-      hideSubscription.remove();
-    };
-  }, []);
 
   const handleNext = async () => {
     Keyboard.dismiss();
@@ -241,6 +218,7 @@ export default function SignInScreen() {
           headerStyle: { backgroundColor: '#000' },
           headerTintColor: '#fff',
           headerShadowVisible: false,
+          gestureEnabled,
           headerLeft: () => (
             <Pressable onPress={handleBack} style={{ padding: 12 }}>
               <Ionicons name="chevron-back" size={28} color="#fff" />

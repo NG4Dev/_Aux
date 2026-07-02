@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { USE_CONVEX_DATA } from '@/config/features';
 import { DISCOVER_CATEGORIES, DISCOVER_TABS } from '@/data/mockFeed';
+import { discoverLog } from '@/services/discoverFlowLogger';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const TILE_GAP = 12;
@@ -45,6 +46,14 @@ export default function DiscoverIndex() {
     }
     return DISCOVER_CATEGORIES;
   }, [convexCategories]);
+
+  useEffect(() => {
+    discoverLog('index', 'screenReady', {
+      activeTab,
+      categoryCount: categories.length,
+      convexLoading: USE_CONVEX_DATA && convexCategories === undefined,
+    });
+  }, [activeTab, categories.length, convexCategories]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
@@ -94,12 +103,16 @@ export default function DiscoverIndex() {
             <TouchableOpacity
               style={[styles.tile, { backgroundColor: item.color }]}
               activeOpacity={0.8}
-              onPress={() =>
+              onPress={() => {
+                discoverLog('index', 'categoryTap', {
+                  categoryId: item.id,
+                  label: item.label,
+                });
                 router.push({
                   pathname: '/(tabs)/discover/[category]',
                   params: { category: item.id, label: item.label },
-                })
-              }
+                });
+              }}
             >
               <Text style={styles.tileLabel}>{item.label}</Text>
               {item.image ? (

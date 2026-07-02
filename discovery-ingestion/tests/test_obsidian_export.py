@@ -195,6 +195,57 @@ class ObsidianExportTests(unittest.TestCase):
         filename = obsidian_export.entity_filename("events", row)
         self.assertEqual(filename, "quicket-x-1-wild.md")
 
+    def test_bandsintown_short_filename_from_url(self) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO events (
+                source_provider, source_external_id, city_slug, slug, name,
+                start_datetime, vetting_status
+            ) VALUES (
+                'bandsintown',
+                'https://www.bandsintown.com/e/108323151-artist-at-venue',
+                'johannesburg', 'bt-event', 'Artist at Venue', '2026-07-01T20:00:00', 'pending'
+            )
+            """
+        )
+        self.conn.commit()
+        row = self.conn.execute(
+            "SELECT * FROM events WHERE source_external_id LIKE '%108323151%'"
+        ).fetchone()
+        assert row is not None
+        filename = obsidian_export.entity_filename("events", row)
+        self.assertEqual(filename, "bandsintown-108323151.md")
+
+    def test_clean_display_name_strips_deal_noise(self) -> None:
+        raw = "Acrobranch | 2 hr Full Access | R299 | 4.8 stars (120 reviews) | Booked with FOMO"
+        cleaned = obsidian_export._clean_display_name(raw)
+        self.assertEqual(cleaned, "Acrobranch | 2 hr Full Access")
+        self.assertNotIn("FOMO", cleaned)
+        self.assertNotIn("R299", cleaned)
+
+    def test_export_note_uses_yaml_list_tags_and_clean_h1(self) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO deals (
+                source_provider, source_external_id, city_slug, slug, title, vetting_status
+            ) VALUES (
+                'fomosa', 'acrobranch-2hr-full-access-deal-with-very-long-slug-name',
+                'johannesburg', 'acro-deal',
+                'Acrobranch | 2 hr Full Access | R299 | Booked with FOMO', 'pending'
+            )
+            """
+        )
+        self.conn.commit()
+        city_dir = obsidian_export.export_city(self.conn, "johannesburg")
+        deal_notes = list((city_dir / "deals" / "fomosa").rglob("fomosa-*.md"))
+        self.assertEqual(len(deal_notes), 1)
+        content = deal_notes[0].read_text(encoding="utf-8")
+        self.assertIn("tags:\n  - discovery-catalog", content)
+        self.assertIn("display_name:", content)
+        self.assertIn("# Acrobranch | 2 hr Full Access", content)
+        self.assertNotIn("Booked with FOMO", content.split("## Vetting notes")[0])
+        self.assertLessEqual(len(str(deal_notes[0].resolve())), obsidian_export.MAX_NOTE_PATH_LEN)
+
     def test_discover_cities_unions_all_tables(self) -> None:
         self.conn.execute(
             """

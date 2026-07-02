@@ -6,8 +6,6 @@ import {
   FlatList,
   Platform,
   Keyboard,
-  LayoutAnimation,
-  UIManager,
   Pressable,
   BackHandler,
   Animated,
@@ -18,16 +16,17 @@ import CustomButton from "@/components/CustomButton";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link, router, Stack, useNavigation } from "expo-router";
+import { Link, router, Stack } from "expo-router";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useSignUp } from "@clerk/clerk-expo";
 import { isClerkAPIResponseError } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
-import { useHeaderHeight } from "expo-router/react-navigation";
 import Svg, { Circle } from "react-native-svg";
 import { Toast } from "@/components/Toast";
 import DateOfBirthPicker, { DEFAULT_DOB } from "@/components/onboarding/DateOfBirthPicker";
 import { authLog } from "@/services/authFlowLogger";
+import { useAuthKeyboardHeight } from "@/hooks/useAuthKeyboardHeight";
+import { useStepBackGesture } from "@/hooks/useStepBackGesture";
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const YEAR_LIST = Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - i);
@@ -254,20 +253,9 @@ const WheelColumn = React.memo(({
 export default function SignUpScreen() {
   const [step, setStep] = useState(1);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const keyboardHeight = useAuthKeyboardHeight();
+  const { gestureEnabled } = useStepBackGesture(step, setStep);
   const [errorToast, setErrorToast] = useState<{ message: string; code?: string; stepToNavigate?: number } | null>(null);
-  const headerHeight = useHeaderHeight();
-  const navigation = useNavigation();
-
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-      if (step > 1) {
-        e.preventDefault();
-        setStep(prev => prev - 1);
-      }
-    });
-    return unsubscribe;
-  }, [navigation, step]);
 
   const {
     control,
@@ -287,28 +275,6 @@ export default function SignUpScreen() {
   });
 
   const { signUp, isLoaded, setActive } = useSignUp();
-
-  useEffect(() => {
-    const showSubscription = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (e) => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setKeyboardHeight(e.endCoordinates.height);
-      }
-    );
-    const hideSubscription = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setKeyboardHeight(0);
-      }
-    );
-
-    return () => {
-      showSubscription.remove();
-      hideSubscription.remove();
-    };
-  }, []);
 
   const email = watch('email');
   const password = watch('password');
@@ -378,6 +344,29 @@ export default function SignUpScreen() {
     }
   }, [step]);
 
+  const screenOptions = useMemo(
+    () => ({
+      headerShown: true,
+      title: 'Create account',
+      headerTitleAlign: 'center' as const,
+      headerStyle: { backgroundColor: '#000' },
+      headerTintColor: '#fff',
+      headerShadowVisible: false,
+      gestureEnabled,
+      headerLeft: () => (
+        <Pressable onPress={handleBack} style={{ padding: 12 }}>
+          <Ionicons name="chevron-back" size={28} color="#fff" />
+        </Pressable>
+      ),
+      headerRight: () => (
+        <View style={{ marginRight: 15 }}>
+          <ProgressCircle step={step} />
+        </View>
+      ),
+    }),
+    [gestureEnabled, handleBack, step],
+  );
+
   const dob = watch('dob') || new Date();
   const currentYear = dob.getFullYear();
   const currentMonth = dob.getMonth();
@@ -407,27 +396,7 @@ export default function SignUpScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen 
-        options={{
-          headerShown: true,
-          title: 'Create account',
-          headerTitleAlign: 'center',
-          headerStyle: { backgroundColor: '#000' },
-          headerTintColor: '#fff',
-          headerShadowVisible: false,
-          gestureEnabled: step === 1,
-          headerLeft: () => (
-            <Pressable onPress={handleBack} style={{ padding: 12 }}>
-              <Ionicons name="chevron-back" size={28} color="#fff" />
-            </Pressable>
-          ),
-          headerRight: () => (
-            <View style={{ marginRight: 15 }}>
-              <ProgressCircle step={step} />
-            </View>
-          ),
-        }} 
-      />
+      <Stack.Screen options={screenOptions} />
       <View style={{ flex: 1, paddingBottom: keyboardHeight }}>
         {step === 3 ? (
           <View style={[styles.contentContainer, { flex: 1 }]}>

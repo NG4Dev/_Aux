@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { useMutation, useQuery } from 'convex/react';
 import Chip from '@/components/Chip';
@@ -18,6 +18,7 @@ import type { Id } from '@/convex/_generated/dataModel';
 import {
   isGuestBrowseUnlocked,
 } from '@/services/onboarding';
+import { useOnboardingExitGuard } from '@/hooks/useOnboardingExitGuard';
 
 export default function PreferencesScreen() {
   const { isSignedIn, isLoaded } = useAuth();
@@ -28,6 +29,8 @@ export default function PreferencesScreen() {
     Id<'categories'>[]
   >([]);
   const [saving, setSaving] = useState(false);
+  const allowExitRef = useRef(false);
+  const { gestureEnabled } = useOnboardingExitGuard({ allowExitRef });
 
   useEffect(() => {
     if (!isLoaded || isSignedIn) return;
@@ -66,6 +69,7 @@ export default function PreferencesScreen() {
         await updateProfile({ interestCategoryIds: selectedCategoryIds });
         await completeStep({ step: 'preferences' });
       }
+      allowExitRef.current = true;
       router.replace('/(onboarding)/notifications');
     } finally {
       setSaving(false);
@@ -106,6 +110,7 @@ export default function PreferencesScreen() {
 
   return (
     <View style={styles.container}>
+      <Stack.Screen options={{ gestureEnabled }} />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <Text style={styles.title}>What are you interested in?</Text>

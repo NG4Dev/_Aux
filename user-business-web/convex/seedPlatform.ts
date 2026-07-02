@@ -26,6 +26,8 @@ type MerchantSeed = {
   description: string;
   location?: { address: string; lat?: number; lng?: number };
   linkedPlaceSlug?: string;
+  feedCategories?: string[];
+  discoverCategorySlugs?: string[];
 };
 
 type PlaceSeed = {
@@ -50,6 +52,9 @@ type ProductSeed = {
   mediaAspect: MediaAspect;
   imageWidth: number;
   imageHeight: number;
+  /** Optional sample video for story/reel product testing (mobile may map by slug). */
+  mediaType?: 'image' | 'video';
+  sampleVideoUrl?: string;
 };
 
 type EventSeed = {
@@ -88,6 +93,8 @@ const MERCHANT_SEEDS: MerchantSeed[] = [
       "Authentic Spanish tapas bar in the heart of Cape Town.",
     location: { address: "Cape Town, South Africa" },
     linkedPlaceSlug: "la-parada-venue",
+    feedCategories: ["Tapas", "Spanish", "Sundowners"],
+    discoverCategorySlugs: ["beach-bars", "sundowners"],
   },
   {
     slug: "keinemusik-co",
@@ -180,7 +187,7 @@ const LA_PARADA_PRODUCTS: ProductSeed[] = [
     unit: "glass",
     mediaAspect: "landscape",
     imageWidth: 1080,
-    imageHeight: 608,
+    imageHeight: 566,
   },
   {
     merchantSlug: "la-parada",
@@ -195,6 +202,9 @@ const LA_PARADA_PRODUCTS: ProductSeed[] = [
     mediaAspect: "story",
     imageWidth: 1080,
     imageHeight: 1920,
+    mediaType: "video",
+    sampleVideoUrl:
+      "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
   },
 ];
 
@@ -210,7 +220,7 @@ const EVENT_SEEDS: EventSeed[] = [
     venuePlaceSlug: "grand-arena-cpt",
     mediaAspect: "landscape",
     imageWidth: 1080,
-    imageHeight: 608,
+    imageHeight: 566,
     ticketTypes: [
       { tier: "GA", name: "General Admission", priceCents: 45000, capacity: 500 },
       { tier: "VIP", name: "VIP", priceCents: 85000, capacity: 100 },
@@ -313,6 +323,14 @@ export const _seedPlatformData = internalMutation({
 
       if (existing !== null) {
         slugToMerchantId.set(seed.slug, existing._id);
+        if (seed.feedCategories || seed.discoverCategorySlugs) {
+          await ctx.db.patch(existing._id, {
+            ...(seed.feedCategories ? { feedCategories: seed.feedCategories } : {}),
+            ...(seed.discoverCategorySlugs
+              ? { discoverCategorySlugs: seed.discoverCategorySlugs }
+              : {}),
+          });
+        }
         continue;
       }
 
@@ -324,6 +342,8 @@ export const _seedPlatformData = internalMutation({
         type: seed.type,
         description: seed.description,
         location: seed.location,
+        feedCategories: seed.feedCategories,
+        discoverCategorySlugs: seed.discoverCategorySlugs,
         isActive: true,
         createdAt: now,
       });

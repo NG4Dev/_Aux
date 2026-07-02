@@ -1,6 +1,6 @@
 import { BlurView } from 'expo-blur';
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, Stack } from 'expo-router';
+import { useRef, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, ImageStyle } from 'react-native';
 import Animated, { FadeIn, FadeOut, SlideInUp } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import {
   markGuestShowcaseSeen,
 } from '@/services/onboarding';
 import { authLog } from '@/services/authFlowLogger';
+import { useOnboardingExitGuard } from '@/hooks/useOnboardingExitGuard';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MARQUEE_HEIGHT = SCREEN_HEIGHT * 0.48;
@@ -53,9 +54,12 @@ const features = [
 export default function ShowcaseScreen() {
   const { isSignedIn } = useAuth();
   const [activeIndex, setActiveIndex] = useState(0);
+  const allowExitRef = useRef(false);
+  const { gestureEnabled } = useOnboardingExitGuard({ allowExitRef });
 
   const onGetStarted = async () => {
     authLog('showcase', 'getStarted', { isSignedIn: !!isSignedIn });
+    allowExitRef.current = true;
     if (isSignedIn) {
       await markGuestShowcaseSeen();
       authLog('showcase', 'navigate', { to: '/(onboarding)/preferences', reason: 'signedIn' });
@@ -71,6 +75,7 @@ export default function ShowcaseScreen() {
 
   return (
     <View style={styles.container}>
+      <Stack.Screen options={{ gestureEnabled }} />
       {activeFeature && (
         <Animated.Image
           key={activeFeature.id}

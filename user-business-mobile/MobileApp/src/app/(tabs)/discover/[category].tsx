@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
@@ -22,43 +22,89 @@ import { mapFeedItemToContentItem } from '@/utils/personalizedFeed';
 import { USE_CONVEX_DATA } from '@/config/features';
 import IdentityRow from '@/components/feed/IdentityRow';
 import ContentContextMenu from '@/components/feed/ContentContextMenu';
-import DynamicMediaRenderer from '@/components/feed/DynamicMediaRenderer';
+import FeedMediaSlot from '@/components/feed/FeedMediaSlot';
+import ContentReelView, {
+  type ContentReelVariant,
+} from '@/components/feed/ContentReelView';
 import SaveToCollectionSheet from '@/components/bookmarks/SaveToCollectionSheet';
 import DiscoverProductOverlay from '@/components/commerce/DiscoverProductOverlay';
-import { toMediaAspect } from '@/components/commerce/getSheetSnapPoints';
+import { feedSlotHeight, toMediaAspect } from '@/components/commerce/getSheetSnapPoints';
 import { useCollapsibleHeader } from '@/hooks/useCollapsibleHeader';
-import type { ContentItem, MediaItem } from '@/types/content';
+import type { ContentItem, MediaAspect, MediaItem } from '@/types/content';
 import Colors from '@/constants/Colors';
+import { discoverLog } from '@/services/discoverFlowLogger';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const CARD_IMAGE_MAX_HEIGHT = SCREEN_HEIGHT * 0.55;
 const HEADER_ROW_HEIGHT = 52;
 const TAB_BAR_HEIGHT = 48;
+const SAMPLE_STORY_VIDEO =
+  'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
 
 type TabMeasurement = { x: number; width: number };
 
+type ContentReelState = {
+  variant: ContentReelVariant;
+  media: MediaItem;
+  creatorName: string;
+  creatorAvatar?: string;
+  caption?: string;
+};
+
+function primaryAspect(media: MediaItem[]): MediaAspect {
+  return media[0]?.aspect ?? 'square';
+}
+
+function buildLaParadaMedia(
+  product: {
+    slug: string;
+    imageUrl?: string | null;
+    imageWidth?: number;
+    imageHeight?: number;
+    mediaAspect?: string;
+  },
+  aspect: MediaAspect,
+): MediaItem | null {
+  if (!product.imageUrl && product.slug !== 'croquetas-jamon') return null;
+  const isStoryVideo = aspect === 'story' && product.slug === 'croquetas-jamon';
+  return {
+    uri: isStoryVideo ? SAMPLE_STORY_VIDEO : (product.imageUrl as string),
+    type: isStoryVideo ? 'video' : 'image',
+    width: product.imageWidth ?? 1080,
+    height: product.imageHeight ?? (aspect === 'story' ? 1920 : 1080),
+    aspect,
+  };
+}
+
 function MediaCarousel({
   media,
-  maxHeight,
   borderRadius,
-  cardWidth,
+  onPressSlide,
 }: {
   media: MediaItem[];
-  maxHeight: number;
   borderRadius: number;
-  cardWidth: number;
+  onPressSlide?: (item: MediaItem, index: number) => void;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
 
+  const renderSlide = (item: MediaItem, index: number) => (
+    <FeedMediaSlot
+      key={`${item.uri}-${index}`}
+      media={item}
+      aspect={item.aspect}
+      borderRadius={borderRadius}
+      fullBleed
+      onPress={onPressSlide ? () => onPressSlide(item, index) : undefined}
+    />
+  );
+
   if (media.length === 1) {
-    return (
-      <DynamicMediaRenderer
-        media={media[0]}
-        maxHeight={maxHeight}
-        borderRadius={borderRadius}
-      />
-    );
+    return renderSlide(media[0], 0);
   }
+
+  const slideHeight = feedSlotHeight(
+    media[activeIndex]?.aspect ?? media[0]?.aspect ?? 'square',
+    media[activeIndex] ?? media[0],
+  );
 
   return (
     <View>
@@ -69,24 +115,18 @@ function MediaCarousel({
         pagingEnabled
         nestedScrollEnabled
         showsHorizontalScrollIndicator={false}
-        style={{ width: cardWidth }}
+        style={{ width: SCREEN_WIDTH, height: slideHeight }}
         getItemLayout={(_, index) => ({
-          length: cardWidth,
-          offset: cardWidth * index,
+          length: SCREEN_WIDTH,
+          offset: SCREEN_WIDTH * index,
           index,
         })}
         onMomentumScrollEnd={(e) => {
-          const idx = Math.round(e.nativeEvent.contentOffset.x / cardWidth);
+          const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
           setActiveIndex(idx);
         }}
-        renderItem={({ item }) => (
-          <View style={{ width: cardWidth }}>
-            <DynamicMediaRenderer
-              media={item}
-              maxHeight={maxHeight}
-              borderRadius={borderRadius}
-            />
-          </View>
+        renderItem={({ item, index }) => (
+          <View style={{ width: SCREEN_WIDTH }}>{renderSlide(item, index)}</View>
         )}
       />
       {media.length > 1 && (
@@ -127,8 +167,6 @@ const carouselStyles = StyleSheet.create({
   },
 });
 
-const CARD_WIDTH = SCREEN_WIDTH - 32;
-
 const HEADER_MAX_HEIGHT = HEADER_ROW_HEIGHT + TAB_BAR_HEIGHT;
 
 export default function DiscoverCategory() {
@@ -137,22 +175,134 @@ export default function DiscoverCategory() {
     label: string;
   }>();
   const router = useRouter();
+  const navigation = useNavigation();
+  const overlayBackRef = useRef<(() => void) | null>(null);
+  const contentReelBackRef = useRef<(() => void) | null>(null);
   const [activeFilter, setActiveFilter] = useState('All');
   const [saveTarget, setSaveTarget] = useState<ContentItem | null>(null);
   const [overlay, setOverlay] = useState<{
     merchantSlug: string;
     productSlug: string;
+    mediaAspect?: ReturnType<typeof toMediaAspect>;
+    initialImageMode?: 'minimized' | 'expanded';
   } | null>(null);
+  const [contentReel, setContentReel] = useState<ContentReelState | null>(null);
 
   const laParadaProducts = useQuery(
     api.platform.merchants.listProducts,
     USE_CONVEX_DATA ? { merchantSlug: 'la-parada' } : 'skip',
   );
-  const { items: personalizedItems } = useDiscoverFeed(category, 12);
+  const { items: personalizedItems, meta, loading, error } = useDiscoverFeed(category, 12);
   const feedData = useMemo(
     () => personalizedItems.map(mapFeedItemToContentItem),
     [personalizedItems],
   );
+
+  const openLaParadaProduct = useCallback(
+    (product: NonNullable<typeof laParadaProducts>[number]) => {
+      const aspect = toMediaAspect(product.mediaAspect ?? undefined);
+      if (
+        overlay?.merchantSlug === 'la-parada' &&
+        overlay?.productSlug === product.slug
+      ) {
+        return;
+      }
+      discoverLog('category', 'overlayOpen', {
+        source: 'laParadaMenu',
+        merchantSlug: 'la-parada',
+        productSlug: product.slug,
+        mediaAspect: product.mediaAspect ?? 'square',
+        fullscreen: aspect === 'story',
+      });
+      setOverlay({
+        merchantSlug: 'la-parada',
+        productSlug: product.slug,
+        mediaAspect: aspect,
+        initialImageMode: 'minimized',
+      });
+    },
+    [overlay],
+  );
+
+  const handleFeedMediaPress = useCallback((item: ContentItem, mediaItem: MediaItem) => {
+    const aspect = mediaItem.aspect ?? primaryAspect(item.media);
+    if (item.contentType === 'post' && aspect === 'story') {
+      setContentReel({
+        variant: mediaItem.type === 'video' ? 'contentVideo' : 'contentImage',
+        media: { ...mediaItem, aspect: 'story' },
+        creatorName: item.profileName,
+        creatorAvatar: item.profileAvatar,
+        caption: item.description ?? item.title,
+      });
+      discoverLog('category', 'contentReelOpen', {
+        variant: mediaItem.type === 'video' ? 'contentVideo' : 'contentImage',
+        contentId: item.id,
+      });
+      return;
+    }
+    if (item.contentType === 'product' && item.merchantSlug && item.productSlug) {
+      setOverlay({
+        merchantSlug: item.merchantSlug,
+        productSlug: item.productSlug,
+        mediaAspect: aspect,
+        initialImageMode: 'minimized',
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    discoverLog('category', 'screenReady', {
+      category,
+      label,
+      feedCount: feedData.length,
+      loading,
+      error: error ?? undefined,
+      tasteSlots: meta?.tasteSlots,
+      exploreSlots: meta?.exploreSlots,
+      laParadaProductCount: laParadaProducts?.length ?? 0,
+      overlayOpen: !!overlay,
+    });
+  }, [
+    category,
+    label,
+    feedData.length,
+    loading,
+    error,
+    meta,
+    laParadaProducts?.length,
+    overlay,
+  ]);
+
+  useEffect(() => {
+    const modalOpen = !!overlay || !!contentReel;
+    if (!modalOpen) {
+      navigation.setOptions({ gestureEnabled: true });
+      return;
+    }
+
+    navigation.setOptions({ gestureEnabled: false });
+
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      e.preventDefault();
+      discoverLog('category', 'stackBackIntercepted', {
+        overlayOpen: !!overlay,
+        contentReelOpen: !!contentReel,
+        merchantSlug: overlay?.merchantSlug,
+        productSlug: overlay?.productSlug,
+        contentReelVariant: contentReel?.variant,
+      });
+      if (contentReel) {
+        contentReelBackRef.current?.();
+        return;
+      }
+      overlayBackRef.current?.();
+    });
+
+    return () => {
+      navigation.setOptions({ gestureEnabled: true });
+      unsubscribe();
+    };
+  }, [navigation, overlay, contentReel]);
 
   const { animatedHeight: headerRowHeight, onScroll: handleScroll } =
     useCollapsibleHeader({ headerHeight: HEADER_ROW_HEIGHT });
@@ -176,6 +326,7 @@ export default function DiscoverCategory() {
 
   const handleFilterSelect = useCallback(
     (cat: string) => {
+      discoverLog('category', 'filterChange', { category, filter: cat });
       setActiveFilter(cat);
       const idx = DISCOVER_FILTER_CATEGORIES.indexOf(cat as any);
       const m = tabMeasurements.current[idx];
@@ -193,10 +344,14 @@ export default function DiscoverCategory() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.content}>
+        {!overlay && !contentReel ? (
         <View style={styles.stickyBlock}>
           <RNAnimated.View style={{ height: headerRowHeight, overflow: 'hidden' }}>
             <View style={styles.headerRow}>
-              <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
+              <TouchableOpacity
+                onPress={() => router.back()}
+                style={styles.headerBtn}
+              >
                 <Ionicons name="chevron-back" size={22} color="#fff" />
               </TouchableOpacity>
               <View style={styles.locationChip}>
@@ -239,6 +394,7 @@ export default function DiscoverCategory() {
             </ScrollView>
           </View>
         </View>
+        ) : null}
 
         <FlatList
           data={feedData}
@@ -254,38 +410,24 @@ export default function DiscoverCategory() {
                   Tap to preview overlay (live aspect ratios)
                 </Text>
                 {laParadaProducts.map((product: (typeof laParadaProducts)[number]) => {
-                  const media: MediaItem | null = product.imageUrl
-                    ? {
-                        uri: product.imageUrl,
-                        type: 'image',
-                        width: product.imageWidth ?? 1080,
-                        height: product.imageHeight ?? 1080,
-                        aspect: toMediaAspect(product.mediaAspect ?? undefined),
-                      }
-                    : null;
+                  const aspect = toMediaAspect(product.mediaAspect ?? undefined);
+                  const media = buildLaParadaMedia(product, aspect);
                   return (
-                    <TouchableOpacity
-                      key={product.slug}
-                      style={styles.convexCard}
-                      onPress={() =>
-                        setOverlay({
-                          merchantSlug: 'la-parada',
-                          productSlug: product.slug,
-                        })
-                      }
-                    >
+                    <View key={product.slug} style={styles.convexCard}>
                       {media ? (
-                        <DynamicMediaRenderer
+                        <FeedMediaSlot
                           media={media}
-                          maxHeight={CARD_IMAGE_MAX_HEIGHT * 0.6}
-                          borderRadius={8}
+                          aspect={aspect}
+                          borderRadius={0}
+                          fullBleed
+                          onPress={() => openLaParadaProduct(product)}
                         />
                       ) : null}
                       <Text style={styles.convexName}>{product.name}</Text>
                       <Text style={styles.convexAspect}>
                         {product.mediaAspect ?? 'square'}
                       </Text>
-                    </TouchableOpacity>
+                    </View>
                   );
                 })}
               </View>
@@ -300,9 +442,8 @@ export default function DiscoverCategory() {
               <View style={styles.cardMediaWrap}>
                 <MediaCarousel
                   media={item.media}
-                  maxHeight={CARD_IMAGE_MAX_HEIGHT}
-                  borderRadius={3}
-                  cardWidth={CARD_WIDTH}
+                  borderRadius={0}
+                  onPressSlide={(mediaItem) => handleFeedMediaPress(item, mediaItem)}
                 />
               </View>
 
@@ -354,10 +495,39 @@ export default function DiscoverCategory() {
 
       {overlay && (
         <DiscoverProductOverlay
+          key={`${overlay.merchantSlug}-${overlay.productSlug}`}
           visible
           merchantSlug={overlay.merchantSlug}
           productSlug={overlay.productSlug}
-          onDismiss={() => setOverlay(null)}
+          initialMediaAspect={overlay.mediaAspect}
+          initialImageMode={overlay.initialImageMode}
+          backActionRef={overlayBackRef}
+          onDismiss={() => {
+            discoverLog('category', 'overlayDismiss', {
+              merchantSlug: overlay.merchantSlug,
+              productSlug: overlay.productSlug,
+            });
+            overlayBackRef.current = () => {};
+            setOverlay(null);
+          }}
+        />
+      )}
+
+      {contentReel && (
+        <ContentReelView
+          visible
+          variant={contentReel.variant}
+          media={contentReel.media}
+          creatorName={contentReel.creatorName}
+          creatorAvatar={contentReel.creatorAvatar}
+          caption={contentReel.caption}
+          backActionRef={contentReelBackRef}
+          onDismiss={() => {
+            discoverLog('category', 'contentReelDismiss', {
+              variant: contentReel.variant,
+            });
+            setContentReel(null);
+          }}
         />
       )}
     </SafeAreaView>
@@ -443,7 +613,6 @@ const styles = StyleSheet.create({
   },
   cardMediaWrap: {
     overflow: 'hidden',
-    borderRadius: 3,
   },
   cardMeta: {
     gap: 8,

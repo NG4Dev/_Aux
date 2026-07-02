@@ -3,11 +3,16 @@ import { ClerkProvider, ClerkLoaded, useAuth } from '@clerk/clerk-expo';
 import { tokenCache } from '@clerk/clerk-expo/token-cache';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { StatusBar } from 'expo-status-bar';
 import { useQuery } from 'convex/react';
 import ConvexClerkProvider from '@/providers/ConvexClerkProvider';
 import StripeAppProvider from '@/providers/StripeAppProvider';
 import ConvexQueryErrorBoundary from '@/components/ConvexQueryErrorBoundary';
 import { authLog } from '@/services/authFlowLogger';
+import {
+  isPassiveAuthEntry,
+} from '@/navigation/authGuardHelpers';
+import { DARK_STACK_OPTIONS } from '@/navigation/stackOptions';
 import {
   getGuestBrowseUnlockedSync,
   isGuestBrowseUnlocked,
@@ -61,7 +66,7 @@ function useSafeReplace(router: ReturnType<typeof useRouter>, scope: string) {
 
 function RootStack() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack screenOptions={DARK_STACK_OPTIONS}>
       <Stack.Screen name="index" />
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
@@ -69,7 +74,7 @@ function RootStack() {
       <Stack.Screen name="oauth-native-callback" options={{ headerShown: false }} />
       <Stack.Screen
         name="wallet"
-        options={{ presentation: 'modal', headerShown: false }}
+        options={{ presentation: 'modal', headerShown: false, contentStyle: { backgroundColor: '#000' } }}
       />
     </Stack>
   );
@@ -126,7 +131,7 @@ function GuestOnlyLayout() {
         unlocked ? '/(tabs)/home' : '/(auth)',
         unlocked ? 'emptySegmentGuestUnlocked' : 'emptySegment',
       );
-    } else if (unlocked && inAuthGroup) {
+    } else if (unlocked && isPassiveAuthEntry(segments as string[])) {
       safeReplace('/(tabs)/home', 'guestBrowseUnlocked');
     } else if (!unlocked && !inOnboardingGroup && !inAuthGroup) {
       safeReplace(SHOWCASE_PATH, 'guestNotUnlocked');
@@ -267,7 +272,7 @@ function ProfileAwareLayout() {
         onboardingComplete ? '/(tabs)/home' : '/(auth)',
         onboardingComplete ? 'emptySegmentGuestUnlocked' : 'emptySegment',
       );
-    } else if (onboardingComplete && inAuthGroup) {
+    } else if (guestUnlocked && isPassiveAuthEntry(segments as string[])) {
       safeReplace('/(tabs)/home', 'guestBrowseUnlocked');
     } else if (!onboardingComplete && !inOnboardingGroup && !inAuthGroup) {
       safeReplace(SHOWCASE_PATH, 'guestNotUnlocked');
@@ -309,7 +314,8 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#000' }}>
+      <StatusBar style="light" backgroundColor="#000" />
       <ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
         <ClerkLoaded>
           <ConvexClerkProvider>

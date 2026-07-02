@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
 import schema from "../schema";
+import type { Doc, Id } from "../_generated/dataModel";
 import { locationValidator, mediaAspectValidator, merchantTypeValidator, operatingStatusValidator } from "../schema";
 
 const merchantDocValidator = v.object({
@@ -29,6 +30,63 @@ const productWithMediaValidator = v.object({
   imageWidth: v.optional(v.number()),
   imageHeight: v.optional(v.number()),
 });
+
+async function resolveCategoryLabels(
+  ctx: { db: { get: (id: import("../_generated/dataModel").Id<"categories">) => Promise<{ name: string } | null> } },
+  merchant: {
+    feedCategories?: string[];
+    interestCategoryIds?: import("../_generated/dataModel").Id<"categories">[];
+    discoverCategorySlugs?: string[];
+  },
+): Promise<string[]> {
+  if (merchant.feedCategories && merchant.feedCategories.length > 0) {
+    return merchant.feedCategories;
+  }
+  if (merchant.interestCategoryIds && merchant.interestCategoryIds.length > 0) {
+    const names = await Promise.all(
+      merchant.interestCategoryIds.map(async (id) => {
+        const cat = await ctx.db.get(id);
+        return cat?.name ?? null;
+      }),
+    );
+    return names.filter((n): n is string => n !== null);
+  }
+  if (merchant.discoverCategorySlugs && merchant.discoverCategorySlugs.length > 0) {
+    return merchant.discoverCategorySlugs.map((slug) =>
+      slug
+        .split("-")
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" "),
+    );
+  }
+  return [];
+}
+
+const enrichedMerchantValidator = v.object({
+  _id: v.id("merchants"),
+  _creationTime: v.number(),
+  ...schema.tables.merchants.validator.fields,
+  logoUrl: v.union(v.string(), v.null()),
+  categoryLabels: v.array(v.string()),
+});
+
+async function merchantWithExtras(
+  ctx: {
+    storage: { getUrl: (id: Id<"_storage">) => Promise<string | null> };
+    db: { get: (id: Id<"categories">) => Promise<Doc<"categories"> | null> };
+  },
+  merchant: Doc<"merchants">,
+) {
+  const logoUrl = merchant.logoStorageId
+    ? await ctx.storage.getUrl(merchant.logoStorageId)
+    : null;
+  const categoryLabels = await resolveCategoryLabels(ctx, merchant);
+  return {
+    ...merchant,
+    logoUrl,
+    categoryLabels,
+  };
+}
 
 async function productWithMedia(
   ctx: { storage: { getUrl: (id: import("../_generated/dataModel").Id<"_storage">) => Promise<string | null> } },
@@ -204,7 +262,7 @@ export const getProduct = query({
     v.null(),
     v.object({
       product: productWithMediaValidator,
-      merchant: merchantDocValidator,
+      merchant: enrichedMerchantValidator,
     }),
   ),
   handler: async (ctx, args) => {
@@ -228,7 +286,7 @@ export const getProduct = query({
     }
     return {
       product: await productWithMedia(ctx, product),
-      merchant,
+      merchant: await merchantWithExtras(ctx, merchant),
     };
   },
 });

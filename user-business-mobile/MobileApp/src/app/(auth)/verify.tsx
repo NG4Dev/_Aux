@@ -3,10 +3,6 @@ import {
   Text,
   View,
   ScrollView,
-  Platform,
-  Keyboard,
-  LayoutAnimation,
-  UIManager,
   Pressable,
 } from "react-native";
 import CustomTextInput from "@/components/CustomTextInput";
@@ -15,11 +11,11 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { router, Stack } from "expo-router";
-import { useState, useEffect } from "react";
 import { useSignUp, isClerkAPIResponseError } from "@clerk/clerk-expo";
 import Svg, { Circle } from 'react-native-svg';
 import { Ionicons } from "@expo/vector-icons";
 import { authLog } from "@/services/authFlowLogger";
+import { useAuthKeyboardHeight } from "@/hooks/useAuthKeyboardHeight";
 
 const ProgressCircle = ({ progress }: { progress: number }) => {
   const size = 24;
@@ -70,12 +66,8 @@ const mapClerkErrorToFormField = (error: any) => {
   }
 };
 
-// Enable LayoutAnimation on Android
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
 export default function VerifyScreen() {
+  const keyboardHeight = useAuthKeyboardHeight();
   const {
     control,
     handleSubmit,
@@ -86,30 +78,7 @@ export default function VerifyScreen() {
     mode: 'onChange',
   });
 
-  const { signUp, isLoaded, setActive } = useSignUp(); 
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-
-  useEffect(() => {
-    const showSubscription = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (e) => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setKeyboardHeight(e.endCoordinates.height);
-      }
-    );
-    const hideSubscription = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setKeyboardHeight(0);
-      }
-    );
-
-    return () => {
-      showSubscription.remove();
-      hideSubscription.remove();
-    };
-  }, []);
+  const { signUp, isLoaded, setActive } = useSignUp();
 
   const onVerify = async ({code}: VerifyFields) => {
     if (!isLoaded) return;

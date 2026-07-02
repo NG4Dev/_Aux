@@ -6,16 +6,27 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#000000"
       },
-      "package": "com.ng4.RNAuth"
+      "package": "com.ng4.RNAuth",
+      "navigationBar": {
+        "backgroundColor": "#000000"
+      },
+      "statusBar": {
+        "backgroundColor": "#000000",
+        "barStyle": "light-content"
+      }
+    },
+    "androidStatusBar": {
+      "backgroundColor": "#000000",
+      "barStyle": "light-content"
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -31,7 +42,7 @@
         {
           "image": "./assets/splash-icon.png",
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#000000"
         }
       ],
       [

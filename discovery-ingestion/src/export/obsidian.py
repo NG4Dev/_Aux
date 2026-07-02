@@ -25,6 +25,23 @@ ENTITY_TABLES: list[tuple[str, str, str]] = [
     ("deals", "deal", "deals"),
 ]
 
+MAX_NOTE_PATH_LEN = 200
+MAX_DISPLAY_NAME_LEN = 120
+MAX_SLUG_FILENAME_LEN = 40
+
+_TITLE_NOISE_PATTERNS = (
+    re.compile(r"\s*\|\s*Booked with FOMO.*$", re.I),
+    re.compile(r"\s*\|\s*Hyperli.*$", re.I),
+    re.compile(r"\s*\|\s*From R[\d\s,]+.*$", re.I),
+    re.compile(r"\s*\|\s*R[\d\s,]+.*$", re.I),
+    re.compile(r"\s*\|\s*[\d.]+\s*stars?.*$", re.I),
+    re.compile(r"\s*\|\s*[\d.]+\s*\(\d+\).*reviews?.*$", re.I),
+    re.compile(r"\s*\|\s*Save up to \d+%.*$", re.I),
+    re.compile(r"\s*\|\s*Up to \d+% off.*$", re.I),
+    re.compile(r"\s*\|\s*Deal\s*$", re.I),
+    re.compile(r"\s*\|\s*$"),
+)
+
 
 def vault_root() -> Path:
     raw = os.getenv("OBSIDIAN_VAULT_PATH", "").strip()
@@ -108,11 +125,74 @@ def _entity_date_prefix(row: sqlite3.Row, table: str) -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
+def _clean_display_name(raw: str | None, *, fallback: str = "Untitled") -> str:
+    """Sanitize a human-readable title for H1 and front matter."""
+    text = (raw or "").strip()
+    for pattern in _TITLE_NOISE_PATTERNS:
+        text = pattern.sub("", text)
+    text = re.sub(r"\s+", " ", text).strip(" |")
+    if not text:
+        text = fallback
+    if len(text) > MAX_DISPLAY_NAME_LEN:
+        text = text[: MAX_DISPLAY_NAME_LEN - 1].rstrip() + "…"
+    return text
+
+
+def _short_external_id(source_provider: str, external_id: str, name: str) -> str:
+    """Stable short id for filenames — never use full URLs or long deal titles."""
+    ext = (external_id or "").strip()
+    provider = (source_provider or "").lower()
+
+    if provider == "google_places":
+        return ext or slugify(name, fallback="place")[:MAX_SLUG_FILENAME_LEN]
+
+    if provider == "bandsintown":
+        match = re.search(r"/e-(\d+)", ext) or re.search(r"e-(\d+)", ext)
+        if match:
+            return match.group(1)
+        digits = re.search(r"(\d{6,})", ext)
+        if digits:
+            return digits.group(1)
+
+    if provider in {"quicket", "howler"}:
+        if ext.isdigit():
+            return ext
+        digits = re.search(r"(\d{4,})", ext)
+        if digits:
+            return digits.group(1)
+        safe_id = re.sub(r"[^\w.-]", "-", ext)
+        if safe_id:
+            return safe_id[:MAX_SLUG_FILENAME_LEN].strip("-")
+
+    if provider in {"fomosa", "hyperli"}:
+        return slugify(ext or name, fallback="deal")[:MAX_SLUG_FILENAME_LEN]
+
+    safe_id = re.sub(r"[^\w.-]", "-", ext)
+    if safe_id:
+        return safe_id[:MAX_SLUG_FILENAME_LEN].strip("-")
+    return slugify(name, fallback="item")[:MAX_SLUG_FILENAME_LEN]
+
+
 def entity_filename(table: str, row: sqlite3.Row) -> str:
-    """Stable filename — one note per source+external_id (no duplicate slug/date variants)."""
-    ext_id = str(row["source_external_id"]).strip()
-    safe_id = re.sub(r"[^\w.-]", "-", ext_id)
-    return f"{row['source_provider']}-{safe_id}.md"
+    """Stable short filename — one note per source+external_id."""
+    name = _entity_name(row)
+    short_id = _short_external_id(row["source_provider"], str(row["source_external_id"]), name)
+    return f"{row['source_provider']}-{short_id}.md"
+
+
+def _format_yaml_tags(*tags: str) -> str:
+    lines = ["tags:"]
+    for tag in tags:
+        lines.append(f"  - {tag}")
+    return "\n".join(lines)
+
+
+def _assert_note_path_length(note_path: Path) -> None:
+    path_len = len(str(note_path.resolve()))
+    if path_len > MAX_NOTE_PATH_LEN:
+        raise ValueError(
+            f"Note path too long ({path_len} > {MAX_NOTE_PATH_LEN}): {note_path.name}"
+        )
 
 
 def _city_display_name(city_slug: str) -> str:
@@ -121,6 +201,11 @@ def _city_display_name(city_slug: str) -> str:
     if entry and entry.get("name"):
         return entry["name"]
     return city_slug.replace("-", " ").title()
+
+
+def folder_name_for_entity(entity_type: str) -> str:
+    mapping = {"event": "events", "place": "places", "artist": "artists", "deal": "deals"}
+    return mapping.get(entity_type, f"{entity_type}s")
 
 
 def _callout(status: str) -> str:
@@ -228,8 +313,12 @@ def _render_entity(
         "city: {{city_slug}}\nvetting_status: {{vetting_status}}\n---\n\n"
         "# {{name}}\n\n{{callout}}\n\n{{key_details}}\n\n{{links_section}}\n"
     )
-    name = _entity_name(row)
+    raw_name = _entity_name(row)
+    display_name = _clean_display_name(raw_name, fallback=str(row["source_external_id"]))
     now = datetime.now(timezone.utc)
+    city_index_stem = _city_index_stem(row["city_slug"])
+    last_scraped = _row_value(row, "last_scraped_at") or "unknown"
+
     key_details_lines = _build_key_details(table, row)
     if key_details_lines:
         detail_lines = ["> [!info] Key details", ""]
@@ -239,27 +328,55 @@ def _render_entity(
     else:
         key_details = "> [!info] Key details\n> _(no extra fields scraped yet)_"
 
+    catalog_entry = "\n".join(
+        [
+            "> [!info] Catalog entry",
+            f"> **City:** {row['city_slug']}",
+            f"> **Source:** {row['source_provider']}",
+            f"> **External ID:** `{row['source_external_id']}`",
+            f"> **Last scraped:** {last_scraped}",
+            f"> **Dedup key:** `{row['source_external_id']}`",
+        ]
+    )
+
     links = _fetch_source_links(conn, entity_type, row["id"])
     if links:
         links_section = "## Links\n\n" + "\n".join(f"- [Listing]({url})" for url in links)
     else:
         links_section = "## Links\n\n_(none recorded)_"
 
-    tags = f"[discovery-catalog, {row['city_slug']}, {row['source_provider']}]"
+    related_section = "\n".join(
+        [
+            "## Related",
+            "",
+            f"- [[{city_index_stem}|City dashboard]]",
+            f"- [[{row['city_slug']}/{folder_name_for_entity(entity_type)}/{row['source_provider']}/_index|{row['source_provider']} index]]",
+        ]
+    )
+
+    tags = _format_yaml_tags(
+        "discovery-catalog",
+        row["city_slug"],
+        row["source_provider"],
+        entity_type,
+    )
     replacements = {
         "{{entity_type}}": entity_type,
         "{{source_provider}}": row["source_provider"],
         "{{source_external_id}}": row["source_external_id"],
         "{{city_slug}}": row["city_slug"],
         "{{vetting_status}}": row["vetting_status"],
-        "{{name}}": name,
+        "{{display_name}}": display_name,
+        "{{name}}": display_name,
         "{{callout}}": _callout(row["vetting_status"]),
+        "{{catalog_entry}}": catalog_entry,
         "{{exported_at}}": now.isoformat().replace("+00:00", "Z"),
         "{{date}}": now.strftime("%Y-%m-%d"),
         "{{time}}": now.strftime("%H:%M"),
         "{{tags}}": tags,
         "{{key_details}}": key_details,
         "{{links_section}}": links_section,
+        "{{related_section}}": related_section,
     }
     content = template
     for key, value in replacements.items():
@@ -320,8 +437,11 @@ def _render_city_index(
             "- [ ] Review pending callouts in entity notes",
             "- [ ] Run entity resolve for artists/places",
             "- [ ] Approve entities for Phase 2 Convex promotion",
+            "- [ ] See [[agents/QUICK-START|Agent quick start]] for scrape and export rules",
         ]
     )
+
+    tags_block = _format_yaml_tags("discovery-catalog", city_slug)
 
     replacements = {
         "{{date}}": exported_at.strftime("%Y-%m-%d"),
@@ -334,6 +454,7 @@ def _render_city_index(
         "{{by_type}}": by_type,
         "{{by_source}}": by_source,
         "{{next_steps}}": next_steps,
+        "{{tags}}": tags_block,
     }
     content = template
     for key, value in replacements.items():
@@ -361,7 +482,7 @@ def _render_source_index(
         f"city: {city_slug}",
         f"entity_type: {entity_folder.rstrip('s')}",
         f"source_provider: {source_provider}",
-        f"tags: [discovery-catalog, {city_slug}, {source_provider}]",
+        _format_yaml_tags("discovery-catalog", city_slug, source_provider),
         "---",
         "",
         f"# {source_provider} — {_city_display_name(city_slug)} {entity_folder}",
@@ -465,6 +586,7 @@ def export_city(
             entity_dir = resolve_entity_dir(city_slug, folder, row["source_provider"], subfolder)
             filename = entity_filename(table, row)
             note_path = entity_dir / filename
+            _assert_note_path_length(note_path)
             note_path.write_text(
                 _render_entity(conn, table, entity_type, row),
                 encoding="utf-8",

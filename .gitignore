@@ -45,3 +45,8 @@ yarn-error.*
 # Reference apps (local experiments and upstream snapshots)
 user-business-mobile/reference apps/
 user-business-web/reference apps/
+
+# Local agent workspaces and session artifacts
+**/.local/
+**/logs/*.log
+**/.expo-tmp-check/

@@ -101,12 +101,14 @@ class BaseScraper(ABC):
         conn: sqlite3.Connection,
         *,
         force: bool = False,
+        incremental: bool = False,
         on_progress: ProgressCallback | None = None,
         strict_city_filter: bool = False,
     ):
         self.city_slug = city_slug
         self.conn = conn
         self.force = force
+        self.incremental = incremental
         self.on_progress = on_progress
         self.strict_city_filter = strict_city_filter
         self._progress_done = 0
