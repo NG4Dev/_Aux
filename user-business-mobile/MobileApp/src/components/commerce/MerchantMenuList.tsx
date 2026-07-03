@@ -11,6 +11,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 
+export type MenuCategory = {
+  id: string;
+  name: string;
+  slug?: string;
+};
+
 export type MenuListProduct = {
   _id: string;
   slug: string;
@@ -19,21 +25,23 @@ export type MenuListProduct = {
   priceCents: number;
   currency: string;
   imageUrl?: string | null;
+  categoryId?: string;
+  categoryName?: string;
 };
 
 type MerchantMenuListProps = {
   products: MenuListProduct[];
   selectedSlug: string;
   merchantName: string;
-  categoryLabels?: string[];
+  menuCategories?: MenuCategory[];
   onSelectProduct: (slug: string) => void;
-  onFilterChange?: (filter: string) => void;
+  onFilterChange?: (payload: {
+    chip: string;
+    categoryId: string | null;
+    filteredCount: number;
+    totalProducts: number;
+  }) => void;
 };
-
-function productMatchesCategory(product: MenuListProduct, category: string): boolean {
-  const haystack = `${product.name} ${product.description}`.toLowerCase();
-  return haystack.includes(category.toLowerCase());
-}
 
 function formatPrice(priceCents: number, currency: string): string {
   return `${(priceCents / 100).toFixed(0)} ${currency.toUpperCase()}`;
@@ -43,7 +51,7 @@ export default function MerchantMenuList({
   products,
   selectedSlug,
   merchantName,
-  categoryLabels = [],
+  menuCategories = [],
   onSelectProduct,
   onFilterChange,
 }: MerchantMenuListProps) {
@@ -51,14 +59,24 @@ export default function MerchantMenuList({
   const [activeCategory, setActiveCategory] = useState('All');
 
   const chips = useMemo(() => {
-    const unique = categoryLabels.filter(Boolean);
-    return ['All', ...unique.filter((label) => label !== 'All')];
-  }, [categoryLabels]);
+    if (menuCategories.length === 0) return ['All'];
+    return ['All', ...menuCategories.map((c) => c.name)];
+  }, [menuCategories]);
+
+  const categoryIdByName = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of menuCategories) {
+      map.set(c.name, c.id);
+    }
+    return map;
+  }, [menuCategories]);
 
   const filtered = useMemo(() => {
     if (activeCategory === 'All') return products;
-    return products.filter((p) => productMatchesCategory(p, activeCategory));
-  }, [products, activeCategory]);
+    const categoryId = categoryIdByName.get(activeCategory);
+    if (!categoryId) return products;
+    return products.filter((p) => p.categoryId === categoryId);
+  }, [products, activeCategory, categoryIdByName]);
 
   useEffect(() => {
     if (filtered.length === 0) return;
@@ -70,11 +88,48 @@ export default function MerchantMenuList({
 
   const handleChipPress = (chip: string) => {
     setActiveCategory(chip);
-    onFilterChange?.(chip);
+    const categoryId = chip === 'All' ? null : categoryIdByName.get(chip) ?? null;
+    const nextFiltered =
+      chip === 'All'
+        ? products
+        : products.filter((p) => p.categoryId === categoryId);
+    onFilterChange?.({
+      chip,
+      categoryId,
+      filteredCount: nextFiltered.length,
+      totalProducts: products.length,
+    });
   };
 
   return (
     <View style={styles.container}>
+      {chips.length > 1 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.tabScroll}
+          contentContainerStyle={styles.tabRow}
+        >
+          {chips.map((chip) => {
+            const active = chip === activeCategory;
+            return (
+              <TouchableOpacity
+                key={chip}
+                style={styles.tab}
+                onPress={() => handleChipPress(chip)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+              >
+                <Text style={[styles.tabText, active && styles.tabTextActive]}>
+                  {chip}
+                </Text>
+                {active ? <View style={styles.tabIndicator} /> : null}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      ) : null}
+
       <View style={styles.queueHeader}>
         <View style={styles.queueHeaderText}>
           <Text style={styles.queueEyebrow}>Menu from</Text>
@@ -83,30 +138,6 @@ export default function MerchantMenuList({
           </Text>
         </View>
       </View>
-
-      {chips.length > 1 ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.chipScroll}
-          contentContainerStyle={styles.chipRow}
-        >
-          {chips.map((chip) => {
-            const active = chip === activeCategory;
-            return (
-              <TouchableOpacity
-                key={chip}
-                style={[styles.chip, active && styles.chipActive]}
-                onPress={() => handleChipPress(chip)}
-              >
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                  {chip}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      ) : null}
 
       <FlatList
         ref={listRef}
@@ -122,20 +153,25 @@ export default function MerchantMenuList({
             <TouchableOpacity
               style={[styles.row, selected && styles.rowSelected]}
               onPress={() => onSelectProduct(item.slug)}
+              accessibilityState={{ selected }}
             >
-              {item.imageUrl ? (
-                <Image source={{ uri: item.imageUrl }} style={styles.thumb} />
-              ) : (
-                <View style={[styles.thumb, styles.thumbEmpty]} />
-              )}
+              <View style={styles.thumbWrap}>
+                {item.imageUrl ? (
+                  <Image source={{ uri: item.imageUrl }} style={styles.thumb} />
+                ) : (
+                  <View style={[styles.thumb, styles.thumbEmpty]} />
+                )}
+                {selected ? (
+                  <View style={styles.thumbActiveOverlay} pointerEvents="none">
+                    <Ionicons name="volume-high" size={18} color="#fff" />
+                  </View>
+                ) : null}
+              </View>
               <View style={styles.rowBody}>
                 <View style={styles.rowTitleRow}>
-                  <Text style={styles.rowName} numberOfLines={1}>
+                  <Text style={[styles.rowName, selected && styles.rowNameSelected]} numberOfLines={1}>
                     {item.name}
                   </Text>
-                  {selected ? (
-                    <Ionicons name="pulse" size={14} color={Colors.primary} />
-                  ) : null}
                 </View>
                 <Text style={styles.rowMeta} numberOfLines={1}>
                   <Text style={styles.rowPrice}>{priceLabel}</Text>
@@ -153,6 +189,43 @@ export default function MerchantMenuList({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  tabScroll: {
+    flexGrow: 0,
+    flexShrink: 0,
+    alignSelf: 'flex-start',
+    maxHeight: 40,
+  },
+  tabRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 8,
+    gap: 4,
+  },
+  tab: {
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+    alignItems: 'center',
+  },
+  tabText: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  tabTextActive: {
+    color: '#fff',
+    fontWeight: '500',
+  },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: 12,
+    right: 12,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: '#fff',
+  },
   queueHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -171,36 +244,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 2,
   },
-  chipScroll: {
-    flexGrow: 0,
-    flexShrink: 0,
-    alignSelf: 'flex-start',
-    maxHeight: 36,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    gap: 8,
-  },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-  },
-  chipActive: {
-    backgroundColor: '#fff',
-  },
-  chipText: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  chipTextActive: {
-    color: '#111',
-  },
   listScroll: {
     flex: 1,
   },
@@ -215,7 +258,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   rowSelected: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  thumbWrap: {
+    position: 'relative',
+    width: 56,
+    height: 56,
+  },
+  thumbActiveOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   thumb: {
     width: 56,
@@ -229,7 +284,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  rowName: { color: '#fff', fontSize: 15, fontWeight: '700', flex: 1 },
+  rowName: { color: 'rgba(255,255,255,0.92)', fontSize: 15, fontWeight: '600', flex: 1 },
+  rowNameSelected: { color: '#fff', fontWeight: '700' },
   rowMeta: {
     color: 'rgba(255,255,255,0.55)',
     fontSize: 12,

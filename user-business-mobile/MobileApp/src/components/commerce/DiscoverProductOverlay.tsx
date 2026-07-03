@@ -58,8 +58,6 @@ import { useQuery, useAction, useMutation } from 'convex/react';
 
 import { useAuth } from '@clerk/clerk-expo';
 
-import { LinearGradient } from 'expo-linear-gradient';
-
 import { useRouter } from 'expo-router';
 
 import { api } from '@/convex/_generated/api';
@@ -80,9 +78,39 @@ import ProductHeroMedia from '@/components/commerce/ProductHeroMedia';
 
 import OverlayViewCartBar from '@/components/commerce/OverlayViewCartBar';
 
-import type { MorphRect } from '@/components/commerce/OverlayHeroMorphLayer';
+import OverlayHeroMorphLayer, { type MorphRect } from '@/components/commerce/OverlayHeroMorphLayer';
 
 import OverlayMiniPlayerBar from '@/components/commerce/OverlayMiniPlayerBar';
+
+import MenuInlinePlayerBar from '@/components/commerce/MenuInlinePlayerBar';
+
+import HeroDynamicBackdrop from '@/components/commerce/HeroDynamicBackdrop';
+
+import {
+  useExpandHeroMorphOpacityStyle,
+  useHeroBandFadeStyle,
+} from '@/components/commerce/useOverlayHeroMorph';
+
+import {
+  prefetchHeroBackdropPalettes,
+  prefetchHeroBackdropNeighbors,
+} from '@/utils/prefetchHeroBackdropPalettes';
+
+import {
+  HERO_VISIBLE_UNTIL,
+  HEADER_MINI_FADE_IN_END,
+  HEADER_MINI_FADE_IN_START,
+  HERO_MORPH_TELEMETRY_MILESTONES,
+  INLINE_FADE_OUT_END,
+  INLINE_FADE_OUT_START,
+  headerThumbHandoffOpacityJs,
+  inlineThumbPeekOpacityJs,
+  morphHandoffTJs,
+  morphLayerOpacityJs,
+  MORPH_END,
+  MORPH_START,
+  sourceHeroMorphOpacityJs,
+} from '@/components/commerce/menuTransitionTokens';
 
 import OverlayHeaderChrome from '@/components/commerce/OverlayHeaderChrome';
 
@@ -141,9 +169,6 @@ const PEEK_PAN_CHROME_HEIGHT = 22;
 const OVERLAY_HEADER_BODY = 52;
 
 const HERO_LAYOUT_READY = 1;
-
-/** Inline hero/reel visible only at collapsed peek; morph owns 0.04–0.98. */
-const INLINE_HERO_VISIBLE_MAX = 0.03;
 
 const AnimatedPanZone = Animated.createAnimatedComponent(View);
 
@@ -207,6 +232,8 @@ export default function DiscoverProductOverlay({
 
   const [showImageOverlay, setShowImageOverlay] = useState(false);
 
+  const [showMenuHeroOverlay, setShowMenuHeroOverlay] = useState(false);
+
   const [contextMenuVisible, setContextMenuVisible] = useState(false);
 
   const contextMenuVisibleRef = useRef(false);
@@ -255,6 +282,8 @@ export default function DiscoverProductOverlay({
   const isDraggingRef = useRef(false);
 
   const lastPanLogAtRef = useRef(0);
+
+  const lastMorphMilestoneRef = useRef(-1);
 
   const lastChromeCrossfadeRef = useRef<'controls' | 'miniPlayer' | null>(null);
 
@@ -322,11 +351,31 @@ export default function DiscoverProductOverlay({
 
         imageHeight: p.imageHeight,
 
+        categoryId: String(p.categoryId),
+
+        categoryName: p.categoryName,
+
+        categorySlug: p.categorySlug,
+
       })) ?? [],
 
     [products],
 
   );
+
+  const menuCategories = useMemo(() => {
+    const byId = new Map<string, { id: string; name: string; slug: string }>();
+    for (const p of menuProducts) {
+      if (p.categoryId && !byId.has(p.categoryId)) {
+        byId.set(p.categoryId, {
+          id: p.categoryId,
+          name: p.categoryName ?? 'Menu',
+          slug: p.categorySlug ?? 'menu',
+        });
+      }
+    }
+    return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [menuProducts]);
 
   const maxMenuCarouselHeroHeight = useMemo(
 
@@ -473,6 +522,8 @@ export default function DiscoverProductOverlay({
   const findSimilarProducts = useAction(api.products.findSimilar);
 
   const findSimilarPlaces = useAction(api.platform.discovery.findSimilarPlaces);
+
+  const extractHeroBackdropColor = useAction(api.platform.heroPalette.extractHeroBackdropColor);
 
   const logInteraction = useMutation(api.userProfile.logInteraction);
 
@@ -690,6 +741,8 @@ export default function DiscoverProductOverlay({
 
   const miniPlayerThumbRef = useAnimatedRef<Animated.View>();
 
+  const morphTargetAnchorRef = useAnimatedRef<Animated.View>();
+
   const miniPlayerBarRef = useAnimatedRef<Animated.View>();
 
   const heroRectSV = useSharedValue<MorphRect>({ x: 0, y: 0, width: 0, height: 0 });
@@ -706,6 +759,37 @@ export default function DiscoverProductOverlay({
 
   const gestureLockSV = useSharedValue(0);
 
+  const expandHeroMorphOpacityStyle = useExpandHeroMorphOpacityStyle(
+    sheetTranslateY,
+    collapsedOffsetSV,
+  );
+
+  const heroBandFadeStyle = useHeroBandFadeStyle(sheetTranslateY, collapsedOffsetSV);
+
+  const menuSidePeekHideStyle = useAnimatedStyle(() => {
+    const collapsed = collapsedOffsetSV.value;
+    if (collapsed <= 0) return { opacity: 1 };
+    const expandProgress = Math.max(
+      0,
+      Math.min(1, 1 - sheetTranslateY.value / collapsed),
+    );
+    return {
+      opacity: expandProgress > 0.05 ? 0 : 1,
+    };
+  });
+
+  const menuHeroBandClipStyle = useAnimatedStyle(() => {
+    const collapsed = collapsedOffsetSV.value;
+    if (collapsed <= 0) return {};
+    const expandProgress = Math.max(
+      0,
+      Math.min(1, 1 - sheetTranslateY.value / collapsed),
+    );
+    return {
+      overflow: expandProgress > 0.05 ? ('hidden' as const) : ('visible' as const),
+    };
+  });
+
   const measureMorphRects = useCallback(() => {
     heroAnchorRef.current?.measureInWindow((x, y, width, height) => {
       if (width > 0 && height > 0) {
@@ -713,7 +797,7 @@ export default function DiscoverProductOverlay({
         heroLayoutReady.value = HERO_LAYOUT_READY;
       }
     });
-    miniPlayerBarRef.current?.measureInWindow((x, y, width, height) => {
+    morphTargetAnchorRef.current?.measureInWindow((x, y, width, height) => {
       if (width > 0 && height > 0) {
         miniPlayerRectSV.value = { x, y, width, height };
         miniPlayerLayoutReady.value = HERO_LAYOUT_READY;
@@ -721,7 +805,7 @@ export default function DiscoverProductOverlay({
     });
   }, [
     heroAnchorRef,
-    miniPlayerBarRef,
+    morphTargetAnchorRef,
     heroRectSV,
     miniPlayerRectSV,
     heroLayoutReady,
@@ -765,8 +849,55 @@ export default function DiscoverProductOverlay({
   }, [visible, selectedSlug, heroDisplayHeight, measureMorphRects, heroLayoutReady, miniPlayerLayoutReady, isStoryLayout]);
 
   useEffect(() => {
-    suppressMorphSV.value = showImageOverlay ? 1 : 0;
-  }, [showImageOverlay, suppressMorphSV]);
+    suppressMorphSV.value = showImageOverlay || showMenuHeroOverlay ? 1 : 0;
+  }, [showImageOverlay, showMenuHeroOverlay, suppressMorphSV]);
+
+  useAnimatedReaction(
+    () => {
+      const collapsed = collapsedOffsetSV.value;
+      if (collapsed <= 0) return 0;
+      return 1 - sheetTranslateY.value / collapsed;
+    },
+    (progress, prev) => {
+      const inBand = progress >= 0.48 && progress <= 0.52;
+      const prevInBand = prev !== null && prev >= 0.48 && prev <= 0.52;
+      if (inBand && !prevInBand) {
+        runOnJS(measureMorphRects)();
+      }
+    },
+    [measureMorphRects],
+  );
+
+  useEffect(() => {
+    if (!visible || activeTab !== 'menu') return;
+    const timer = setTimeout(measureMorphRects, 80);
+    return () => clearTimeout(timer);
+  }, [visible, activeTab, menuFocusSlug, measureMorphRects]);
+
+  useEffect(() => {
+    if (!visible || activeTab !== 'product') return;
+    const timer = setTimeout(measureMorphRects, 80);
+    return () => clearTimeout(timer);
+  }, [visible, activeTab, selectedSlug, measureMorphRects]);
+
+  useEffect(() => {
+    if (!visible || menuProducts.length === 0) return;
+    void prefetchHeroBackdropPalettes(
+      menuProducts.map((p) => p.imageUrl),
+      extractHeroBackdropColor,
+    );
+  }, [visible, menuProducts, extractHeroBackdropColor]);
+
+  useEffect(() => {
+    if (activeTab !== 'menu' || menuProducts.length === 0) return;
+    const focusIndex = menuProducts.findIndex((p) => p.slug === menuFocusSlug);
+    if (focusIndex < 0) return;
+    prefetchHeroBackdropNeighbors(
+      menuProducts.map((p) => p.imageUrl ?? ''),
+      focusIndex,
+      extractHeroBackdropColor,
+    );
+  }, [activeTab, menuFocusSlug, menuProducts, extractHeroBackdropColor]);
 
   useAnimatedReaction(
     () => {
@@ -1860,64 +1991,6 @@ export default function DiscoverProductOverlay({
 
 
 
-  const openProductFromMenuList = useCallback(
-
-    (slug: string) => {
-
-      const fromSlug = menuFocusSlug;
-
-      discoverLog('overlay', 'menuListOpenProduct', {
-
-        merchantSlug,
-
-        slug,
-
-        fromSlug,
-
-        selectedSlug,
-
-        trigger: 'list',
-
-      });
-
-      discoverLog('overlay', 'menuListSelect', {
-
-        merchantSlug,
-
-        fromSlug,
-
-        toSlug: slug,
-
-        activeTab,
-
-      });
-
-      setMenuFocusSlug(slug);
-
-      setSlugStack((prev) => {
-
-        if (prev[prev.length - 1] === slug) return prev;
-
-        return [...prev.slice(0, -1), slug];
-
-      });
-
-      setActiveTab('product');
-
-      setImageMode('minimized');
-
-      setShowImageOverlay(false);
-
-      pendingListProductSnapRef.current = true;
-
-    },
-
-    [merchantSlug, menuFocusSlug, selectedSlug, activeTab],
-
-  );
-
-
-
   const handleAddCart = useCallback(() => {
 
     const cartProduct =
@@ -2360,87 +2433,31 @@ export default function DiscoverProductOverlay({
 
   );
 
-  const handleMenuCarouselSelect = useCallback(
-
-    (slug: string) => {
-
-      if (slug === menuFocusSlug) return;
-
-      discoverLog('overlay', 'menuFocusChange', {
-
-        merchantSlug,
-
-        from: menuFocusSlug,
-
-        to: slug,
-
-        trigger: 'carousel',
-
-      });
-
-      discoverLog('overlay', 'menuCarouselSelect', {
-
-        merchantSlug,
-
-        fromSlug: menuFocusSlug,
-
-        toSlug: slug,
-
-        activeTab,
-
-      });
-
-      discoverLog('overlay', 'menuSlugChangePolicy', {
-
-        merchantSlug,
-
-        menuFocusSlug: slug,
-
-        selectedSlug,
-
-        skippedHasOpenedReset: true,
-
-        skippedSheetSnap: true,
-
-        skippedGetProduct: true,
-
-      });
-
-      setMenuFocusSlug(slug);
-
-    },
-
-    [merchantSlug, menuFocusSlug, selectedSlug, activeTab],
-
-  );
-
-  const handleMenuListSelect = useCallback(
-
-    (slug: string) => {
-
-      if (activeTab === 'product' && slug === selectedSlug && slug === menuFocusSlug) {
-
-        return;
-
-      }
-
-      openProductFromMenuList(slug);
-
-    },
-
-    [activeTab, selectedSlug, menuFocusSlug, openProductFromMenuList],
-
-  );
-
   const handleMenuFilterChange = useCallback(
 
-    (filter: string) => {
+    (payload: {
 
-      discoverLog('overlay', 'menuFilterChange', {
+      chip: string;
+
+      categoryId: string | null;
+
+      filteredCount: number;
+
+      totalProducts: number;
+
+    }) => {
+
+      discoverLog('overlay', 'menuCategoryFilter', {
 
         merchantSlug,
 
-        filter,
+        chip: payload.chip,
+
+        categoryId: payload.categoryId,
+
+        filteredCount: payload.filteredCount,
+
+        totalProducts: payload.totalProducts,
 
         activeTab,
 
@@ -2452,7 +2469,20 @@ export default function DiscoverProductOverlay({
 
   );
 
-  const handleMenuHeroPress = useCallback(() => {
+  const handleMenuHeroToggleOverlay = useCallback(() => {
+    setShowMenuHeroOverlay((v) => {
+      const next = !v;
+      discoverLog('overlay', 'heroOverlayStack', {
+        merchantSlug,
+        productSlug: menuFocusSlug,
+        showMenuHeroOverlay: next,
+        activeTab,
+      });
+      return next;
+    });
+  }, [merchantSlug, menuFocusSlug, activeTab]);
+
+  const handleMenuHeroMaximize = useCallback(() => {
 
     discoverLog('overlay', 'menuHeroMaximize', {
 
@@ -2466,7 +2496,7 @@ export default function DiscoverProductOverlay({
 
     syncMenuFocusToSelected('heroMaximize');
 
-    setShowImageOverlay(false);
+    setShowMenuHeroOverlay(false);
 
     setImageMode('expanded');
 
@@ -2500,6 +2530,8 @@ export default function DiscoverProductOverlay({
 
       if (tab === activeTab) return;
 
+      setShowMenuHeroOverlay(false);
+
       logOverlay('tabChange', { fromTab: activeTab, toTab: tab });
 
       if (tab === 'menu') {
@@ -2517,6 +2549,26 @@ export default function DiscoverProductOverlay({
           menuProductCount: menuProducts.length,
 
         });
+
+        discoverLog('overlay', 'menuCarouselLayout', {
+
+          merchantSlug,
+
+          slotH: menuCarouselFrameSlotH,
+
+          locked: lockedCarouselSlotRef.current !== null,
+
+          selectedSlug,
+
+          centerFrameH: menuCarouselFrameSlotH,
+
+          sideScaleMode: 'transform',
+
+          source: 'menuTabOpen',
+
+        });
+
+        requestAnimationFrame(() => measureMorphRects());
 
       }
 
@@ -2542,7 +2594,11 @@ export default function DiscoverProductOverlay({
 
       menuProducts.length,
 
+      menuCarouselFrameSlotH,
+
       syncMenuFocusToSelected,
+
+      measureMorphRects,
 
     ],
 
@@ -2638,7 +2694,9 @@ export default function DiscoverProductOverlay({
 
         merchantSlug,
 
-        productSlug: selectedSlug,
+        productSlug: menuFocusSlug,
+
+        menuFocusSlug,
 
       });
 
@@ -2674,7 +2732,7 @@ export default function DiscoverProductOverlay({
 
     );
 
-  }, [collapsedOffset, collapsedSheetH, sheetTranslateY, logOverlay, measureMorphRects, merchantSlug, selectedSlug]);
+  }, [collapsedOffset, collapsedSheetH, sheetTranslateY, logOverlay, measureMorphRects, merchantSlug, menuFocusSlug]);
 
 
 
@@ -2712,6 +2770,198 @@ export default function DiscoverProductOverlay({
 
 
 
+  const focusMenuProduct = useCallback(
+
+    (slug: string, trigger: 'list' | 'carousel') => {
+
+      const fromSlug = menuFocusSlug;
+
+      const expandProgress = getExpandProgress();
+
+      const sheetExpanded = expandProgress >= 0.15;
+
+      if (slug === menuFocusSlug) {
+
+        if (trigger === 'list' && sheetExpanded) {
+
+          discoverLog('overlay', 'menuListSelect', {
+
+            merchantSlug,
+
+            fromSlug,
+
+            toSlug: slug,
+
+            activeTab,
+
+            sameItem: true,
+
+            peekRefocus: true,
+
+          });
+
+          snapToCollapsed();
+
+        }
+
+        return;
+
+      }
+
+      discoverLog('overlay', 'menuFocusChange', {
+
+        merchantSlug,
+
+        from: fromSlug,
+
+        to: slug,
+
+        trigger,
+
+        peekRefocus: trigger === 'list' && sheetExpanded,
+
+      });
+
+      discoverLog('overlay', 'menuListSelect', {
+
+        merchantSlug,
+
+        fromSlug,
+
+        toSlug: slug,
+
+        activeTab,
+
+        trigger,
+
+        peekRefocus: trigger === 'list' && sheetExpanded,
+
+        stayedOnMenuTab: true,
+
+      });
+
+      setMenuFocusSlug(slug);
+
+      setShowImageOverlay(false);
+
+      setShowMenuHeroOverlay(false);
+
+      if (trigger === 'list' && sheetExpanded) {
+
+        snapToCollapsed();
+
+      }
+
+    },
+
+    [
+
+      merchantSlug,
+
+      menuFocusSlug,
+
+      activeTab,
+
+      getExpandProgress,
+
+      snapToCollapsed,
+
+    ],
+
+  );
+
+
+
+  const handleMenuCarouselSelect = useCallback(
+
+    (slug: string) => {
+
+      if (slug === menuFocusSlug) return;
+
+      discoverLog('overlay', 'menuCarouselSelect', {
+
+        merchantSlug,
+
+        fromSlug: menuFocusSlug,
+
+        toSlug: slug,
+
+        activeTab,
+
+      });
+
+      discoverLog('overlay', 'menuCarouselLayout', {
+
+        merchantSlug,
+
+        slotH: menuCarouselFrameSlotH,
+
+        locked: lockedCarouselSlotRef.current !== null,
+
+        selectedSlug: slug,
+
+        centerFrameH: menuCarouselFrameSlotH,
+
+        sideScaleMode: 'transform',
+
+        source: 'carouselSelect',
+
+      });
+
+      discoverLog('overlay', 'menuSlugChangePolicy', {
+
+        merchantSlug,
+
+        menuFocusSlug: slug,
+
+        selectedSlug,
+
+        skippedHasOpenedReset: true,
+
+        skippedSheetSnap: true,
+
+        skippedGetProduct: true,
+
+      });
+
+      focusMenuProduct(slug, 'carousel');
+
+    },
+
+    [
+
+      merchantSlug,
+
+      menuFocusSlug,
+
+      selectedSlug,
+
+      activeTab,
+
+      menuCarouselFrameSlotH,
+
+      focusMenuProduct,
+
+    ],
+
+  );
+
+
+
+  const handleMenuListSelect = useCallback(
+
+    (slug: string) => {
+
+      focusMenuProduct(slug, 'list');
+
+    },
+
+    [focusMenuProduct],
+
+  );
+
+
+
   const resolveBackAction = useCallback(() => {
 
     logOverlay('resolveBackAction', { trigger: 'invoked' });
@@ -2741,6 +2991,16 @@ export default function DiscoverProductOverlay({
       closeContextMenu('back');
 
       logOverlay('resolveBackAction', { action: 'closeContextMenu' });
+
+      return;
+
+    }
+
+    if (showMenuHeroOverlay) {
+
+      setShowMenuHeroOverlay(false);
+
+      logOverlay('resolveBackAction', { action: 'closeMenuHeroOverlay' });
 
       return;
 
@@ -2811,6 +3071,8 @@ export default function DiscoverProductOverlay({
     slugStack.length,
 
     showImageOverlay,
+
+    showMenuHeroOverlay,
 
     logOverlay,
 
@@ -2967,11 +3229,53 @@ export default function DiscoverProductOverlay({
       });
 
       const mode: 'controls' | 'miniPlayer' =
-        activeTab === 'product'
-          ? 'controls'
-          : expandProgress >= 0.55
-            ? 'miniPlayer'
-            : 'controls';
+        expandProgress >= HEADER_MINI_FADE_IN_START ? 'miniPlayer' : 'controls';
+
+      if (expandProgress < 0.01) {
+        lastMorphMilestoneRef.current = -1;
+      }
+
+      for (const milestone of HERO_MORPH_TELEMETRY_MILESTONES) {
+        if (
+          expandProgress >= milestone &&
+          lastMorphMilestoneRef.current < milestone
+        ) {
+          lastMorphMilestoneRef.current = milestone;
+          const hero = heroRectSV.value;
+          const thumb = miniPlayerRectSV.value;
+          discoverLog('overlay', 'heroMorphFrame', {
+            merchantSlug,
+            productSlug: activeTab === 'menu' ? menuFocusSlug : selectedSlug,
+            activeTab,
+            expandProgress,
+            milestone,
+            morphActive:
+              expandProgress >= MORPH_START && expandProgress <= MORPH_END,
+            heroRect: {
+              x: Math.round(hero.x),
+              y: Math.round(hero.y),
+              w: Math.round(hero.width),
+              h: Math.round(hero.height),
+            },
+            thumbRect: {
+              x: Math.round(thumb.x),
+              y: Math.round(thumb.y),
+              w: Math.round(thumb.width),
+              h: Math.round(thumb.height),
+            },
+            morphOpacity: Number(morphLayerOpacityJs(expandProgress).toFixed(3)),
+            sourceOpacity: Number(sourceHeroMorphOpacityJs(expandProgress).toFixed(3)),
+            inlineThumbOpacity: Number(
+              inlineThumbPeekOpacityJs(expandProgress).toFixed(3),
+            ),
+            headerThumbOpacity: Number(
+              headerThumbHandoffOpacityJs(expandProgress).toFixed(3),
+            ),
+            handoffT: Number(morphHandoffTJs(expandProgress).toFixed(3)),
+          });
+          break;
+        }
+      }
 
       if (lastChromeCrossfadeRef.current !== mode) {
 
@@ -2994,20 +3298,60 @@ export default function DiscoverProductOverlay({
             merchantSlug,
             productSlug: selectedSlug,
             expandProgress,
-            note: 'sheetClipOnly',
-            staticContent: true,
-            staticChrome: true,
-            contentTransforms: false,
+            morphActive:
+              expandProgress >= MORPH_START && expandProgress <= MORPH_END,
+            inlineOpacity:
+              expandProgress <= INLINE_FADE_OUT_START
+                ? 1
+                : expandProgress >= INLINE_FADE_OUT_END
+                  ? 0
+                  : 'crossfade',
+            headerOpacity:
+              expandProgress >= HEADER_MINI_FADE_IN_END
+                ? 1
+                : expandProgress <= HEADER_MINI_FADE_IN_START
+                  ? 0
+                  : 'crossfade',
           });
         }
 
+        discoverLog('overlay', 'menuMiniPlayerTransition', {
+          merchantSlug,
+          productSlug: activeTab === 'menu' ? menuFocusSlug : selectedSlug,
+          activeTab,
+          expandProgress,
+          inlineOpacity:
+            expandProgress <= INLINE_FADE_OUT_START
+              ? 1
+              : expandProgress >= INLINE_FADE_OUT_END
+                ? 0
+                : 'crossfade',
+          headerOpacity:
+            expandProgress >= HEADER_MINI_FADE_IN_END
+              ? 1
+              : expandProgress <= HEADER_MINI_FADE_IN_START
+                ? 0
+                : 'crossfade',
+          morphActive: expandProgress >= MORPH_START && expandProgress <= MORPH_END,
+        });
+
       }
 
-      measureMorphRects();
+      if (activeTab === 'menu') {
+        const sheetTop = SCREEN_HEIGHT - effectiveExpandedSheetH + sheetY;
+        discoverLog('overlay', 'menuSheetLip', {
+          merchantSlug,
+          productSlug: menuFocusSlug,
+          sheetTop: Math.round(sheetTop),
+          visibleHeight: Math.round(Math.max(0, SCREEN_HEIGHT - sheetTop)),
+          peekRatio: MENU_QUEUE_PEEK_RATIO,
+          expandProgress,
+        });
+      }
 
     },
 
-    [merchantSlug, selectedSlug, measureMorphRects, activeTab],
+    [merchantSlug, selectedSlug, menuFocusSlug, activeTab, effectiveExpandedSheetH],
 
   );
 
@@ -3429,7 +3773,7 @@ export default function DiscoverProductOverlay({
 
 
 
-  const gestureBlockersActive = contextMenuVisible || showImageOverlay;
+  const gestureBlockersActive = contextMenuVisible || showImageOverlay || showMenuHeroOverlay;
 
   const heroPanGesture = useMemo(
     () => makePanGesture('hero').enabled(!gestureBlockersActive),
@@ -3518,13 +3862,6 @@ export default function DiscoverProductOverlay({
 
 
   const headerControlsStyle = useAnimatedStyle(() => {
-    if (activeTabSV.value === 0) {
-      return {
-        opacity: 1,
-        display: 'flex' as const,
-      };
-    }
-
     const collapsed = collapsedOffsetSV.value;
 
     const expandProgress =
@@ -3533,9 +3870,15 @@ export default function DiscoverProductOverlay({
 
     return {
 
-      opacity: interpolate(expandProgress, [0.35, 0.55], [1, 0], Extrapolation.CLAMP),
+      opacity: interpolate(
+        expandProgress,
+        [INLINE_FADE_OUT_START, HEADER_MINI_FADE_IN_START],
+        [1, 0],
+        Extrapolation.CLAMP,
+      ),
 
-      display: expandProgress < 0.55 ? ('flex' as const) : ('none' as const),
+      pointerEvents:
+        expandProgress < HEADER_MINI_FADE_IN_START ? ('auto' as const) : ('none' as const),
 
     };
 
@@ -3544,13 +3887,6 @@ export default function DiscoverProductOverlay({
 
 
   const headerMiniSlotStyle = useAnimatedStyle(() => {
-    if (activeTabSV.value === 0) {
-      return {
-        opacity: 0,
-        display: 'none' as const,
-      };
-    }
-
     const collapsed = collapsedOffsetSV.value;
 
     const expandProgress =
@@ -3559,9 +3895,15 @@ export default function DiscoverProductOverlay({
 
     return {
 
-      opacity: interpolate(expandProgress, [0.35, 0.55], [0, 1], Extrapolation.CLAMP),
+      opacity: interpolate(
+        expandProgress,
+        [HEADER_MINI_FADE_IN_START, HEADER_MINI_FADE_IN_END],
+        [0, 1],
+        Extrapolation.CLAMP,
+      ),
 
-      display: expandProgress >= 0.55 ? ('flex' as const) : ('none' as const),
+      pointerEvents:
+        expandProgress >= HEADER_MINI_FADE_IN_START ? ('auto' as const) : ('none' as const),
 
     };
 
@@ -3579,7 +3921,12 @@ export default function DiscoverProductOverlay({
 
     return {
 
-      opacity: interpolate(expandProgress, [0.35, 0.55], [1, 0], Extrapolation.CLAMP),
+      opacity: interpolate(
+        expandProgress,
+        [INLINE_FADE_OUT_START, HEADER_MINI_FADE_IN_END],
+        [1, 0],
+        Extrapolation.CLAMP,
+      ),
 
     };
 
@@ -3618,22 +3965,14 @@ export default function DiscoverProductOverlay({
       return {};
     }
 
-    if (activeTabSV.value === 0) {
-      return { opacity: 1 };
-    }
-
     const collapsed = collapsedOffsetSV.value;
 
     const expandProgress =
-
       collapsed > 0 ? Math.max(0, Math.min(1, 1 - sheetTranslateY.value / collapsed)) : 0;
 
     return {
-
-      opacity: expandProgress <= INLINE_HERO_VISIBLE_MAX ? 1 : 0,
-
+      opacity: expandProgress <= HERO_VISIBLE_UNTIL ? 1 : 0,
     };
-
   });
 
   const storyBottomCardPositionStyle = useAnimatedStyle(() => {
@@ -3781,28 +4120,7 @@ export default function DiscoverProductOverlay({
 
 
 
-  const heroMediaOpacityStyle = useAnimatedStyle(() => {
-    if (isStoryLayout) {
-      return { opacity: 1 };
-    }
-
-    if (activeTabSV.value === 0) {
-      return { opacity: 1 };
-    }
-
-    const collapsed = collapsedOffsetSV.value;
-
-    const progress =
-
-      collapsed > 0 ? 1 - sheetTranslateY.value / collapsed : 0;
-
-    return {
-
-      opacity: progress <= INLINE_HERO_VISIBLE_MAX ? 1 : 0,
-
-    };
-
-  });
+  const heroMediaOpacityStyle = expandHeroMorphOpacityStyle;
 
   const storyReelOpacityStyle = useAnimatedStyle(() => {
     if (!isStoryLayout) {
@@ -3817,7 +4135,7 @@ export default function DiscoverProductOverlay({
 
     return {
 
-      opacity: progress <= INLINE_HERO_VISIBLE_MAX ? 1 : 0,
+      opacity: progress <= HERO_VISIBLE_UNTIL ? 1 : 0,
 
     };
 
@@ -3826,13 +4144,6 @@ export default function DiscoverProductOverlay({
   const hideMaximizeStyle = useAnimatedStyle(() => {
     if (isStoryLayout) {
       return { opacity: 0, pointerEvents: 'none' as const };
-    }
-
-    if (activeTabSV.value === 0) {
-      return {
-        opacity: 1,
-        pointerEvents: 'auto' as const,
-      };
     }
 
     const collapsed = collapsedOffsetSV.value;
@@ -3896,27 +4207,20 @@ export default function DiscoverProductOverlay({
 
 
   const heroWrapStyle = useAnimatedStyle(() => {
-    if (activeTabSV.value === 0 && !isStoryLayout) {
-      return {
-        opacity: 1,
-        zIndex: 45,
-      };
+    if (isStoryLayout) {
+      return { opacity: 1, zIndex: 45 };
     }
 
     const collapsed = collapsedOffsetSV.value;
 
     const expandProgress =
 
-      collapsed > 0 ? 1 - sheetTranslateY.value / collapsed : 0;
+      collapsed > 0 ? Math.max(0, Math.min(1, 1 - sheetTranslateY.value / collapsed)) : 0;
 
     return {
-
-      opacity: expandProgress <= INLINE_HERO_VISIBLE_MAX ? 1 : 0,
-
+      opacity: 1,
       zIndex: expandProgress > 0.02 ? 30 : 45,
-
     };
-
   });
 
 
@@ -3927,37 +4231,9 @@ export default function DiscoverProductOverlay({
 
   }));
 
-  const menuHeroFadeStyle = useAnimatedStyle(() => {
+  const menuHeroFadeStyle = heroBandFadeStyle;
 
-    const collapsed = collapsedOffsetSV.value;
-
-    if (collapsed <= 0) return { opacity: 1 };
-
-    const expandProgress = Math.max(
-
-      0,
-
-      Math.min(1, 1 - sheetTranslateY.value / collapsed),
-
-    );
-
-    return {
-
-      opacity: interpolate(
-
-        expandProgress,
-
-        [0, 0.85, 1],
-
-        [1, 1, 0],
-
-        Extrapolation.CLAMP,
-
-      ),
-
-    };
-
-  });
+  const menuCarouselHeroOpacityStyle = expandHeroMorphOpacityStyle;
 
 
 
@@ -4107,6 +4383,15 @@ export default function DiscoverProductOverlay({
 
 
 
+  const productHeroImageUrl = shellMedia.uri ?? shellProduct.imageUrl;
+
+  const morphImageUrl =
+    activeTab === 'menu'
+      ? menuFocusProduct?.imageUrl
+      : productHeroImageUrl;
+
+
+
   return (
 
     <Modal visible animationType="slide" presentationStyle="fullScreen">
@@ -4117,12 +4402,14 @@ export default function DiscoverProductOverlay({
 
         {!isStoryLayout && (
 
-          <LinearGradient
-
-            colors={['#3d2a1f', '#000000']}
-
-            style={StyleSheet.absoluteFill}
-
+          <HeroDynamicBackdrop
+            imageUrl={
+              activeTab === 'menu'
+                ? (menuFocusProduct?.imageUrl ?? shellProduct.imageUrl)
+                : productHeroImageUrl
+            }
+            sheetTranslateY={sheetTranslateY}
+            collapsedOffsetSV={collapsedOffsetSV}
           />
 
         )}
@@ -4175,19 +4462,21 @@ export default function DiscoverProductOverlay({
 
 
 
-        {activeTab === 'menu' && shellMerchant && (
+        {activeTab === 'menu' && shellMerchant && menuProducts.length > 0 && menuCarouselFrameSlotH > 0 && (
 
           <Animated.View
 
             style={[
 
-              styles.menuHeroCarouselWrap,
+              styles.menuHeroBand,
 
-              { top: headerBottomY },
+              { top: headerBottomY, height: menuCarouselDisplayHeight },
 
               overlayChromeStyle,
 
               menuHeroFadeStyle,
+
+              menuHeroBandClipStyle,
 
             ]}
 
@@ -4201,26 +4490,94 @@ export default function DiscoverProductOverlay({
 
               selectedSlug={menuFocusSlug}
 
+              merchantSlug={merchantSlug}
+
+              fixedCenterFrameH={menuCarouselFrameSlotH}
+
+              programmaticScrollRef={carouselProgrammaticScrollRef}
+
+              heroAnchorRef={heroAnchorRef}
+
+              heroSourceOpacityStyle={menuCarouselHeroOpacityStyle}
+
+              sidePeekHideStyle={menuSidePeekHideStyle}
+
+              showOverlay={showMenuHeroOverlay}
+
+              onToggleOverlay={handleMenuHeroToggleOverlay}
+
+              onMaximize={handleMenuHeroMaximize}
+
+              onShare={handleShare}
+
+              onAddCart={handleAddCart}
+
+              onAddToList={handleAddToList}
+
+              onHeroAnchorLayout={measureMorphRects}
+
+              onSelectProduct={handleMenuCarouselSelect}
+
+            />
+
+            <MenuInlinePlayerBar
+
+              productName={menuFocusProduct?.name ?? shellProduct.name}
+
               merchantName={shellMerchant.name}
+
+              imageUrl={menuFocusProduct?.imageUrl ?? shellProduct.imageUrl}
 
               merchantAvatar={
                 (shellMerchant as { logoUrl?: string | null }).logoUrl ??
                 `https://i.pravatar.cc/80?u=${encodeURIComponent(merchantSlug)}`
               }
 
-              fixedCenterFrameH={menuCarouselFrameSlotH}
+              sheetTranslateY={sheetTranslateY}
 
-              programmaticScrollRef={carouselProgrammaticScrollRef}
+              collapsedOffsetSV={collapsedOffsetSV}
 
-              onSelectProduct={handleMenuCarouselSelect}
+              onPress={() => {
 
-              onHeroPress={handleMenuHeroPress}
+                if (getExpandProgress() >= HEADER_MINI_FADE_IN_START) {
+
+                  snapToCollapsed();
+
+                }
+
+              }}
 
             />
 
           </Animated.View>
 
         )}
+
+
+
+        {!isStoryLayout && morphImageUrl ? (
+
+          <OverlayHeroMorphLayer
+
+            imageUrl={morphImageUrl}
+
+            sheetTranslateY={sheetTranslateY}
+
+            collapsedOffsetSV={collapsedOffsetSV}
+
+            heroRect={heroRectSV}
+
+            miniPlayerRect={miniPlayerRectSV}
+
+            heroLayoutReady={heroLayoutReady}
+
+            miniPlayerLayoutReady={miniPlayerLayoutReady}
+
+            suppressMorphSV={suppressMorphSV}
+
+          />
+
+        ) : null}
 
 
 
@@ -4408,11 +4765,7 @@ export default function DiscoverProductOverlay({
 
               merchantName={shellMerchant.name}
 
-              categoryLabels={
-                (shellMerchant as { categoryLabels?: string[] }).categoryLabels ??
-                shellMerchant.feedCategories ??
-                []
-              }
+              menuCategories={menuCategories}
 
               onSelectProduct={handleMenuListSelect}
 
@@ -4547,14 +4900,12 @@ export default function DiscoverProductOverlay({
 
             </Animated.View>
 
-            {activeTab === 'menu' ? (
+            <Animated.View
+              style={[styles.headerMiniSlot, headerMiniSlotStyle]}
+              pointerEvents="box-none"
+            >
 
-              <Animated.View
-                style={[styles.headerMiniSlot, headerMiniSlotStyle]}
-                pointerEvents="box-none"
-              >
-
-                <OverlayMiniPlayerBar
+              <OverlayMiniPlayerBar
 
                 productName={
 
@@ -4576,15 +4927,7 @@ export default function DiscoverProductOverlay({
 
                 }
 
-                imageUrl={
-
-                  activeTab === 'menu'
-
-                    ? menuFocusProduct?.imageUrl
-
-                    : shellProduct.imageUrl
-
-                }
+                imageUrl={morphImageUrl}
 
                 sheetTranslateY={sheetTranslateY}
 
@@ -4594,17 +4937,25 @@ export default function DiscoverProductOverlay({
 
                 thumbRef={miniPlayerThumbRef}
 
+                morphTargetAnchorRef={morphTargetAnchorRef}
+
                 onBarLayout={measureMorphRects}
 
-                onThumbLayout={measureMorphRects}
+                onMorphTargetLayout={measureMorphRects}
 
-                onPress={activeTab === 'menu' ? snapToCollapsed : undefined}
+                onPress={() => {
+
+                  if (getExpandProgress() >= HEADER_MINI_FADE_IN_START) {
+
+                    snapToCollapsed();
+
+                  }
+
+                }}
 
               />
 
-              </Animated.View>
-
-            ) : null}
+            </Animated.View>
 
           </View>
 
@@ -4793,6 +5144,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
 
     justifyContent: 'center',
+
+  },
+
+  menuHeroBand: {
+
+    position: 'absolute',
+
+    left: 0,
+
+    right: 0,
+
+    zIndex: 12,
+
+    justifyContent: 'space-between',
 
   },
 

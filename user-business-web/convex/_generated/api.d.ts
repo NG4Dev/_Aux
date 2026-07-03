@@ -35,6 +35,7 @@ import type * as platform_discovery from "../platform/discovery.js";
 import type * as platform_events from "../platform/events.js";
 import type * as platform_feed from "../platform/feed.js";
 import type * as platform_feedMedia from "../platform/feedMedia.js";
+import type * as platform_heroPalette from "../platform/heroPalette.js";
 import type * as platform_merchants from "../platform/merchants.js";
 import type * as platform_places from "../platform/places.js";
 import type * as platform_resale from "../platform/resale.js";
@@ -83,6 +84,7 @@ declare const fullApi: ApiFromModules<{
   "platform/events": typeof platform_events;
   "platform/feed": typeof platform_feed;
   "platform/feedMedia": typeof platform_feedMedia;
+  "platform/heroPalette": typeof platform_heroPalette;
   "platform/merchants": typeof platform_merchants;
   "platform/places": typeof platform_places;
   "platform/resale": typeof platform_resale;

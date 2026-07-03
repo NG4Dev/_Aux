@@ -10,6 +10,8 @@
     "dev:telemetry": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/dev-telemetry.ps1",
     "dev:tunnel": "expo start --dev-client --tunnel -c",
     "android": "expo run:android",
+    "rebuild:android": "expo prebuild --platform android --clean && expo run:android",
+    "rebuild:ios": "expo prebuild --platform ios --clean && expo run:ios",
     "ios": "expo run:ios",
     "web": "expo start --web",
     "check-deps": "node ../../scripts/check-outdated-deps.mjs"
@@ -46,6 +48,7 @@
     "react-hook-form": "^7.55.0",
     "react-native": "0.85.3",
     "react-native-gesture-handler": "~2.31.1",
+    "react-native-image-colors": "^2.6.0",
     "react-native-mmkv": "^4.3.1",
     "react-native-nitro-modules": "^0.35.0",
     "react-native-reanimated": "4.3.1",

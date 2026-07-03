@@ -6,6 +6,13 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
+import {
+  MORPH_START,
+  MORPH_END,
+  morphEaseProgress,
+  morphLayerWithHandoff,
+  expandProgressFromSheet,
+} from '@/components/commerce/menuTransitionTokens';
 
 export type MorphRect = {
   x: number;
@@ -27,17 +34,6 @@ type OverlayHeroMorphLayerProps = {
   suppressMorphSV: SharedValue<number>;
 };
 
-function expandProgressFromSheet(
-  sheetTranslateY: SharedValue<number>,
-  collapsedOffsetSV: SharedValue<number>,
-): number {
-  'worklet';
-  const collapsed = collapsedOffsetSV.value;
-  if (collapsed <= 0) return 0;
-  const raw = 1 - sheetTranslateY.value / collapsed;
-  return Math.max(0, Math.min(1, raw));
-}
-
 export default function OverlayHeroMorphLayer({
   imageUrl,
   sheetTranslateY,
@@ -56,7 +52,10 @@ export default function OverlayHeroMorphLayer({
       return { opacity: 0, width: 0, height: 0 };
     }
 
-    const progress = expandProgressFromSheet(sheetTranslateY, collapsedOffsetSV);
+    const rawProgress = expandProgressFromSheet(
+      sheetTranslateY.value,
+      collapsedOffsetSV.value,
+    );
     const hero = heroRect.value;
     const sticky = miniPlayerRect.value;
 
@@ -64,13 +63,17 @@ export default function OverlayHeroMorphLayer({
       return { opacity: 0, width: 0, height: 0 };
     }
 
-    if (suppressMorphSV.value > 0 && progress < 0.02) {
+    if (suppressMorphSV.value > 0 && rawProgress < MORPH_START) {
       return { opacity: 0, width: 0, height: 0 };
     }
 
-    if (progress >= 0.98) {
+    if (rawProgress <= MORPH_START || rawProgress >= MORPH_END) {
       return { opacity: 0, width: 0, height: 0 };
     }
+
+    const progress = morphEaseProgress(
+      (rawProgress - MORPH_START) / (MORPH_END - MORPH_START),
+    );
 
     const left = interpolate(progress, [0, 1], [hero.x, sticky.x], Extrapolation.CLAMP);
     const top = interpolate(progress, [0, 1], [hero.y, sticky.y], Extrapolation.CLAMP);
@@ -86,18 +89,9 @@ export default function OverlayHeroMorphLayer({
       [hero.height, sticky.height],
       Extrapolation.CLAMP,
     );
-    const borderRadius = interpolate(progress, [0, 1], [8, 6], Extrapolation.CLAMP);
+    const borderRadius = interpolate(progress, [0, 1], [12, 6], Extrapolation.CLAMP);
 
-    const opacity = interpolate(
-      progress,
-      [0.04, 0.06, 0.94, 0.98],
-      [0, 1, 1, 0],
-      Extrapolation.CLAMP,
-    );
-
-    if (progress < 0.04) {
-      return { opacity: 0, width: 0, height: 0 };
-    }
+    const opacity = morphLayerWithHandoff(rawProgress);
 
     return {
       position: 'absolute',
@@ -123,6 +117,6 @@ export default function OverlayHeroMorphLayer({
 
 const styles = StyleSheet.create({
   morphImage: {
-    backgroundColor: '#222',
+    backgroundColor: 'transparent',
   },
 });

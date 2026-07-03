@@ -1,21 +1,34 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
-  Dimensions,
   Pressable,
+  TouchableOpacity,
+  Dimensions,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
+  type ViewStyle,
 } from 'react-native';
+import Animated, {
+  type AnimatedRef,
+  type AnimatedStyle,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import DynamicMediaRenderer from '@/components/feed/DynamicMediaRenderer';
 import {
   menuCarouselFrameHeightForProduct,
   overlayHeroUsesLetterbox,
 } from '@/components/commerce/getSheetSnapPoints';
-import Colors from '@/constants/Colors';
+import {
+  CAROUSEL_SETTLE_MS,
+  OVERLAY_FADE_MS,
+} from '@/components/commerce/menuTransitionTokens';
+import { discoverLog } from '@/services/discoverFlowLogger';
 import type { MediaAspect, MediaItem } from '@/types/content';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -49,30 +62,75 @@ function frameHeightForProduct(product: MenuCarouselProduct, scale = 1): number 
   return Math.round(menuCarouselFrameHeightForProduct(product) * scale);
 }
 
+function ActionChip({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      style={styles.actionChip}
+      onPress={onPress}
+      activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <View style={styles.actionChipIcon}>
+        <Ionicons name={icon} size={22} color="#fff" />
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 type MerchantMenuHeroCarouselProps = {
   products: MenuCarouselProduct[];
   selectedSlug: string;
-  merchantName: string;
-  merchantAvatar?: string | null;
+  merchantSlug?: string;
   fixedCenterFrameH?: number;
   programmaticScrollRef?: React.MutableRefObject<boolean>;
+  heroAnchorRef?: AnimatedRef<Animated.View>;
+  heroSourceOpacityStyle?: AnimatedStyle<ViewStyle>;
+  sidePeekHideStyle?: AnimatedStyle<ViewStyle>;
+  showOverlay?: boolean;
+  onToggleOverlay?: () => void;
+  onMaximize?: () => void;
+  onShare?: () => void;
+  onAddCart?: () => void;
+  onAddToList?: () => void;
   onSelectProduct: (slug: string) => void;
-  onHeroPress?: () => void;
+  onHeroAnchorLayout?: () => void;
   onCenterFrameHeight?: (height: number) => void;
 };
 
 export default function MerchantMenuHeroCarousel({
   products,
   selectedSlug,
-  merchantName,
-  merchantAvatar,
+  merchantSlug,
   fixedCenterFrameH,
   programmaticScrollRef,
+  heroAnchorRef,
+  heroSourceOpacityStyle,
+  sidePeekHideStyle,
+  showOverlay = false,
+  onToggleOverlay,
+  onMaximize,
+  onShare,
+  onAddCart,
+  onAddToList,
   onSelectProduct,
-  onHeroPress,
+  onHeroAnchorLayout,
   onCenterFrameHeight,
 }: MerchantMenuHeroCarouselProps) {
   const listRef = useRef<FlatList<MenuCarouselProduct>>(null);
+  const layoutLoggedRef = useRef(false);
+  const prevSlugRef = useRef(selectedSlug);
+  const settleScale = useSharedValue(1);
+  const overlayOpacity = useSharedValue(0);
+  const chipsOpacity = useSharedValue(0);
 
   const selectedProduct = products.find((p) => p.slug === selectedSlug) ?? products[0];
   const dynamicCenterFrameH = useMemo(
@@ -80,12 +138,29 @@ export default function MerchantMenuHeroCarousel({
     [selectedProduct],
   );
   const slotH = fixedCenterFrameH ?? dynamicCenterFrameH;
+  const centerFrameH =
+    fixedCenterFrameH != null && fixedCenterFrameH > 0
+      ? fixedCenterFrameH
+      : dynamicCenterFrameH;
 
   useEffect(() => {
     if (slotH > 0) {
       onCenterFrameHeight?.(slotH);
     }
   }, [slotH, onCenterFrameHeight]);
+
+  useEffect(() => {
+    if (slotH <= 0 || layoutLoggedRef.current) return;
+    layoutLoggedRef.current = true;
+    discoverLog('overlay', 'menuCarouselLayout', {
+      merchantSlug,
+      slotH,
+      locked: fixedCenterFrameH != null && fixedCenterFrameH > 0,
+      selectedSlug,
+      centerFrameH,
+      sideScaleMode: 'transform',
+    });
+  }, [slotH, fixedCenterFrameH, selectedSlug, centerFrameH, merchantSlug]);
 
   useEffect(() => {
     if (products.length === 0) return;
@@ -95,7 +170,7 @@ export default function MerchantMenuHeroCarousel({
     }
     listRef.current?.scrollToOffset({
       offset: index * SNAP_INTERVAL,
-      animated: false,
+      animated: index !== products.findIndex((p) => p.slug === prevSlugRef.current),
     });
     const timer = setTimeout(() => {
       if (programmaticScrollRef) {
@@ -104,6 +179,40 @@ export default function MerchantMenuHeroCarousel({
     }, 120);
     return () => clearTimeout(timer);
   }, [selectedSlug, products, programmaticScrollRef]);
+
+  useEffect(() => {
+    if (prevSlugRef.current === selectedSlug) return;
+    prevSlugRef.current = selectedSlug;
+    settleScale.value = withSequence(
+      withTiming(0.98, { duration: CAROUSEL_SETTLE_MS * 0.4 }),
+      withTiming(1, { duration: CAROUSEL_SETTLE_MS * 0.6 }),
+    );
+    discoverLog('overlay', 'menuCarouselSelect', {
+      merchantSlug,
+      toSlug: selectedSlug,
+      transition: 'settleSpring',
+    });
+  }, [selectedSlug, merchantSlug, settleScale]);
+
+  useEffect(() => {
+    overlayOpacity.value = withTiming(showOverlay ? 1 : 0, { duration: OVERLAY_FADE_MS });
+    chipsOpacity.value = withTiming(showOverlay ? 1 : 0, {
+      duration: OVERLAY_FADE_MS,
+      delay: showOverlay ? 60 : 0,
+    });
+  }, [showOverlay, overlayOpacity, chipsOpacity]);
+
+  const settleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: settleScale.value }],
+  }));
+
+  const overlayBackdropStyle = useAnimatedStyle(() => ({
+    opacity: overlayOpacity.value,
+  }));
+
+  const overlayChipsStyle = useAnimatedStyle(() => ({
+    opacity: chipsOpacity.value,
+  }));
 
   const onMomentumScrollEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -118,7 +227,7 @@ export default function MerchantMenuHeroCarousel({
     [products, selectedSlug, onSelectProduct, programmaticScrollRef],
   );
 
-  if (products.length === 0) {
+  if (products.length === 0 || centerFrameH <= 0) {
     return null;
   }
 
@@ -141,14 +250,6 @@ export default function MerchantMenuHeroCarousel({
         keyExtractor={(item) => item.slug}
         renderItem={({ item }) => {
           const isSelected = item.slug === selectedSlug;
-          const useFixedSlot = fixedCenterFrameH != null && fixedCenterFrameH > 0;
-          const centerFrameH = useFixedSlot
-            ? fixedCenterFrameH
-            : frameHeightForProduct(item, 1);
-          const frameH = isSelected
-            ? centerFrameH
-            : Math.round(centerFrameH * SIDE_SCALE);
-          const frameW = isSelected ? ITEM_WIDTH : ITEM_WIDTH * SIDE_SCALE;
           const media = toMediaItem(item);
           const aspect = item.mediaAspect ?? 'square';
           const renderMode = media && overlayHeroUsesLetterbox(aspect, media)
@@ -159,80 +260,87 @@ export default function MerchantMenuHeroCarousel({
             <DynamicMediaRenderer
               media={media}
               mode={renderMode}
-              maxHeight={frameH}
-              contentWidth={frameW}
+              maxHeight={centerFrameH}
+              contentWidth={ITEM_WIDTH}
               borderRadius={12}
             />
           ) : (
-            <View style={[styles.imageEmpty, { width: frameW, height: frameH }]} />
+            <View style={[styles.imageEmpty, { width: ITEM_WIDTH, height: centerFrameH }]} />
+          );
+
+          const imageWrap = (
+            <Animated.View
+              style={[
+                styles.imageWrap,
+                {
+                  width: ITEM_WIDTH,
+                  height: centerFrameH,
+                  transform: [{ scale: isSelected ? 1 : SIDE_SCALE }],
+                  opacity: isSelected ? 1 : 0.85,
+                },
+                isSelected && styles.imageWrapSelected,
+                isSelected && settleStyle,
+                isSelected && heroSourceOpacityStyle,
+                !isSelected && sidePeekHideStyle,
+              ]}
+            >
+              {isSelected && onToggleOverlay ? (
+                <Pressable
+                  style={StyleSheet.absoluteFill}
+                  onPress={onToggleOverlay}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Actions for ${item.name}`}
+                >
+                  {imageNode}
+                </Pressable>
+              ) : (
+                imageNode
+              )}
+
+              {isSelected && showOverlay ? (
+                <>
+                  <Animated.View
+                    style={[styles.overlayBackdrop, overlayBackdropStyle]}
+                    pointerEvents="none"
+                  />
+                  <Animated.View style={[styles.overlayActions, overlayChipsStyle]} pointerEvents="box-none">
+                    <ActionChip icon="share-outline" label="Share" onPress={() => onShare?.()} />
+                    <ActionChip icon="cart-outline" label="Add to Cart" onPress={() => onAddCart?.()} />
+                    <ActionChip icon="list-outline" label="Add to List" onPress={() => onAddToList?.()} />
+                  </Animated.View>
+                </>
+              ) : null}
+
+              {isSelected && !showOverlay && onMaximize ? (
+                <TouchableOpacity
+                  style={styles.maximizeBtn}
+                  onPress={onMaximize}
+                  activeOpacity={0.85}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Expand product view"
+                >
+                  <Ionicons name="expand-outline" size={18} color="#fff" />
+                </TouchableOpacity>
+              ) : null}
+            </Animated.View>
           );
 
           return (
             <View style={[styles.item, { width: ITEM_WIDTH, marginRight: ITEM_GAP }]}>
-              <View
-                style={[
-                  styles.slot,
-                  slotH > 0 ? { height: slotH } : undefined,
-                ]}
-              >
-                <View
-                  style={[
-                    styles.imageWrap,
-                    {
-                      width: frameW,
-                      height: frameH,
-                      opacity: isSelected ? 1 : 0.85,
-                    },
-                  ]}
-                >
-                  {isSelected && onHeroPress ? (
-                    <Pressable
-                      style={StyleSheet.absoluteFill}
-                      onPress={onHeroPress}
-                      accessibilityRole="button"
-                      accessibilityLabel={`View ${item.name} full screen`}
-                    >
-                      {imageNode}
-                    </Pressable>
-                  ) : (
-                    imageNode
-                  )}
-                </View>
+              <View style={[styles.slot, { height: slotH }]}>
+                {isSelected && heroAnchorRef ? (
+                  <Animated.View
+                    ref={heroAnchorRef}
+                    style={styles.anchorSlot}
+                    onLayout={onHeroAnchorLayout}
+                  >
+                    {imageWrap}
+                  </Animated.View>
+                ) : (
+                  imageWrap
+                )}
               </View>
-              {isSelected ? (
-                <>
-                  <Text style={styles.productName} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                  <View style={styles.profileRow}>
-                    {merchantAvatar ? (
-                      <DynamicMediaRenderer
-                        media={{
-                          uri: merchantAvatar,
-                          type: 'image',
-                          width: 40,
-                          height: 40,
-                          aspect: 'square',
-                        }}
-                        mode="heroCover"
-                        maxHeight={20}
-                        contentWidth={20}
-                        borderRadius={10}
-                      />
-                    ) : (
-                      <View style={[styles.avatar, styles.imageEmpty]} />
-                    )}
-                    <Text style={styles.merchantName} numberOfLines={1}>
-                      {merchantName}
-                    </Text>
-                    <Ionicons name="checkmark-circle" size={14} color={Colors.primary} />
-                  </View>
-                </>
-              ) : (
-                <Text style={styles.sideLabel} numberOfLines={1}>
-                  {item.name}
-                </Text>
-              )}
             </View>
           );
         }}
@@ -253,45 +361,65 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  anchorSlot: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   imageWrap: {
     borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: '#222',
   },
+  imageWrapSelected: {
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.9)',
+    shadowColor: '#fff',
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 4,
+  },
   imageEmpty: {
     backgroundColor: '#333',
     borderRadius: 12,
   },
-  productName: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 10,
-    maxWidth: ITEM_WIDTH,
-    textAlign: 'center',
+  overlayBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.48)',
   },
-  sideLabel: {
-    color: 'rgba(255,255,255,0.55)',
-    fontSize: 12,
-    marginTop: 8,
-    maxWidth: ITEM_WIDTH * SIDE_SCALE,
-    textAlign: 'center',
-  },
-  profileRow: {
+  overlayActions: {
+    ...StyleSheet.absoluteFillObject,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 6,
+    justifyContent: 'center',
+    gap: 24,
+    zIndex: 6,
   },
-  avatar: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+  actionChip: {
+    alignItems: 'center',
   },
-  merchantName: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 12,
-    fontWeight: '600',
-    maxWidth: ITEM_WIDTH * 0.55,
+  actionChipIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  maximizeBtn: {
+    position: 'absolute',
+    right: 10,
+    bottom: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    zIndex: 4,
   },
 });

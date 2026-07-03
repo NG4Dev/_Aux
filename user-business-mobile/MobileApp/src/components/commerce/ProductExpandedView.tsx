@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import HeroDynamicBackdrop from '@/components/commerce/HeroDynamicBackdrop';
 import DynamicMediaRenderer from '@/components/feed/DynamicMediaRenderer';
 import { SideActionButton } from '@/components/feed/ReelViewerShell';
 import {
@@ -134,6 +135,9 @@ export default function ProductExpandedView({
 
   return (
     <View style={styles.container}>
+      {media.type === 'image' ? (
+        <HeroDynamicBackdrop imageUrl={media.uri} />
+      ) : null}
       <TouchableOpacity
         style={[styles.collapseBtn, { top: insets.top + 8 }]}
         onPress={onCollapse}

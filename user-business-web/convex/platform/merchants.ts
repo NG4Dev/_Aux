@@ -19,6 +19,8 @@ const productWithMediaValidator = v.object({
   priceCents: v.number(),
   currency: v.string(),
   categoryId: v.id("categories"),
+  categoryName: v.string(),
+  categorySlug: v.string(),
   merchantId: v.optional(v.id("merchants")),
   stock: v.number(),
   unit: v.string(),
@@ -89,7 +91,10 @@ async function merchantWithExtras(
 }
 
 async function productWithMedia(
-  ctx: { storage: { getUrl: (id: import("../_generated/dataModel").Id<"_storage">) => Promise<string | null> } },
+  ctx: {
+    storage: { getUrl: (id: import("../_generated/dataModel").Id<"_storage">) => Promise<string | null> };
+    db: { get: (id: import("../_generated/dataModel").Id<"categories">) => Promise<{ name: string; slug: string } | null> };
+  },
   product: {
     _id: import("../_generated/dataModel").Id<"products">;
     _creationTime: number;
@@ -111,6 +116,7 @@ async function productWithMedia(
     createdAt: number;
   },
 ) {
+  const category = await ctx.db.get(product.categoryId);
   return {
     _id: product._id,
     _creationTime: product._creationTime,
@@ -120,6 +126,8 @@ async function productWithMedia(
     priceCents: product.priceCents,
     currency: product.currency,
     categoryId: product.categoryId,
+    categoryName: category?.name ?? "Menu",
+    categorySlug: category?.slug ?? "menu",
     merchantId: product.merchantId,
     stock: product.stock,
     unit: product.unit,
@@ -250,6 +258,43 @@ export const listProducts = query({
       .filter((q) => q.eq(q.field("isActive"), true))
       .take(200);
     return await Promise.all(products.map((p) => productWithMedia(ctx, p)));
+  },
+});
+
+const menuCategoryValidator = v.object({
+  id: v.id("categories"),
+  name: v.string(),
+  slug: v.string(),
+  sortOrder: v.number(),
+});
+
+export const listMenuCategories = query({
+  args: { merchantSlug: v.string() },
+  returns: v.array(menuCategoryValidator),
+  handler: async (ctx, args) => {
+    const merchant = await ctx.db
+      .query("merchants")
+      .withIndex("by_slug", (q) => q.eq("slug", args.merchantSlug))
+      .unique();
+    if (merchant === null) {
+      return [];
+    }
+    const products = await ctx.db
+      .query("products")
+      .withIndex("by_merchant", (q) => q.eq("merchantId", merchant._id))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .take(200);
+    const categoryIds = [...new Set(products.map((p) => p.categoryId))];
+    const categories = await Promise.all(categoryIds.map((id) => ctx.db.get(id)));
+    return categories
+      .filter((c): c is NonNullable<typeof c> => c !== null)
+      .map((c) => ({
+        id: c._id,
+        name: c.name,
+        slug: c.slug,
+        sortOrder: c.sortOrder,
+      }))
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
   },
 });
 

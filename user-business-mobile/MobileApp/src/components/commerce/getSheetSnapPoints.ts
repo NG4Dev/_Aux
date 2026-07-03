@@ -188,21 +188,27 @@ export function menuTabCollapsedSheetHeight(
   return SCREEN_HEIGHT * peekRatio;
 }
 
-/** Capped carousel band: fixed slot height + name/merchant chrome. */
+/** Capped carousel band: fixed slot height + image padding + inline player strip. */
 export function menuCarouselDisplayBandHeight(
   maxFrameH: number,
   chromeH: number = menuCarouselChromeHeight(),
+  inlinePlayerH: number = menuInlinePlayerBandHeight(),
 ): number {
   const cappedFrame = Math.min(
     maxFrameH,
     SCREEN_HEIGHT * MENU_CAROUSEL_BAND_MAX_RATIO,
   );
-  return cappedFrame + chromeH;
+  return cappedFrame + chromeH + inlinePlayerH;
 }
 
-/** Extra chrome below carousel image (name + merchant row + padding). */
+/** Extra padding around carousel image band (title row lives in inline player). */
 export function menuCarouselChromeHeight(): number {
-  return 72;
+  return 16;
+}
+
+/** YT-style inline mini-player strip between carousel and sheet lip. */
+export function menuInlinePlayerBandHeight(): number {
+  return 52;
 }
 
 export type MenuCarouselFrameProduct = {
