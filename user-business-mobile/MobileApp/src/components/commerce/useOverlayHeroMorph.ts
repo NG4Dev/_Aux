@@ -1,6 +1,7 @@
 import { useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
 
 import {
+  HERO_VISIBLE_UNTIL,
   morphLayerOpacity,
   sourceHeroMorphOpacity,
 } from '@/components/commerce/menuTransitionTokens';
@@ -84,6 +85,46 @@ export function useHeroBandFadeStyle(
 }
 
 
+
+/** Menu carousel hero — full opacity at peek, then morph-aligned fade. */
+export function useMenuCarouselHeroOpacityStyle(
+  sheetTranslateY: SharedValue<number>,
+  collapsedOffsetSV: SharedValue<number>,
+) {
+  return useAnimatedStyle(() => {
+    const collapsed = collapsedOffsetSV.value;
+    if (collapsed <= 0) return { opacity: 1 };
+
+    const expandProgress = Math.max(
+      0,
+      Math.min(1, 1 - sheetTranslateY.value / collapsed),
+    );
+
+    if (expandProgress <= HERO_VISIBLE_UNTIL) return { opacity: 1 };
+
+    return { opacity: sourceHeroMorphOpacity(expandProgress) };
+  });
+}
+
+/** Menu hero band wrapper — same peek-visible curve as carousel item. */
+export function useMenuHeroBandOpacityStyle(
+  sheetTranslateY: SharedValue<number>,
+  collapsedOffsetSV: SharedValue<number>,
+) {
+  return useAnimatedStyle(() => {
+    const collapsed = collapsedOffsetSV.value;
+    if (collapsed <= 0) return { opacity: 1 };
+
+    const expandProgress = Math.max(
+      0,
+      Math.min(1, 1 - sheetTranslateY.value / collapsed),
+    );
+
+    if (expandProgress <= HERO_VISIBLE_UNTIL) return { opacity: 1 };
+
+    return { opacity: sourceHeroMorphOpacity(expandProgress) };
+  });
+}
 
 /** Bleed image opacity synced with hero band during sheet expand. */
 

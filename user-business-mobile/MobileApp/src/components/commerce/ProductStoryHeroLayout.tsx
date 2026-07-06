@@ -10,7 +10,9 @@ import {
 import Animated, {
   type AnimatedRef,
   type AnimatedStyle,
+  runOnJS,
 } from 'react-native-reanimated';
+import { Gesture, GestureDetector, type GestureType } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import DynamicMediaRenderer from '@/components/feed/DynamicMediaRenderer';
@@ -33,6 +35,7 @@ type ProductStoryHeroLayoutProps = {
   bottomCardOpacityStyle?: AnimatedStyle;
   reelOpacityStyle?: AnimatedStyle;
   onExpandSheet?: () => void;
+  peekPanGesture?: GestureType;
   onShare: () => void;
   onAddCart: () => void;
   onAddToList: () => void;
@@ -51,6 +54,7 @@ export default function ProductStoryHeroLayout({
   bottomCardOpacityStyle,
   reelOpacityStyle,
   onExpandSheet,
+  peekPanGesture,
   onShare,
   onAddCart,
   onAddToList,
@@ -60,6 +64,23 @@ export default function ProductStoryHeroLayout({
     () => ({ ...media, aspect: 'story' as const }),
     [media],
   );
+
+  const tapExpandGesture = useMemo(
+    () =>
+      Gesture.Tap().onEnd(() => {
+        if (onExpandSheet) {
+          runOnJS(onExpandSheet)();
+        }
+      }),
+    [onExpandSheet],
+  );
+
+  const bottomCardGesture = useMemo(() => {
+    if (peekPanGesture) {
+      return Gesture.Race(peekPanGesture, tapExpandGesture);
+    }
+    return tapExpandGesture;
+  }, [peekPanGesture, tapExpandGesture]);
 
   return (
     <View style={styles.root} pointerEvents="box-none">
@@ -94,43 +115,46 @@ export default function ProductStoryHeroLayout({
         style={[styles.bottomCardWrap, bottomCardPositionStyle, bottomCardOpacityStyle]}
         pointerEvents="box-none"
       >
-        <View style={styles.expandHintRow} pointerEvents="none">
-          <Ionicons
-            name="chevron-up"
-            size={16}
-            color="rgba(255,255,255,0.45)"
-          />
-          <Ionicons
-            name="chevron-up"
-            size={16}
-            color="rgba(255,255,255,0.45)"
-            style={styles.expandHintSecond}
-          />
-        </View>
+        <GestureDetector gesture={bottomCardGesture}>
+          <View>
+            <View style={styles.expandHintRow} pointerEvents="none">
+              <Ionicons
+                name="chevron-up"
+                size={16}
+                color="rgba(255,255,255,0.45)"
+              />
+              <Ionicons
+                name="chevron-up"
+                size={16}
+                color="rgba(255,255,255,0.45)"
+                style={styles.expandHintSecond}
+              />
+            </View>
 
-        <Pressable
-          style={styles.bottomCard}
-          onPress={onExpandSheet}
-          accessibilityRole="button"
-          accessibilityLabel={`Open ${productName} details`}
-        >
-          {imageUrl ? (
-            <Image source={{ uri: imageUrl }} style={styles.cardThumb} />
-          ) : (
-            <View style={[styles.cardThumb, styles.cardThumbEmpty]} />
-          )}
-          <View style={styles.cardText}>
-            <Text style={styles.cardTitle} numberOfLines={1}>
-              {productName}
-            </Text>
-            {productSubtitle ? (
-              <Text style={styles.cardSubtitle} numberOfLines={2}>
-                {productSubtitle}
-              </Text>
-            ) : null}
+            <Pressable
+              style={styles.bottomCard}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${productName} details`}
+            >
+              {imageUrl ? (
+                <Image source={{ uri: imageUrl }} style={styles.cardThumb} />
+              ) : (
+                <View style={[styles.cardThumb, styles.cardThumbEmpty]} />
+              )}
+              <View style={styles.cardText}>
+                <Text style={styles.cardTitle} numberOfLines={1}>
+                  {productName}
+                </Text>
+                {productSubtitle ? (
+                  <Text style={styles.cardSubtitle} numberOfLines={2}>
+                    {productSubtitle}
+                  </Text>
+                ) : null}
+              </View>
+              <Text style={styles.cardPrice}>{priceLabel}</Text>
+            </Pressable>
           </View>
-          <Text style={styles.cardPrice}>{priceLabel}</Text>
-        </Pressable>
+        </GestureDetector>
       </Animated.View>
     </View>
   );

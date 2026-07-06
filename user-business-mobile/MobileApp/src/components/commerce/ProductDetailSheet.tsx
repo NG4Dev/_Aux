@@ -10,10 +10,11 @@ import {
 import Animated, {
   type AnimatedRef,
   type SharedValue,
+  useAnimatedProps,
   useAnimatedScrollHandler,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, type GestureType } from 'react-native-gesture-handler';
 import {
   OVERLAY_PRICE_GREEN,
   OVERLAY_SECTION_ACCENT,
@@ -62,6 +63,7 @@ type ProductDetailSheetProps = {
   sheetScrollY?: SharedValue<number>;
   hidePeekHeaderAtCollapse?: boolean;
   nativeScrollGesture?: ReturnType<typeof Gesture.Native>;
+  peekPanGesture?: GestureType;
 };
 
 export default function ProductDetailSheet({
@@ -88,8 +90,11 @@ export default function ProductDetailSheet({
   scrollRef,
   contentPaddingBottom = 40,
   sheetScrollY,
+  sheetTranslateY,
+  collapsedOffsetSV,
   hidePeekHeaderAtCollapse = false,
   nativeScrollGesture,
+  peekPanGesture,
 }: ProductDetailSheetProps) {
   const inCart = cartQuantity > 0;
   const priceLabel = `${(priceCents / 100).toFixed(0)} ${currency.toUpperCase()}`;
@@ -127,6 +132,16 @@ export default function ProductDetailSheet({
         sheetScrollY.value = event.contentOffset.y;
       }
     },
+  });
+
+  const scrollAnimatedProps = useAnimatedProps(() => {
+    if (!sheetTranslateY || !collapsedOffsetSV) {
+      return { scrollEnabled: true as const };
+    }
+    const collapsed = collapsedOffsetSV.value;
+    const expandProgress =
+      collapsed > 0 ? Math.max(0, Math.min(1, 1 - sheetTranslateY.value / collapsed)) : 1;
+    return { scrollEnabled: expandProgress >= 0.05 };
   });
 
   const productHeader = hidePeekHeaderAtCollapse ? null : (
@@ -202,9 +217,9 @@ export default function ProductDetailSheet({
       bounces
       onScroll={sheetScrollY ? scrollHandler : undefined}
       scrollEventThrottle={16}
+      animatedProps={scrollAnimatedProps}
     >
       <View onLayout={(e) => logLayout('scrollContent', e.nativeEvent.layout.height)}>
-        {productHeader}
         {merchantBlock}
         {cartBlock}
 
@@ -295,8 +310,19 @@ export default function ProductDetailSheet({
     </Animated.ScrollView>
   );
 
+  const peekHeaderNode = productHeader ? (
+    peekPanGesture ? (
+      <GestureDetector gesture={peekPanGesture}>
+        <View style={styles.peekHeaderWrap}>{productHeader}</View>
+      </GestureDetector>
+    ) : (
+      <View style={styles.peekHeaderWrap}>{productHeader}</View>
+    )
+  ) : null;
+
   return (
     <View style={styles.wrapper}>
+      {peekHeaderNode}
       {nativeScrollGesture ? (
         <GestureDetector gesture={nativeScrollGesture}>{scrollView}</GestureDetector>
       ) : (
@@ -309,6 +335,9 @@ export default function ProductDetailSheet({
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
+  },
+  peekHeaderWrap: {
+    paddingHorizontal: 16,
   },
   container: {
     flex: 1,

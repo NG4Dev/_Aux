@@ -15,7 +15,6 @@ import Animated, {
   type AnimatedStyle,
   useAnimatedStyle,
   useSharedValue,
-  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,10 +23,7 @@ import {
   menuCarouselFrameHeightForProduct,
   overlayHeroUsesLetterbox,
 } from '@/components/commerce/getSheetSnapPoints';
-import {
-  CAROUSEL_SETTLE_MS,
-  OVERLAY_FADE_MS,
-} from '@/components/commerce/menuTransitionTokens';
+import { OVERLAY_FADE_MS } from '@/components/commerce/menuTransitionTokens';
 import { discoverLog } from '@/services/discoverFlowLogger';
 import type { MediaAspect, MediaItem } from '@/types/content';
 
@@ -36,7 +32,7 @@ const ITEM_WIDTH = SCREEN_WIDTH * 0.72;
 const ITEM_GAP = 12;
 const SNAP_INTERVAL = ITEM_WIDTH + ITEM_GAP;
 const SIDE_INSET = (SCREEN_WIDTH - ITEM_WIDTH) / 2;
-const SIDE_SCALE = 0.72;
+const PROGRAMMATIC_SCROLL_GUARD_MS = 250;
 
 export type MenuCarouselProduct = {
   slug: string;
@@ -127,8 +123,6 @@ export default function MerchantMenuHeroCarousel({
 }: MerchantMenuHeroCarouselProps) {
   const listRef = useRef<FlatList<MenuCarouselProduct>>(null);
   const layoutLoggedRef = useRef(false);
-  const prevSlugRef = useRef(selectedSlug);
-  const settleScale = useSharedValue(1);
   const overlayOpacity = useSharedValue(0);
   const chipsOpacity = useSharedValue(0);
 
@@ -158,7 +152,7 @@ export default function MerchantMenuHeroCarousel({
       locked: fixedCenterFrameH != null && fixedCenterFrameH > 0,
       selectedSlug,
       centerFrameH,
-      sideScaleMode: 'transform',
+      sideScaleMode: 'none',
     });
   }, [slotH, fixedCenterFrameH, selectedSlug, centerFrameH, merchantSlug]);
 
@@ -170,29 +164,15 @@ export default function MerchantMenuHeroCarousel({
     }
     listRef.current?.scrollToOffset({
       offset: index * SNAP_INTERVAL,
-      animated: index !== products.findIndex((p) => p.slug === prevSlugRef.current),
+      animated: false,
     });
     const timer = setTimeout(() => {
       if (programmaticScrollRef) {
         programmaticScrollRef.current = false;
       }
-    }, 120);
+    }, PROGRAMMATIC_SCROLL_GUARD_MS);
     return () => clearTimeout(timer);
   }, [selectedSlug, products, programmaticScrollRef]);
-
-  useEffect(() => {
-    if (prevSlugRef.current === selectedSlug) return;
-    prevSlugRef.current = selectedSlug;
-    settleScale.value = withSequence(
-      withTiming(0.98, { duration: CAROUSEL_SETTLE_MS * 0.4 }),
-      withTiming(1, { duration: CAROUSEL_SETTLE_MS * 0.6 }),
-    );
-    discoverLog('overlay', 'menuCarouselSelect', {
-      merchantSlug,
-      toSlug: selectedSlug,
-      transition: 'settleSpring',
-    });
-  }, [selectedSlug, merchantSlug, settleScale]);
 
   useEffect(() => {
     overlayOpacity.value = withTiming(showOverlay ? 1 : 0, { duration: OVERLAY_FADE_MS });
@@ -201,10 +181,6 @@ export default function MerchantMenuHeroCarousel({
       delay: showOverlay ? 60 : 0,
     });
   }, [showOverlay, overlayOpacity, chipsOpacity]);
-
-  const settleStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: settleScale.value }],
-  }));
 
   const overlayBackdropStyle = useAnimatedStyle(() => ({
     opacity: overlayOpacity.value,
@@ -275,11 +251,9 @@ export default function MerchantMenuHeroCarousel({
                 {
                   width: ITEM_WIDTH,
                   height: centerFrameH,
-                  transform: [{ scale: isSelected ? 1 : SIDE_SCALE }],
                   opacity: isSelected ? 1 : 0.85,
                 },
                 isSelected && styles.imageWrapSelected,
-                isSelected && settleStyle,
                 isSelected && heroSourceOpacityStyle,
                 !isSelected && sidePeekHideStyle,
               ]}
@@ -297,16 +271,16 @@ export default function MerchantMenuHeroCarousel({
                 imageNode
               )}
 
-              {isSelected && showOverlay ? (
+              {isSelected && showOverlay && onShare && onAddCart && onAddToList ? (
                 <>
                   <Animated.View
                     style={[styles.overlayBackdrop, overlayBackdropStyle]}
                     pointerEvents="none"
                   />
                   <Animated.View style={[styles.overlayActions, overlayChipsStyle]} pointerEvents="box-none">
-                    <ActionChip icon="share-outline" label="Share" onPress={() => onShare?.()} />
-                    <ActionChip icon="cart-outline" label="Add to Cart" onPress={() => onAddCart?.()} />
-                    <ActionChip icon="list-outline" label="Add to List" onPress={() => onAddToList?.()} />
+                    <ActionChip icon="share-outline" label="Share" onPress={() => onShare()} />
+                    <ActionChip icon="cart-outline" label="Add to Cart" onPress={() => onAddCart()} />
+                    <ActionChip icon="list-outline" label="Add to List" onPress={() => onAddToList()} />
                   </Animated.View>
                 </>
               ) : null}

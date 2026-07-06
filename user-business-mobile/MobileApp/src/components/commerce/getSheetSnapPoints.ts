@@ -188,11 +188,11 @@ export function menuTabCollapsedSheetHeight(
   return SCREEN_HEIGHT * peekRatio;
 }
 
-/** Capped carousel band: fixed slot height + image padding + inline player strip. */
+/** Capped carousel band: fixed slot height + image padding. */
 export function menuCarouselDisplayBandHeight(
   maxFrameH: number,
   chromeH: number = menuCarouselChromeHeight(),
-  inlinePlayerH: number = menuInlinePlayerBandHeight(),
+  inlinePlayerH: number = 0,
 ): number {
   const cappedFrame = Math.min(
     maxFrameH,

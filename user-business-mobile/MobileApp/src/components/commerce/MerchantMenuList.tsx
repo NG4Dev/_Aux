@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,6 @@ import {
   Image,
   ScrollView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/Colors';
 
 export type MenuCategory = {
@@ -34,13 +33,9 @@ type MerchantMenuListProps = {
   selectedSlug: string;
   merchantName: string;
   menuCategories?: MenuCategory[];
+  activeCategory?: string;
+  onCategoryChange?: (chip: string) => void;
   onSelectProduct: (slug: string) => void;
-  onFilterChange?: (payload: {
-    chip: string;
-    categoryId: string | null;
-    filteredCount: number;
-    totalProducts: number;
-  }) => void;
 };
 
 function formatPrice(priceCents: number, currency: string): string {
@@ -52,54 +47,24 @@ export default function MerchantMenuList({
   selectedSlug,
   merchantName,
   menuCategories = [],
+  activeCategory = 'All',
+  onCategoryChange,
   onSelectProduct,
-  onFilterChange,
 }: MerchantMenuListProps) {
   const listRef = useRef<FlatList<MenuListProduct>>(null);
-  const [activeCategory, setActiveCategory] = useState('All');
 
   const chips = useMemo(() => {
     if (menuCategories.length === 0) return ['All'];
     return ['All', ...menuCategories.map((c) => c.name)];
   }, [menuCategories]);
 
-  const categoryIdByName = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const c of menuCategories) {
-      map.set(c.name, c.id);
-    }
-    return map;
-  }, [menuCategories]);
-
-  const filtered = useMemo(() => {
-    if (activeCategory === 'All') return products;
-    const categoryId = categoryIdByName.get(activeCategory);
-    if (!categoryId) return products;
-    return products.filter((p) => p.categoryId === categoryId);
-  }, [products, activeCategory, categoryIdByName]);
-
   useEffect(() => {
-    if (filtered.length === 0) return;
-    const index = filtered.findIndex((p) => p.slug === selectedSlug);
+    if (products.length === 0) return;
+    const index = products.findIndex((p) => p.slug === selectedSlug);
     if (index >= 0) {
       listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.35 });
     }
-  }, [selectedSlug, filtered]);
-
-  const handleChipPress = (chip: string) => {
-    setActiveCategory(chip);
-    const categoryId = chip === 'All' ? null : categoryIdByName.get(chip) ?? null;
-    const nextFiltered =
-      chip === 'All'
-        ? products
-        : products.filter((p) => p.categoryId === categoryId);
-    onFilterChange?.({
-      chip,
-      categoryId,
-      filteredCount: nextFiltered.length,
-      totalProducts: products.length,
-    });
-  };
+  }, [selectedSlug, products]);
 
   return (
     <View style={styles.container}>
@@ -116,7 +81,7 @@ export default function MerchantMenuList({
               <TouchableOpacity
                 key={chip}
                 style={styles.tab}
-                onPress={() => handleChipPress(chip)}
+                onPress={() => onCategoryChange?.(chip)}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: active }}
               >
@@ -142,7 +107,7 @@ export default function MerchantMenuList({
       <FlatList
         ref={listRef}
         style={styles.listScroll}
-        data={filtered}
+        data={products}
         keyExtractor={(item) => item.slug}
         contentContainerStyle={styles.list}
         onScrollToIndexFailed={() => {}}
@@ -161,11 +126,6 @@ export default function MerchantMenuList({
                 ) : (
                   <View style={[styles.thumb, styles.thumbEmpty]} />
                 )}
-                {selected ? (
-                  <View style={styles.thumbActiveOverlay} pointerEvents="none">
-                    <Ionicons name="volume-high" size={18} color="#fff" />
-                  </View>
-                ) : null}
               </View>
               <View style={styles.rowBody}>
                 <View style={styles.rowTitleRow}>
@@ -264,13 +224,6 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: 56,
     height: 56,
-  },
-  thumbActiveOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   thumb: {
     width: 56,
