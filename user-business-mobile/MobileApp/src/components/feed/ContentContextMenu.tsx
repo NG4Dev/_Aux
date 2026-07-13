@@ -1,7 +1,7 @@
 import React from 'react';
-import { TouchableOpacity, StyleSheet } from 'react-native';
+import { Platform, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as DropdownMenu from 'zeego/dropdown-menu';
+import { MenuView } from '@react-native-menu/menu';
 
 type ContentContextMenuProps = {
   onShare?: () => void;
@@ -15,39 +15,37 @@ export default function ContentContextMenu({
   onReport,
 }: ContentContextMenuProps) {
   return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger>
-        <TouchableOpacity style={styles.trigger}>
-          <Ionicons name="ellipsis-vertical" size={18} color="#fff" />
-        </TouchableOpacity>
-      </DropdownMenu.Trigger>
-
-      <DropdownMenu.Content>
-        <DropdownMenu.Item key="share" onSelect={onShare}>
-          <DropdownMenu.ItemTitle>Share</DropdownMenu.ItemTitle>
-          <DropdownMenu.ItemIcon
-            ios={{ name: 'square.and.arrow.up' }}
-            androidIconName="share"
-          />
-        </DropdownMenu.Item>
-
-        <DropdownMenu.Item key="save" onSelect={onSave}>
-          <DropdownMenu.ItemTitle>Save</DropdownMenu.ItemTitle>
-          <DropdownMenu.ItemIcon
-            ios={{ name: 'bookmark' }}
-            androidIconName="bookmark_border"
-          />
-        </DropdownMenu.Item>
-
-        <DropdownMenu.Item key="report" onSelect={onReport} destructive>
-          <DropdownMenu.ItemTitle>Report</DropdownMenu.ItemTitle>
-          <DropdownMenu.ItemIcon
-            ios={{ name: 'flag' }}
-            androidIconName="flag"
-          />
-        </DropdownMenu.Item>
-      </DropdownMenu.Content>
-    </DropdownMenu.Root>
+    <MenuView
+      title="Content actions"
+      shouldOpenOnLongPress={false}
+      actions={[
+        {
+          id: 'share',
+          title: 'Share',
+          image: Platform.select({ ios: 'square.and.arrow.up', android: 'share' }),
+        },
+        {
+          id: 'save',
+          title: 'Save',
+          image: Platform.select({ ios: 'bookmark', android: 'bookmark_border' }),
+        },
+        {
+          id: 'report',
+          title: 'Report',
+          image: Platform.select({ ios: 'flag', android: 'flag' }),
+          attributes: { destructive: true },
+        },
+      ]}
+      onPressAction={({ nativeEvent }) => {
+        if (nativeEvent.event === 'share') onShare?.();
+        if (nativeEvent.event === 'save') onSave?.();
+        if (nativeEvent.event === 'report') onReport?.();
+      }}
+    >
+      <TouchableOpacity style={styles.trigger}>
+        <Ionicons name="ellipsis-vertical" size={18} color="#fff" />
+      </TouchableOpacity>
+    </MenuView>
   );
 }
 

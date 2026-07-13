@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useNavigation } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@clerk/clerk-expo';
-import * as DropdownMenu from 'zeego/dropdown-menu';
+import { MenuView } from '@react-native-menu/menu';
 
 import GuestEmptyState from '@/components/GuestEmptyState';
 import {
@@ -269,38 +269,29 @@ export default function LibraryScreen() {
         </View>
 
         <View style={styles.toolbar}>
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger>
-              <TouchableOpacity style={styles.toolbarBtn} activeOpacity={0.7}>
-                <Ionicons
-                  name="funnel-outline"
-                  size={16}
-                  color="rgba(255,255,255,0.8)"
-                />
-                <Text style={styles.toolbarText}>{SORT_LABELS[sortKey]}</Text>
-              </TouchableOpacity>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content>
-              <DropdownMenu.Item
-                key="recent"
-                onSelect={() => setSortKey('recent')}
-              >
-                <DropdownMenu.ItemTitle>Most recent</DropdownMenu.ItemTitle>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item
-                key="name"
-                onSelect={() => setSortKey('name')}
-              >
-                <DropdownMenu.ItemTitle>Name</DropdownMenu.ItemTitle>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item
-                key="count"
-                onSelect={() => setSortKey('count')}
-              >
-                <DropdownMenu.ItemTitle>Most items</DropdownMenu.ItemTitle>
-              </DropdownMenu.Item>
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
+          <MenuView
+            title="Sort collections"
+            shouldOpenOnLongPress={false}
+            actions={[
+              { id: 'recent', title: 'Most recent', state: sortKey === 'recent' ? 'on' : 'off' },
+              { id: 'name', title: 'Name', state: sortKey === 'name' ? 'on' : 'off' },
+              { id: 'count', title: 'Most items', state: sortKey === 'count' ? 'on' : 'off' },
+            ]}
+            onPressAction={({ nativeEvent }) => {
+              if (nativeEvent.event === 'recent') setSortKey('recent');
+              if (nativeEvent.event === 'name') setSortKey('name');
+              if (nativeEvent.event === 'count') setSortKey('count');
+            }}
+          >
+            <TouchableOpacity style={styles.toolbarBtn} activeOpacity={0.7}>
+              <Ionicons
+                name="funnel-outline"
+                size={16}
+                color="rgba(255,255,255,0.8)"
+              />
+              <Text style={styles.toolbarText}>{SORT_LABELS[sortKey]}</Text>
+            </TouchableOpacity>
+          </MenuView>
 
           <TouchableOpacity
             style={styles.toolbarBtn}

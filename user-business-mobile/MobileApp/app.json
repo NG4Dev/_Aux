@@ -8,21 +8,20 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
-      "supportsTablet": true
+      "appleTeamId": "VNG3LN323R",
+      "bundleIdentifier": "com.galyvant.aux",
+      "buildNumber": "1",
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#000000"
       },
-      "package": "com.ng4.RNAuth",
-      "navigationBar": {
-        "backgroundColor": "#000000"
-      },
-      "statusBar": {
-        "backgroundColor": "#000000",
-        "barStyle": "light-content"
-      }
+      "package": "com.ng4.RNAuth"
     },
     "androidStatusBar": {
       "backgroundColor": "#000000",
@@ -48,7 +47,7 @@
       [
         "@stripe/stripe-react-native",
         {
-          "merchantIdentifier": "merchant.com.ng4.aux",
+          "merchantIdentifier": "merchant.com.galyvant.aux",
           "enableGooglePay": true
         }
       ],

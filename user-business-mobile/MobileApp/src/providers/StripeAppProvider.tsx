@@ -13,7 +13,7 @@ export default function StripeAppProvider({ children }: { children: ReactNode })
   return (
     <StripeProvider
       publishableKey={publishableKey}
-      merchantIdentifier="merchant.com.ng4.aux"
+      merchantIdentifier="merchant.com.galyvant.aux"
       urlScheme="aux"
     >
       {children}
