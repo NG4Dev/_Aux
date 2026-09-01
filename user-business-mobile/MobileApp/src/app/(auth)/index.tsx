@@ -1,22 +1,13 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import CustomButton from '@/components/CustomButton';
-import { useVideoPlayer, VideoView } from 'expo-video';
 import { useAuth } from '@clerk/clerk-expo';
 import { authLog } from '@/services/authFlowLogger';
+import AuthWelcomeVideo from '@/components/auth/AuthWelcomeVideo';
 
 export default function AuthSplashScreen() {
   const { isSignedIn, isLoaded } = useAuth();
-  const [videoReady, setVideoReady] = useState(false);
-  const mountedRef = useRef(true);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return;
@@ -27,28 +18,7 @@ export default function AuthSplashScreen() {
     router.replace('/(auth)/post-auth');
   }, [isSignedIn, isLoaded]);
 
-  const player = useVideoPlayer(
-    require('@assets/videos/welcome-bg-video.mp4'),
-    (p) => {
-      if (!mountedRef.current) return;
-      p.loop = true;
-      p.muted = true;
-      p.play();
-      setVideoReady(true);
-    },
-  );
-
-  useEffect(() => {
-    return () => {
-      try {
-        player.pause();
-      } catch {
-        // Player may already be released on unmount.
-      }
-    };
-  }, [player]);
-
-  if (isSignedIn) {
+  if (!isLoaded || isSignedIn) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#1DB954" />
@@ -58,14 +28,7 @@ export default function AuthSplashScreen() {
 
   return (
     <View style={styles.container}>
-      {videoReady ? (
-        <VideoView
-          player={player}
-          style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}
-          contentFit="cover"
-          nativeControls={false}
-        />
-      ) : null}
+      <AuthWelcomeVideo />
 
       <View style={styles.content} />
 

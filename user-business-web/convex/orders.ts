@@ -448,6 +448,8 @@ export const markPaidByPaymentIntent = internalMutation({
       });
     }
 
+    await schedulePurchaseAnalytics(ctx, order, args.paymentIntentId);
+
     return null;
   },
 });
@@ -509,9 +511,74 @@ export const markPaid = internalMutation({
       });
     }
 
+    await schedulePurchaseAnalytics(
+      ctx,
+      order,
+      args.paymentIntentId ?? args.stripeSessionId,
+    );
+
     return null;
   },
 });
+
+async function schedulePurchaseAnalytics(
+  ctx: MutationCtx,
+  order: Doc<"orders">,
+  transactionId: string,
+) {
+  const user = await ctx.db.get(order.userId);
+  const value = (order.totalCents ?? 0) / 100;
+  const currency = (order.currency ?? DEFAULT_CURRENCY).toUpperCase();
+  const orderKind = order.orderKind ?? "product";
+
+  await ctx.scheduler.runAfter(0, internal.analytics.trackServerEvent, {
+    eventName: "purchase",
+    mixpanelEventName:
+      orderKind === "ticket" ? "Ticket Purchased" : "Order Paid",
+    clientId: `server.${order._id}`,
+    userId: user?.clerkUserId,
+    params: {
+      transaction_id: transactionId,
+      value,
+      currency,
+      order_kind: orderKind,
+      persona: "consumer",
+      merchant_id: order.merchantId,
+    },
+  });
+
+  if (order.merchantId) {
+    const priorPaid = await ctx.db
+      .query("orders")
+      .withIndex("by_merchant", (q) => q.eq("merchantId", order.merchantId!))
+      .collect();
+    const paidBefore = priorPaid.filter(
+      (o) =>
+        o._id !== order._id &&
+        (o.status === "paid" || o.status === "fulfilled"),
+    );
+    const isFirst = paidBefore.length === 0;
+
+    await ctx.scheduler.runAfter(0, internal.analytics.trackServerEvent, {
+      eventName: isFirst
+        ? "merchant_first_order"
+        : "merchant_order_received",
+      mixpanelEventName: isFirst
+        ? "First Order Received"
+        : "Order Received",
+      clientId: `server.merchant.${order._id}`,
+      userId: user?.clerkUserId,
+      params: {
+        transaction_id: transactionId,
+        value,
+        currency,
+        order_kind: orderKind,
+        persona: "merchant",
+        merchant_id: order.merchantId,
+      },
+    });
+  }
+}
 
 async function restoreStockAndCancel(
   ctx: MutationCtx,

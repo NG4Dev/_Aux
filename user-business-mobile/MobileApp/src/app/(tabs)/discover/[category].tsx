@@ -33,6 +33,11 @@ import { useCollapsibleHeader } from '@/hooks/useCollapsibleHeader';
 import type { ContentItem, MediaAspect, MediaItem } from '@/types/content';
 import Colors from '@/constants/Colors';
 import { discoverLog } from '@/services/discoverFlowLogger';
+import {
+  trackViewItemList,
+  trackMixpanel,
+  MixpanelEvents,
+} from '@/services/analytics';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HEADER_ROW_HEIGHT = 52;
@@ -188,40 +193,52 @@ export default function DiscoverCategory() {
   } | null>(null);
   const [contentReel, setContentReel] = useState<ContentReelState | null>(null);
 
-  const laParadaProducts = useQuery(
-    api.platform.merchants.listProducts,
-    USE_CONVEX_DATA ? { merchantSlug: 'la-parada' } : 'skip',
-  );
   const { items: personalizedItems, meta, loading, error } = useDiscoverFeed(category, 12);
   const feedData = useMemo(
     () => personalizedItems.map(mapFeedItemToContentItem),
     [personalizedItems],
   );
 
-  const openLaParadaProduct = useCallback(
-    (product: NonNullable<typeof laParadaProducts>[number]) => {
+  const categoryMerchants = useQuery(
+    api.platform.merchants.listMerchantsForDiscoverCategory,
+    USE_CONVEX_DATA && category ? { categorySlug: category } : 'skip',
+  );
+  const headerMerchantSlug =
+    categoryMerchants?.[0]?.slug ??
+    feedData.find((item) => item.merchantSlug)?.merchantSlug ??
+    'la-parada';
+
+  const headerMerchantProducts = useQuery(
+    api.platform.merchants.listProducts,
+    USE_CONVEX_DATA && headerMerchantSlug
+      ? { merchantSlug: headerMerchantSlug }
+      : 'skip',
+  );
+
+  const openHeaderMerchantProduct = useCallback(
+    (product: NonNullable<typeof headerMerchantProducts>[number]) => {
       const aspect = toMediaAspect(product.mediaAspect ?? undefined);
       if (
-        overlay?.merchantSlug === 'la-parada' &&
+        overlay?.merchantSlug === headerMerchantSlug &&
         overlay?.productSlug === product.slug
       ) {
         return;
       }
       discoverLog('category', 'overlayOpen', {
-        source: 'laParadaMenu',
-        merchantSlug: 'la-parada',
+        source: 'categoryMenuHeader',
+        merchantSlug: headerMerchantSlug,
         productSlug: product.slug,
         mediaAspect: product.mediaAspect ?? 'square',
         fullscreen: aspect === 'story',
       });
       setOverlay({
-        merchantSlug: 'la-parada',
+        merchantSlug: headerMerchantSlug,
         productSlug: product.slug,
         mediaAspect: aspect,
         initialImageMode: 'minimized',
       });
     },
-    [overlay],
+    [overlay, headerMerchantSlug],
   );
 
   const handleFeedMediaPress = useCallback((item: ContentItem, mediaItem: MediaItem) => {
@@ -259,8 +276,19 @@ export default function DiscoverCategory() {
       error: error ?? undefined,
       tasteSlots: meta?.tasteSlots,
       exploreSlots: meta?.exploreSlots,
-      laParadaProductCount: laParadaProducts?.length ?? 0,
+      headerMerchantSlug,
+      headerProductCount: headerMerchantProducts?.length ?? 0,
       overlayOpen: !!overlay,
+    });
+    void trackViewItemList({
+      itemListName: `discover_category_${category}`,
+      persona: 'consumer',
+      discoverCategory: category,
+    });
+    void trackMixpanel(MixpanelEvents.CategoryFeedViewed, {
+      persona: 'consumer',
+      discover_category: category,
+      feed_count: feedData.length,
     });
   }, [
     category,
@@ -269,7 +297,8 @@ export default function DiscoverCategory() {
     loading,
     error,
     meta,
-    laParadaProducts?.length,
+    headerMerchantProducts?.length,
+    headerMerchantSlug,
     overlay,
   ]);
 
@@ -403,13 +432,15 @@ export default function DiscoverCategory() {
           onScroll={handleScroll}
           scrollEventThrottle={16}
           ListHeaderComponent={
-            laParadaProducts && laParadaProducts.length > 0 ? (
+            headerMerchantProducts && headerMerchantProducts.length > 0 ? (
               <View style={styles.convexSection}>
-                <Text style={styles.convexSectionTitle}>La Parada menu</Text>
+                <Text style={styles.convexSectionTitle}>
+                  {categoryMerchants?.[0]?.name ?? 'Featured menu'}
+                </Text>
                 <Text style={styles.convexSectionSub}>
                   Tap to preview overlay (live aspect ratios)
                 </Text>
-                {laParadaProducts.map((product: (typeof laParadaProducts)[number]) => {
+                {headerMerchantProducts.map((product: (typeof headerMerchantProducts)[number]) => {
                   const aspect = toMediaAspect(product.mediaAspect ?? undefined);
                   const media = buildLaParadaMedia(product, aspect);
                   return (
@@ -420,7 +451,7 @@ export default function DiscoverCategory() {
                           aspect={aspect}
                           borderRadius={0}
                           fullBleed
-                          onPress={() => openLaParadaProduct(product)}
+                          onPress={() => openHeaderMerchantProduct(product)}
                         />
                       ) : null}
                       <Text style={styles.convexName}>{product.name}</Text>

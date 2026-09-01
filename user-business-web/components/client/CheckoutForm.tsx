@@ -16,6 +16,12 @@ import {
   useCartStore,
 } from "@/lib/cart-store";
 import { startCheckout } from "@/app/actions/checkout";
+import { useAuth, useUser } from "@clerk/nextjs";
+import {
+  trackAddPaymentInfo,
+  trackBeginCheckout,
+} from "@/lib/analytics/ga4/web";
+import { trackMixpanel, MixpanelEvents } from "@/lib/analytics";
 
 const DEFAULT_CURRENCY =
   process.env.NEXT_PUBLIC_DEFAULT_CURRENCY ?? "gbp";
@@ -37,6 +43,9 @@ export default function CheckoutForm() {
   const hasMounted = useCartStore((s) => s.hasMounted);
   const items = useCartStore((s) => s.items);
   const productIds = useMemo(() => items.map((it) => it.productId), [items]);
+  const { userId } = useAuth();
+  const { user } = useUser();
+  const email = user?.primaryEmailAddress?.emailAddress;
 
   const products = useQuery(
     api.products.getManyByIds,
@@ -95,6 +104,48 @@ export default function CheckoutForm() {
   function handleSubmit() {
     setError(null);
     startTransition(async () => {
+      const analyticsItems =
+        products?.map((p) => {
+          const qty = items.find((it) => it.productId === p._id)?.quantity ?? 1;
+          return {
+            item_id: p._id,
+            item_name: p.name,
+            price: p.priceCents / 100,
+            quantity: qty,
+          };
+        }) ?? [];
+      trackBeginCheckout({
+        items: analyticsItems,
+        persona: "consumer",
+        value: subtotalCents / 100,
+        currency: currency.toUpperCase(),
+        userId: userId ?? undefined,
+        emailAddress: email,
+        orderKind: "product",
+      });
+      void trackMixpanel(MixpanelEvents.CheckoutStarted, {
+        value: subtotalCents / 100,
+        currency: currency.toUpperCase(),
+        persona: "consumer",
+        order_kind: "product",
+        item_count: analyticsItems.length,
+      });
+      trackAddPaymentInfo({
+        persona: "consumer",
+        paymentType: "card",
+        value: subtotalCents / 100,
+        currency: currency.toUpperCase(),
+        userId: userId ?? undefined,
+        emailAddress: email,
+        orderKind: "product",
+      });
+      void trackMixpanel(MixpanelEvents.PaymentStarted, {
+        value: subtotalCents / 100,
+        currency: currency.toUpperCase(),
+        persona: "consumer",
+        payment_type: "card",
+      });
+
       const result = await startCheckout({
         items: items.map((it) => ({
           productId: it.productId,

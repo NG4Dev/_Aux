@@ -20,6 +20,8 @@ import {
   getMenuCategoriesForBusiness,
   getMenuItemsForCategory,
 } from '@/data/mockBusinesses';
+import { USE_CONVEX_DATA } from '@/config/features';
+import { useMerchantBySlug, useMerchantProducts } from '@/hooks/usePlatformMerchant';
 import { useCollapsibleHeader } from '@/hooks/useCollapsibleHeader';
 import type { MenuItem } from '@/types/business';
 
@@ -60,10 +62,20 @@ export default function MenuCategoryScreen() {
   }>();
   const router = useRouter();
 
-  const business = businessId ? getBusinessById(businessId) : undefined;
-  const categories = businessId
-    ? getMenuCategoriesForBusiness(businessId)
-    : [];
+  const { merchant: convexBusiness, isLoading: merchantLoading } = useMerchantBySlug(businessId);
+  const { items: convexItems, categories: convexCategories, isLoading: productsLoading } =
+    useMerchantProducts(businessId);
+
+  const business = USE_CONVEX_DATA
+    ? convexBusiness ?? (businessId ? getBusinessById(businessId) : undefined)
+    : businessId
+      ? getBusinessById(businessId)
+      : undefined;
+  const categories = USE_CONVEX_DATA
+    ? convexCategories
+    : businessId
+      ? getMenuCategoriesForBusiness(businessId)
+      : [];
 
   const [sortKey, setSortKey] = useState<SortKey>('recent');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -72,15 +84,17 @@ export default function MenuCategoryScreen() {
     headerHeight: COLLAPSIBLE_HEIGHT,
   });
 
-  const items = useMemo(
-    () =>
-      businessId && categoryId
-        ? sortItems(getMenuItemsForCategory(businessId, categoryId), sortKey)
-        : [],
-    [businessId, categoryId, sortKey],
-  );
+  const items = useMemo(() => {
+    if (!businessId || !categoryId) return [];
+    const sourceItems = USE_CONVEX_DATA
+      ? convexItems.filter(
+          (item) => item.categoryId === categoryId || item.categoryConvexId === categoryId,
+        )
+      : getMenuItemsForCategory(businessId, categoryId);
+    return sortItems(sourceItems, sortKey);
+  }, [businessId, categoryId, sortKey, convexItems]);
 
-  if (!business) {
+  if (!business && !merchantLoading && !productsLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.headerRow}>

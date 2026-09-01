@@ -105,6 +105,30 @@ const MERCHANT_SEEDS: MerchantSeed[] = [
       "Berlin-based music collective bringing world-class deep house and afro electronic events.",
     location: { address: "Berlin, Germany", lat: 52.52, lng: 13.405 },
   },
+  {
+    slug: "bikini-beach-bar",
+    name: "Bikini Beach Bar",
+    tagline: "Camps Bay sundowners",
+    type: "restaurant",
+    description:
+      "Beachfront cocktail bar on Camps Bay strip — seafood grills, frozen margaritas, and Atlantic sunset views.",
+    location: { address: "Camps Bay, Cape Town, South Africa" },
+    linkedPlaceSlug: "bikini-beach-bar-venue",
+    feedCategories: ["Seafood", "Cocktails", "Sundowners"],
+    discoverCategorySlugs: ["beach-bars", "sundowners", "on-the-coast"],
+  },
+  {
+    slug: "the-bay-beach-club",
+    name: "The Bay Beach Club",
+    tagline: "Clifton beach dining",
+    type: "restaurant",
+    description:
+      "Relaxed Clifton beach club with light bites, craft spritzes, and share plates for long summer afternoons.",
+    location: { address: "Clifton, Cape Town, South Africa" },
+    linkedPlaceSlug: "the-bay-beach-club-venue",
+    feedCategories: ["Beach club", "Tapas", "Drinks"],
+    discoverCategorySlugs: ["beach-bars", "sundowners"],
+  },
 ];
 
 const PLACE_SEEDS: PlaceSeed[] = [
@@ -129,6 +153,22 @@ const PLACE_SEEDS: PlaceSeed[] = [
     description: "Major stadium hosting festivals and sports events.",
     placeKind: "venue",
     location: { address: "Johannesburg, South Africa" },
+  },
+  {
+    slug: "bikini-beach-bar-venue",
+    name: "Bikini Beach Bar",
+    description: "Camps Bay beachfront terrace with sundowner deck.",
+    placeKind: "venue",
+    location: { address: "Victoria Road, Camps Bay, Cape Town" },
+    linkedMerchantSlug: "bikini-beach-bar",
+  },
+  {
+    slug: "the-bay-beach-club-venue",
+    name: "The Bay Beach Club",
+    description: "Clifton Fourth Beach club with ocean-view seating.",
+    placeKind: "venue",
+    location: { address: "Clifton Fourth Beach, Cape Town" },
+    linkedMerchantSlug: "the-bay-beach-club",
   },
 ];
 
@@ -208,6 +248,119 @@ const LA_PARADA_PRODUCTS: ProductSeed[] = [
   },
 ];
 
+const BIKINI_BEACH_BAR_PRODUCTS: ProductSeed[] = [
+  {
+    merchantSlug: "bikini-beach-bar",
+    categorySlug: "tapas",
+    categoryName: "Tapas",
+    name: "Grilled Prawn Skewers",
+    slug: "bikini-prawn-skewers",
+    description:
+      "Chargrilled tiger prawns with lemon butter, garlic, and smoked paprika — a Camps Bay seafood classic.",
+    priceCents: 12500,
+    stock: 35,
+    unit: "plate",
+    mediaAspect: "portrait45",
+    imageWidth: 1080,
+    imageHeight: 1350,
+  },
+  {
+    merchantSlug: "bikini-beach-bar",
+    categorySlug: "drinks",
+    categoryName: "Drinks",
+    name: "Frozen Margarita",
+    slug: "bikini-frozen-margarita",
+    description:
+      "Blended tequila margarita with fresh lime and agave — ideal for beach-bar sundowners.",
+    priceCents: 9500,
+    stock: 80,
+    unit: "glass",
+    mediaAspect: "square",
+    imageWidth: 1080,
+    imageHeight: 1080,
+  },
+  {
+    merchantSlug: "bikini-beach-bar",
+    categorySlug: "mains",
+    categoryName: "Mains",
+    name: "Linefish of the Day",
+    slug: "bikini-linefish",
+    description:
+      "Catch of the day grilled with herb butter, served with seasonal slaw and hand-cut fries.",
+    priceCents: 18500,
+    stock: 25,
+    unit: "serving",
+    mediaAspect: "landscape",
+    imageWidth: 1080,
+    imageHeight: 566,
+  },
+];
+
+const THE_BAY_BEACH_CLUB_PRODUCTS: ProductSeed[] = [
+  {
+    merchantSlug: "the-bay-beach-club",
+    categorySlug: "tapas",
+    categoryName: "Tapas",
+    name: "Fish Tacos",
+    slug: "bay-club-fish-tacos",
+    description:
+      "Crispy battered hake tacos with chipotle crema, pickled red onion, and coriander — Clifton beach share plate.",
+    priceCents: 11000,
+    stock: 40,
+    unit: "plate",
+    mediaAspect: "square",
+    imageWidth: 1080,
+    imageHeight: 1080,
+  },
+  {
+    merchantSlug: "the-bay-beach-club",
+    categorySlug: "drinks",
+    categoryName: "Drinks",
+    name: "Sunset Spritz",
+    slug: "bay-club-sunset-spritz",
+    description:
+      "Aperol-style spritz with prosecco, soda, and orange — light sparkling cocktail for afternoon beach sessions.",
+    priceCents: 9000,
+    stock: 70,
+    unit: "glass",
+    mediaAspect: "portrait34",
+    imageWidth: 1080,
+    imageHeight: 1440,
+  },
+  {
+    merchantSlug: "the-bay-beach-club",
+    categorySlug: "tapas",
+    categoryName: "Tapas",
+    name: "Calamari Rings",
+    slug: "bay-club-calamari",
+    description:
+      "Lightly fried calamari with lemon aioli and chili — crispy seafood starter popular at Clifton beach clubs.",
+    priceCents: 10500,
+    stock: 45,
+    unit: "plate",
+    mediaAspect: "portrait45",
+    imageWidth: 1080,
+    imageHeight: 1350,
+  },
+];
+
+/** Menu products seeded for commerce + assistant/RAG corpus (verified merchants only). */
+const PLATFORM_MENU_PRODUCTS: ProductSeed[] = [...LA_PARADA_PRODUCTS];
+
+/** Stable food photography for La Parada — avoids random picsum placeholders. */
+const LA_PARADA_SEED_IMAGES: Record<string, string> = {
+  "patatas-bravas":
+    "https://images.unsplash.com/photo-1626700051175-6818013e1d4f",
+  "gambas-al-ajillo":
+    "https://images.unsplash.com/photo-1565680018434-b513d5e5fd47",
+  "paella-valenciana":
+    "https://images.unsplash.com/photo-1555939594-58d7cb561ad1",
+  "sangria-de-la-casa":
+    "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b",
+  "croquetas-jamon":
+    "https://images.unsplash.com/photo-1601050690597-df0568f70950",
+};
+
 const EVENT_SEEDS: EventSeed[] = [
   {
     merchantSlug: "keinemusik-co",
@@ -246,6 +399,10 @@ const EVENT_SEEDS: EventSeed[] = [
 ];
 
 function imageUrlForSeed(slug: string, width: number, height: number): string {
+  const laParadaImage = LA_PARADA_SEED_IMAGES[slug];
+  if (laParadaImage) {
+    return `${laParadaImage}?w=${width}&h=${height}&fit=crop&q=80`;
+  }
   return `https://picsum.photos/seed/${encodeURIComponent(slug)}/${width}/${height}`;
 }
 
@@ -416,7 +573,7 @@ export const _seedPlatformData = internalMutation({
     }
 
     const categoryCache = new Map<string, Id<"categories">>();
-    for (const productSeed of LA_PARADA_PRODUCTS) {
+    for (const productSeed of PLATFORM_MENU_PRODUCTS) {
       const merchantId = slugToMerchantId.get(productSeed.merchantSlug);
       if (!merchantId) continue;
 
@@ -613,7 +770,7 @@ export const seedPlatform = internalAction({
       imageHeight: number;
     }> = [];
 
-    for (const p of LA_PARADA_PRODUCTS) {
+    for (const p of PLATFORM_MENU_PRODUCTS) {
       const blob = await fetchAsBlob(
         imageUrlForSeed(p.slug, p.imageWidth, p.imageHeight),
       );

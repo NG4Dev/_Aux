@@ -10,6 +10,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '@/constants/Colors';
 import { useCartStore } from '@/features/cart/cartStore';
+import {
+  trackBeginCheckout,
+  trackMixpanel,
+  MixpanelEvents,
+} from '@/services/analytics';
 
 const SERVICE_FEE_CENTS = 299;
 const DELIVERY_FEE_CENTS = 499;
@@ -33,6 +38,30 @@ export default function SummaryScreen() {
   const isPickup = fulfillment === 'pickup';
   const deliveryFee = isPickup ? 0 : DELIVERY_FEE_CENTS;
   const total = subtotal + SERVICE_FEE_CENTS + deliveryFee;
+
+  const continueToPayment = () => {
+    void trackBeginCheckout({
+      value: total / 100,
+      persona: 'consumer',
+      currency: 'ZAR',
+      orderKind: 'product',
+      merchantSlug: slug,
+    });
+    void trackMixpanel(MixpanelEvents.CheckoutStarted, {
+      value: total / 100,
+      currency: 'ZAR',
+      persona: 'consumer',
+      merchant_slug: slug,
+      order_kind: 'product',
+    });
+    router.push({
+      pathname: '/(tabs)/business/[businessId]/checkout/payment',
+      params: {
+        businessId: slug,
+        fulfillment: fulfillment ?? 'delivery',
+      },
+    });
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -80,15 +109,7 @@ export default function SummaryScreen() {
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.primaryBtn}
-          onPress={() =>
-            router.push({
-              pathname: '/(tabs)/business/[businessId]/checkout/payment',
-              params: {
-                businessId: slug,
-                fulfillment: fulfillment ?? 'delivery',
-              },
-            })
-          }
+          onPress={continueToPayment}
         >
           <Text style={styles.primaryBtnText}>Continue to payment</Text>
         </TouchableOpacity>

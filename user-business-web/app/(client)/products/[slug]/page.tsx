@@ -18,6 +18,7 @@ import Price from "@/components/client/Price";
 import AddToCartButton from "@/components/client/AddToCartButton";
 import FavoriteButton from "@/components/client/FavoriteButton";
 import SimilarItems from "@/components/client/SimilarItems";
+import ProductViewTracker from "@/components/client/ProductViewTracker";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -61,6 +62,13 @@ export default function ProductPage({ params }: PageProps) {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+      <ProductViewTracker
+        productId={product._id}
+        name={product.name}
+        priceCents={product.priceCents}
+        currency={product.currency}
+        merchantId={product.merchantId}
+      />
       <Breadcrumb className="mb-4">
         <BreadcrumbList>
           <BreadcrumbItem>
@@ -120,6 +128,10 @@ export default function ProductPage({ params }: PageProps) {
               productId={product._id}
               maxStock={product.stock}
               disabled={outOfStock}
+              productName={product.name}
+              priceCents={product.priceCents}
+              currency={product.currency}
+              merchantId={product.merchantId}
             />
             <FavoriteButton productId={product._id} />
           </div>

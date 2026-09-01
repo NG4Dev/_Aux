@@ -1,4 +1,5 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { ClerkProvider, ClerkLoaded, useAuth } from '@clerk/clerk-expo';
 import { tokenCache } from '@clerk/clerk-expo/token-cache';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -8,10 +9,8 @@ import { useQuery } from 'convex/react';
 import ConvexClerkProvider from '@/providers/ConvexClerkProvider';
 import StripeAppProvider from '@/providers/StripeAppProvider';
 import ConvexQueryErrorBoundary from '@/components/ConvexQueryErrorBoundary';
+import MobileAnalyticsObserver from '@/components/analytics/MobileAnalyticsObserver';
 import { authLog } from '@/services/authFlowLogger';
-import {
-  isPassiveAuthEntry,
-} from '@/navigation/authGuardHelpers';
 import { DARK_STACK_OPTIONS } from '@/navigation/stackOptions';
 import {
   getGuestBrowseUnlockedSync,
@@ -27,6 +26,8 @@ import { api } from '@/convex/_generated/api';
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
 const SHOWCASE_PATH = '/(onboarding)/showcase';
+
+WebBrowser.maybeCompleteAuthSession();
 
 if (!publishableKey) {
   throw new Error(
@@ -127,13 +128,12 @@ function GuestOnlyLayout() {
     });
 
     if (!segments[0]) {
-      safeReplace(
-        unlocked ? '/(tabs)/home' : '/(auth)',
-        unlocked ? 'emptySegmentGuestUnlocked' : 'emptySegment',
-      );
-    } else if (unlocked && isPassiveAuthEntry(segments as string[])) {
-      safeReplace('/(tabs)/home', 'guestBrowseUnlocked');
-    } else if (!unlocked && !inOnboardingGroup && !inAuthGroup) {
+      if (unlocked) {
+        safeReplace('/(tabs)/home', 'emptySegmentGuest');
+      } else {
+        safeReplace('/(auth)', 'emptySegment');
+      }
+    } else if (!unlocked && !inOnboardingGroup && !inAuthGroup && segments[0] !== '(tabs)') {
       safeReplace(SHOWCASE_PATH, 'guestNotUnlocked');
     } else {
       authLog('layout.guestFallback', 'guardNoAction', {
@@ -231,6 +231,8 @@ function ProfileAwareLayout() {
     const onDateOfBirth =
       segments[0] === '(onboarding)' && segments[1] === 'date-of-birth';
 
+    const inTabsGroup = segments[0] === '(tabs)';
+
     authLog('layout.profile', 'guardEval', {
       segments,
       isSignedIn,
@@ -244,6 +246,7 @@ function ProfileAwareLayout() {
       inAuthGroup,
       inOnboardingGroup,
       onDateOfBirth,
+      inTabsGroup,
       profileOnboardingComplete: profile?.onboardingCompletedAt !== undefined,
       hasDateOfBirth: profile?.dateOfBirth !== undefined,
     });
@@ -268,13 +271,12 @@ function ProfileAwareLayout() {
         authLog('layout.profile', 'guardNoAction', { branch: 'signedIn' });
       }
     } else if (!segments[0]) {
-      safeReplace(
-        onboardingComplete ? '/(tabs)/home' : '/(auth)',
-        onboardingComplete ? 'emptySegmentGuestUnlocked' : 'emptySegment',
-      );
-    } else if (guestUnlocked && isPassiveAuthEntry(segments as string[])) {
-      safeReplace('/(tabs)/home', 'guestBrowseUnlocked');
-    } else if (!onboardingComplete && !inOnboardingGroup && !inAuthGroup) {
+      if (guestUnlocked || inTabsGroup) {
+        safeReplace('/(tabs)/home', 'emptySegmentGuest');
+      } else {
+        safeReplace('/(auth)', 'emptySegment');
+      }
+    } else if (!onboardingComplete && !inOnboardingGroup && !inAuthGroup && !inTabsGroup) {
       safeReplace(SHOWCASE_PATH, 'guestNotUnlocked');
     } else {
       authLog('layout.profile', 'guardNoAction', { branch: 'guest' });
@@ -320,6 +322,7 @@ export default function RootLayout() {
         <ClerkLoaded>
           <ConvexClerkProvider>
             <StripeAppProvider>
+              <MobileAnalyticsObserver />
               <InitialLayout />
             </StripeAppProvider>
           </ConvexClerkProvider>

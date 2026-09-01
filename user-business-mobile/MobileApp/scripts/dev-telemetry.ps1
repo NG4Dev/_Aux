@@ -41,7 +41,8 @@ Set-Location $MobileAppRoot
 Write-Host ""
 Write-Host "Telemetry (latest): $LatestLog" -ForegroundColor Cyan
 Write-Host "Telemetry (archive): $ArchiveLog" -ForegroundColor DarkGray
-Write-Host "Discover logs: grep '[DiscoverFlow]' in $LatestLog" -ForegroundColor DarkGray
+Write-Host "Discover logs: Select-String '[DiscoverFlow]' $LatestLog" -ForegroundColor DarkGray
+Write-Host "Assistant logs: Select-String '[AssistantFlow]' $LatestLog" -ForegroundColor DarkGray
 Write-Host "Connect phone: exp://127.0.0.1:8081" -ForegroundColor Green
 Write-Host ""
 

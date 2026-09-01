@@ -1,7 +1,10 @@
+import { Suspense } from "react";
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import ConvexProviderWithClerk from "@/components/ConvexProviderWithClerk";
+import AnalyticsScripts from "@/components/analytics/AnalyticsScripts";
+import WebAnalyticsObserver from "@/components/analytics/WebAnalyticsObserver";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -32,7 +35,13 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <ClerkProvider>
-          <ConvexProviderWithClerk>{children}</ConvexProviderWithClerk>
+          <AnalyticsScripts />
+          <ConvexProviderWithClerk>
+            <Suspense fallback={null}>
+              <WebAnalyticsObserver />
+            </Suspense>
+            {children}
+          </ConvexProviderWithClerk>
           <Toaster />
         </ClerkProvider>
       </body>

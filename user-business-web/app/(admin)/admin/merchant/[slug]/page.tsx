@@ -14,6 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime, formatPrice } from "@/components/admin/format";
+import MerchantAnalyticsBootstrap from "@/components/admin/MerchantAnalyticsBootstrap";
 
 export default function MerchantAdminDashboard() {
   const params = useParams<{ slug: string }>();
@@ -33,6 +34,11 @@ export default function MerchantAdminDashboard() {
 
   return (
     <div className="flex flex-col gap-6">
+      <MerchantAnalyticsBootstrap
+        merchantId={merchant._id}
+        merchantSlug={merchant.slug}
+        merchantType={merchant.type}
+      />
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">{merchant.name}</h1>
         <p className="text-sm text-muted-foreground">{merchant.tagline}</p>

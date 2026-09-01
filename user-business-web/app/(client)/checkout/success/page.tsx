@@ -14,12 +14,18 @@ import {
   setPendingCheckoutSession,
   useCartStore,
 } from "@/lib/cart-store";
+import { useAuth, useUser } from "@clerk/nextjs";
+import { trackPurchase } from "@/lib/analytics/ga4/web";
+import { trackMixpanel, MixpanelEvents } from "@/lib/analytics";
 
 export default function CheckoutSuccessPage() {
   const params = useSearchParams();
   const sessionId = params.get("session_id");
   const clear = useCartStore((s) => s.clear);
   const hasMounted = useCartStore((s) => s.hasMounted);
+  const { userId } = useAuth();
+  const { user } = useUser();
+  const email = user?.primaryEmailAddress?.emailAddress;
 
   const order = useQuery(
     api.orders.getBySessionId,
@@ -27,6 +33,7 @@ export default function CheckoutSuccessPage() {
   );
 
   const didClearRef = useRef(false);
+  const didTrackRef = useRef(false);
   useEffect(() => {
     if (!hasMounted || didClearRef.current) return;
     if (order && order.status === "paid") {
@@ -35,6 +42,46 @@ export default function CheckoutSuccessPage() {
       setPendingCheckoutSession(null);
     }
   }, [order, hasMounted, clear]);
+
+  useEffect(() => {
+    if (!order || didTrackRef.current) return;
+    if (order.status !== "paid" && order.status !== "fulfilled") return;
+    didTrackRef.current = true;
+    const value = order.totalCents / 100;
+    const currency = order.currency.toUpperCase();
+    trackPurchase({
+      transactionId: order.stripeSessionId ?? order.stripePaymentIntentId ?? order._id,
+      value,
+      items: [
+        {
+          item_id: order._id,
+          item_name: "order",
+          price: value,
+          quantity: 1,
+        },
+      ],
+      persona: "consumer",
+      currency,
+      userId: userId ?? undefined,
+      emailAddress: email,
+      merchantId: order.merchantId,
+      orderKind: (order.orderKind as "product" | "ticket" | "bundle" | "resale") ?? "product",
+    });
+    void trackMixpanel(
+      order.orderKind === "ticket"
+        ? MixpanelEvents.TicketPurchased
+        : MixpanelEvents.OrderPaid,
+      {
+        transaction_id:
+          order.stripeSessionId ?? order.stripePaymentIntentId ?? order._id,
+        value,
+        currency,
+        persona: "consumer",
+        order_kind: order.orderKind ?? "product",
+        merchant_id: order.merchantId,
+      },
+    );
+  }, [order, userId, email]);
 
   if (!sessionId) {
     return (

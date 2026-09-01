@@ -30,6 +30,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { slugify } from "@/components/admin/format";
+import { useAuth, useUser } from "@clerk/nextjs";
+import { trackMerchantListingCreated } from "@/lib/analytics/ga4/web";
+import { trackMixpanel, MixpanelEvents } from "@/lib/analytics";
 
 const productSchema = z.object({
   name: z.string().min(1, "Name is required").max(120),
@@ -80,6 +83,9 @@ export default function ProductForm({
   const createProduct = useMutation(api.admin.products.create);
   const updateProduct = useMutation(api.admin.products.update);
   const generateUploadUrl = useMutation(api.admin.products.generateUploadUrl);
+  const { userId } = useAuth();
+  const { user } = useUser();
+  const email = user?.primaryEmailAddress?.emailAddress;
 
   const isEdit = product !== undefined;
 
@@ -166,6 +172,19 @@ export default function ProductForm({
           imageStorageId: imageStorageId ?? undefined,
         });
         toast.success("Product created");
+        if (userId) {
+          trackMerchantListingCreated({
+            userId,
+            emailAddress: email,
+            contentType: "product",
+          });
+          void trackMixpanel(MixpanelEvents.ProductListed, {
+            persona: "merchant",
+            content_type: "product",
+            item_name: values.name,
+            item_slug: values.slug,
+          });
+        }
       }
       onSuccess?.();
     } catch (err) {

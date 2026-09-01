@@ -1,51 +1,40 @@
-import { View, Text } from 'react-native'
-import React from 'react'
-import * as DropdownMenu from 'zeego/dropdown-menu';
+import React from 'react';
+import { Platform } from 'react-native';
+import { MenuView } from '@react-native-menu/menu';
 import RoundButton from './RoundButton';
 
 const Dropdown = () => {
   return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger>
-        <RoundButton icon={'ellipsis-horizontal'} text='More'/>
-      </DropdownMenu.Trigger>
-
-      <DropdownMenu.Content>
-        <DropdownMenu.Item key='Download statement'>
-            <DropdownMenu.ItemTitle>Download statement</DropdownMenu.ItemTitle>
-            <DropdownMenu.ItemIcon 
-                ios={{name: "doc.text"}} //or name:'list.bullet.rectangle.fill', pointSize:24,
-                androidIconName="description_24px"
-            />
-        </DropdownMenu.Item>
-
-        <DropdownMenu.Item key='Add payment method'>
-            <DropdownMenu.ItemTitle>Add payment method</DropdownMenu.ItemTitle>
-            <DropdownMenu.ItemIcon 
-                ios={{name: "doc.text"}} //or name:'list.bullet.rectangle.fill', pointSize:24,
-                androidIconName="add_card_24px"
-            />
-        </DropdownMenu.Item>
-
-        <DropdownMenu.Item key='Auto top-up settings'>
-            <DropdownMenu.ItemTitle>Auto top-up settings</DropdownMenu.ItemTitle>
-            <DropdownMenu.ItemIcon 
-                ios={{name: "doc.text"}} //or name:'list.bullet.rectangle.fill', pointSize:24,
-                androidIconName="money_24px"
-            />
-        </DropdownMenu.Item>
-
-        <DropdownMenu.Item key='Security & PIN settings'>
-            <DropdownMenu.ItemTitle>Security & PIN settings</DropdownMenu.ItemTitle>
-            <DropdownMenu.ItemIcon 
-                ios={{name: "doc.text"}} //or name:'list.bullet.rectangle.fill', pointSize:24,
-                androidIconName="password_24px"
-            />
-        </DropdownMenu.Item>
-
-      </DropdownMenu.Content>
-    </DropdownMenu.Root>
+    <MenuView
+      title="More"
+      shouldOpenOnLongPress={false}
+      onPressAction={() => {}}
+      actions={[
+        {
+          id: 'download-statement',
+          title: 'Download statement',
+          image: Platform.select({ ios: 'doc.text', android: 'description_24px' }),
+        },
+        {
+          id: 'add-payment-method',
+          title: 'Add payment method',
+          image: Platform.select({ ios: 'creditcard', android: 'add_card_24px' }),
+        },
+        {
+          id: 'auto-top-up',
+          title: 'Auto top-up settings',
+          image: Platform.select({ ios: 'banknote', android: 'money_24px' }),
+        },
+        {
+          id: 'security-settings',
+          title: 'Security & PIN settings',
+          image: Platform.select({ ios: 'lock', android: 'password_24px' }),
+        },
+      ]}
+    >
+      <RoundButton icon="ellipsis-horizontal" text="More" />
+    </MenuView>
   );
 };
 
-export default Dropdown
+export default Dropdown;

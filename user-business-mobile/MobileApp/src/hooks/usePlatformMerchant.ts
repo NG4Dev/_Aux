@@ -1,12 +1,21 @@
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
-import { USE_CONVEX_DATA } from '@/config/features';
+import { STRICT_LIVE_DATA, USE_CONVEX_DATA } from '@/config/features';
 import {
   getBusinessById,
   getMenuCategoriesForBusiness,
   getMenuItemsForBusiness,
   getEventsForBusiness,
 } from '@/data/mockBusinesses';
+
+function useMockFallback(slug: string) {
+  return {
+    merchant: getBusinessById(slug),
+    items: getMenuItemsForBusiness(slug),
+    categories: getMenuCategoriesForBusiness(slug),
+    events: getEventsForBusiness(slug),
+  };
+}
 
 export function useMerchantBySlug(slug: string | undefined) {
   const convexMerchant = useQuery(
@@ -19,11 +28,17 @@ export function useMerchantBySlug(slug: string | undefined) {
   }
 
   if (convexMerchant === undefined) {
-    return { merchant: getBusinessById(slug), isLoading: true };
+    return {
+      merchant: STRICT_LIVE_DATA ? null : getBusinessById(slug),
+      isLoading: true,
+    };
   }
 
   if (convexMerchant === null) {
-    return { merchant: getBusinessById(slug), isLoading: false };
+    return {
+      merchant: STRICT_LIVE_DATA ? null : getBusinessById(slug),
+      isLoading: false,
+    };
   }
 
   const gallery =
@@ -71,53 +86,52 @@ export function useMerchantProducts(slug: string | undefined) {
     api.platform.merchants.listProducts,
     USE_CONVEX_DATA && slug ? { merchantSlug: slug } : 'skip',
   );
+  const menuCategories = useQuery(
+    api.platform.merchants.listMenuCategories,
+    USE_CONVEX_DATA && slug ? { merchantSlug: slug } : 'skip',
+  );
 
   if (!USE_CONVEX_DATA || !slug) {
-    return {
-      items: getMenuItemsForBusiness(slug ?? ''),
-      categories: getMenuCategoriesForBusiness(slug ?? ''),
-      isLoading: false,
-    };
+    const mock = useMockFallback(slug ?? '');
+    return { items: mock.items, categories: mock.categories, isLoading: false };
   }
 
-  if (products === undefined) {
+  if (products === undefined || menuCategories === undefined) {
+    const mock = useMockFallback(slug);
     return {
-      items: getMenuItemsForBusiness(slug),
-      categories: getMenuCategoriesForBusiness(slug),
+      items: STRICT_LIVE_DATA ? [] : mock.items,
+      categories: STRICT_LIVE_DATA ? [] : mock.categories,
       isLoading: true,
     };
   }
 
-  const categoryMap = new Map<string, { id: string; name: string; itemIds: string[] }>();
-  const items = products.map((p: (typeof products)[number]) => {
-    const categoryId = String(p.categoryId);
-    if (!categoryMap.has(categoryId)) {
-      categoryMap.set(categoryId, {
-        id: categoryId,
-        name: 'Menu',
-        itemIds: [],
-      });
-    }
-    categoryMap.get(categoryId)!.itemIds.push(p.slug);
-    return {
-      id: p.slug,
-      name: p.name,
-      price: p.priceCents / 100,
-      currency: p.currency.toUpperCase(),
-      description: p.description,
-      image: p.imageUrl ?? '',
-      categoryId,
-      views: 0,
-      postedAt: p.createdAt,
-      mediaAspect: p.mediaAspect,
-      imageWidth: p.imageWidth,
-      imageHeight: p.imageHeight,
-    };
-  });
+  const items = products.map((p: (typeof products)[number]) => ({
+    id: p.slug,
+    name: p.name,
+    price: p.priceCents / 100,
+    currency: p.currency.toUpperCase(),
+    description: p.description,
+    image: p.imageUrl ?? '',
+    categoryId: p.categorySlug,
+    categoryConvexId: String(p.categoryId),
+    views: 0,
+    postedAt: p.createdAt,
+    mediaAspect: p.mediaAspect,
+    imageWidth: p.imageWidth,
+    imageHeight: p.imageHeight,
+  }));
+
+  const categories = menuCategories.map((c: (typeof menuCategories)[number]) => ({
+    id: c.slug,
+    name: c.name,
+    itemIds: items
+      .filter((item) => item.categoryId === c.slug)
+      .map((item) => item.id),
+  }));
 
   return {
     items,
-    categories: [...categoryMap.values()],
+    categories,
     isLoading: false,
   };
 }
@@ -133,7 +147,10 @@ export function useMerchantEvents(slug: string | undefined) {
   }
 
   if (events === undefined) {
-    return { events: getEventsForBusiness(slug), isLoading: true };
+    return {
+      events: STRICT_LIVE_DATA ? [] : getEventsForBusiness(slug),
+      isLoading: true,
+    };
   }
 
   return {

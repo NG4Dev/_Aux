@@ -60,4 +60,6 @@ export type SearchResult = {
   title: string;
   subtitle: string;
   image: string;
+  merchantSlug?: string;
+  productSlug?: string;
 };

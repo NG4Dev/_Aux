@@ -8,7 +8,6 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useRef, useState } from 'react';
 import { BlurView } from 'expo-blur';
@@ -23,7 +22,6 @@ export type Props = {
 
 const MessageInput = ({ onShouldSend }: Props) => {
   const [message, setMessage] = useState('');
-  const { bottom } = useSafeAreaInsets();
   const expanded = useSharedValue(0);
   const inputRef = useRef<TextInput>(null);
 
@@ -64,7 +62,7 @@ const MessageInput = ({ onShouldSend }: Props) => {
   };
 
   return (
-    <BlurView intensity={90} tint="dark" style={{ paddingBottom: bottom, paddingTop: 10 }}>
+    <BlurView intensity={90} tint="dark" style={styles.inputBar}>
       <View style={styles.row}>
         <ATouchableOpacity onPress={expandItems} style={[styles.roundBtn, expandButtonStyle]}>
           <Ionicons name="add" size={24} color="#fff" />
@@ -108,6 +106,10 @@ const MessageInput = ({ onShouldSend }: Props) => {
 };
 
 const styles = StyleSheet.create({
+  inputBar: {
+    paddingTop: 10,
+    paddingBottom: 8,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

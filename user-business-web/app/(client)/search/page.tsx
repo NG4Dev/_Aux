@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search as SearchIcon, X } from "lucide-react";
 import { useQuery } from "convex/react";
@@ -20,6 +20,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import ProductCard from "@/components/client/ProductCard";
+import { trackSearch } from "@/lib/analytics/ga4/web";
+import { trackMixpanel, MixpanelEvents } from "@/lib/analytics";
 
 const ALL_CATEGORIES = "__all__";
 
@@ -30,6 +32,16 @@ export default function SearchPage() {
   const categorySlug = params.get("category") ?? ALL_CATEGORIES;
 
   const [draft, setDraft] = useState(query);
+
+  useEffect(() => {
+    if (!query) return;
+    trackSearch({ searchTerm: query, persona: "consumer" });
+    void trackMixpanel(MixpanelEvents.SearchPerformed, {
+      search_term: query,
+      persona: "consumer",
+      category: categorySlug === ALL_CATEGORIES ? undefined : categorySlug,
+    });
+  }, [query, categorySlug]);
 
   const categories = useQuery(api.categories.list, {});
   const selectedCategory =

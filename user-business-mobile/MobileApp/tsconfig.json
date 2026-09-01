@@ -2,22 +2,21 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
-    "baseUrl": ".",
     "paths": {
       "@/*": [
-        "src/*"
+        "./src/*"
       ],
       "@store/*": [
-        "store/*"
+        "./store/*"
       ],
       "@assets/*": [
-        "assets/*"
+        "./assets/*"
       ],
       "@constants/*": [
-        "constants/*"
+        "./constants/*"
       ],
       "@convex/*": [
-        "src/convex/*"
+        "./src/convex/*"
       ]
     }
   },

@@ -153,6 +153,13 @@ import { useCartStore } from '@/features/cart/cartStore';
 
 import { discoverError, discoverLog } from '@/services/discoverFlowLogger';
 
+import {
+  trackAddToCart,
+  trackViewItem,
+  trackMixpanel,
+  MixpanelEvents,
+} from '@/services/analytics';
+
 
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -965,6 +972,29 @@ export default function DiscoverProductOverlay({
     if (selectedProduct && merchant && media) {
 
       lastReadyRef.current = { product: selectedProduct, merchant, media };
+      const price = selectedProduct.priceCents / 100;
+      void trackViewItem({
+        item: {
+          item_id: String(selectedProduct._id),
+          item_name: selectedProduct.name,
+          item_brand: merchantSlug,
+          price,
+          quantity: 1,
+        },
+        persona: 'consumer',
+        contentType: 'product',
+        merchantSlug,
+        value: price,
+        currency: (selectedProduct.currency ?? 'ZAR').toUpperCase(),
+      });
+      void trackMixpanel(MixpanelEvents.ProductViewed, {
+        item_id: String(selectedProduct._id),
+        item_name: selectedProduct.name,
+        merchant_slug: merchantSlug,
+        persona: 'consumer',
+        content_type: 'product',
+        value: price,
+      });
 
       cachedMerchantRef.current = merchant;
 
@@ -2063,6 +2093,32 @@ export default function DiscoverProductOverlay({
 
       currency: cartProduct.currency,
 
+    });
+
+    const price = cartProduct.priceCents / 100;
+    const item = {
+      item_id: String(cartProduct._id),
+      item_name: cartProduct.name,
+      item_brand: merchantSlug,
+      price,
+      quantity: 1,
+    };
+    void trackAddToCart({
+      items: [item],
+      value: price,
+      persona: 'consumer',
+      currency: (cartProduct.currency ?? 'ZAR').toUpperCase(),
+      merchantSlug,
+      contentType: 'product',
+      orderKind: 'product',
+    });
+    void trackMixpanel(MixpanelEvents.AddToCart, {
+      item_id: String(cartProduct._id),
+      item_name: cartProduct.name,
+      value: price,
+      merchant_slug: merchantSlug,
+      persona: 'consumer',
+      content_type: 'product',
     });
 
     setShowImageOverlay(false);

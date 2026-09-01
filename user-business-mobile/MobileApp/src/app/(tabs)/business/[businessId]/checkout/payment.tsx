@@ -17,6 +17,12 @@ import type { Id } from '@/convex/_generated/dataModel';
 import Colors from '@/constants/Colors';
 import { useCartStore } from '@/features/cart/cartStore';
 import { useStripeCheckoutSheet } from '@/hooks/useStripeCheckoutSheet';
+import {
+  trackAddPaymentInfo,
+  trackPurchase,
+  trackMixpanel,
+  MixpanelEvents,
+} from '@/services/analytics';
 
 export default function PaymentScreen() {
   const { businessId, fulfillment } = useLocalSearchParams<{
@@ -53,6 +59,23 @@ export default function PaymentScreen() {
 
     setLoading(true);
     try {
+      const value =
+        lines.reduce((sum, line) => sum + line.priceCents * line.quantity, 0) /
+        100;
+      void trackAddPaymentInfo({
+        persona: 'consumer',
+        paymentType: 'card',
+        value,
+        orderKind: 'product',
+        emailAddress: user.primaryEmailAddress?.emailAddress,
+      });
+      void trackMixpanel(MixpanelEvents.PaymentStarted, {
+        persona: 'consumer',
+        payment_type: 'card',
+        value,
+        merchant_slug: slug,
+      });
+
       await ensureUser({});
       if (fulfillment !== 'pickup') {
         await setAddress({
@@ -81,6 +104,24 @@ export default function PaymentScreen() {
       if (result.canceled) {
         return;
       }
+
+      void trackPurchase({
+        transactionId: result.paymentIntentId,
+        value,
+        persona: 'consumer',
+        currency: 'ZAR',
+        orderKind: 'product',
+        merchantSlug: slug,
+        emailAddress: user.primaryEmailAddress?.emailAddress,
+      });
+      void trackMixpanel(MixpanelEvents.OrderPaid, {
+        transaction_id: result.paymentIntentId,
+        value,
+        currency: 'ZAR',
+        persona: 'consumer',
+        merchant_slug: slug,
+        order_kind: 'product',
+      });
 
       clearMerchant(slug);
       router.replace({

@@ -544,4 +544,35 @@ export default defineSchema({
     currency: v.string(),
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
+
+  assistantSessions: defineTable({
+    userId: v.id("users"),
+    query: v.string(),
+    imageUrl: v.optional(v.string()),
+    preferenceSnapshot: v.optional(v.any()),
+    candidates: v.array(v.any()),
+    chunkIds: v.array(v.string()),
+    status: v.union(
+      v.literal("awaiting_approval"),
+      v.literal("synthesized"),
+      v.literal("expired"),
+    ),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_status", ["userId", "status"]),
+
+  assistantTraces: defineTable({
+    userId: v.id("users"),
+    sessionId: v.optional(v.id("assistantSessions")),
+    phase: v.union(v.literal("search"), v.literal("synthesize"), v.literal("chat")),
+    provider: v.union(v.literal("amd"), v.literal("fireworks"), v.literal("convex")),
+    model: v.string(),
+    inputTokens: v.optional(v.number()),
+    outputTokens: v.optional(v.number()),
+    latencyMs: v.number(),
+    metadata: v.optional(v.any()),
+    createdAt: v.number(),
+  }).index("by_user", ["userId"]),
 });

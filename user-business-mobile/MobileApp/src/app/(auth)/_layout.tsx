@@ -4,7 +4,10 @@ import { AUTH_HEADER_OPTIONS, DARK_STACK_OPTIONS } from '@/navigation/stackOptio
 export default function AuthLayout() {
   return (
     <Stack screenOptions={DARK_STACK_OPTIONS}>
-      <Stack.Screen name="index" options={{ title: 'Welcome' }} />
+      <Stack.Screen
+        name="index"
+        options={{ title: 'Welcome', unmountOnBlur: true }}
+      />
       <Stack.Screen name="selection" options={{ title: 'Get Started' }} />
       <Stack.Screen
         name="sign-in"

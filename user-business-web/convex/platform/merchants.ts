@@ -336,3 +336,102 @@ export const getProduct = query({
   },
 });
 
+const merchantSummaryValidator = v.object({
+  slug: v.string(),
+  name: v.string(),
+});
+
+export const listMerchantsForDiscoverCategory = query({
+  args: { categorySlug: v.string() },
+  returns: v.array(merchantSummaryValidator),
+  handler: async (ctx, args) => {
+    const merchants = await ctx.db
+      .query("merchants")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .take(200);
+    return merchants
+      .filter(
+        (m) =>
+          m.type === "restaurant" &&
+          m.discoverCategorySlugs?.includes(args.categorySlug),
+      )
+      .map((m) => ({ slug: m.slug, name: m.name }));
+  },
+});
+
+const menuSearchResultValidator = v.object({
+  merchantSlug: v.string(),
+  merchantName: v.string(),
+  product: productWithMediaValidator,
+});
+
+export const searchMenuProducts = query({
+  args: {
+    query: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(menuSearchResultValidator),
+  handler: async (ctx, args) => {
+    const trimmed = args.query.trim().toLowerCase();
+    const limit = args.limit ?? 20;
+    if (trimmed.length === 0) {
+      return [];
+    }
+
+    const merchants = await ctx.db
+      .query("merchants")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .take(200);
+    const restaurantMerchants = merchants.filter((m) => m.type === "restaurant");
+    const merchantById = new Map(restaurantMerchants.map((m) => [m._id, m]));
+
+    const nameHits = await ctx.db
+      .query("products")
+      .withSearchIndex("search_name", (q) =>
+        q.search("name", trimmed).eq("isActive", true),
+      )
+      .take(limit * 3);
+
+    const seen = new Set<string>();
+    const merged: Doc<"products">[] = [];
+
+    for (const p of nameHits) {
+      if (seen.has(p._id)) continue;
+      if (p.merchantId === undefined || !merchantById.has(p.merchantId)) continue;
+      seen.add(p._id);
+      merged.push(p);
+    }
+
+    if (merged.length < limit) {
+      for (const merchant of restaurantMerchants) {
+        const products = await ctx.db
+          .query("products")
+          .withIndex("by_merchant", (q) => q.eq("merchantId", merchant._id))
+          .filter((q) => q.eq(q.field("isActive"), true))
+          .take(80);
+        for (const p of products) {
+          if (merged.length >= limit) break;
+          if (seen.has(p._id)) continue;
+          const haystack = `${p.name} ${p.description}`.toLowerCase();
+          if (!haystack.includes(trimmed)) continue;
+          seen.add(p._id);
+          merged.push(p);
+        }
+        if (merged.length >= limit) break;
+      }
+    }
+
+    const results = await Promise.all(
+      merged.slice(0, limit).map(async (p) => {
+        const merchant = merchantById.get(p.merchantId!)!;
+        return {
+          merchantSlug: merchant.slug,
+          merchantName: merchant.name,
+          product: await productWithMedia(ctx, p),
+        };
+      }),
+    );
+    return results;
+  },
+});
+

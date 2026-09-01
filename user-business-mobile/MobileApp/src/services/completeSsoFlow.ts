@@ -34,14 +34,40 @@ export async function completeSsoFlow(
   const redirectUrl = getOAuthRedirectUrl();
   authLog('ssoFlow', 'start', { strategy, redirectUrl });
 
-  const { createdSessionId, setActive, signIn } = await startSSOFlow({
-    strategy,
-    redirectUrl,
-  });
+  let createdSessionId: string | null;
+  let setActive: ((params: { session: string }) => Promise<void>) | undefined;
+  let signIn:
+    | {
+        status?: string | null;
+        createdSessionId?: string | null;
+      }
+    | null
+    | undefined;
+  let signUpStatus: string | null = null;
+
+  try {
+    const result = await startSSOFlow({
+      strategy,
+      redirectUrl,
+    });
+    createdSessionId = result.createdSessionId;
+    setActive = result.setActive;
+    signIn = result.signIn;
+    signUpStatus =
+      (result as { signUp?: { status?: string | null } }).signUp?.status ?? null;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    authLog('ssoFlow', 'startSSOFlowError', { message });
+    if (message.toLowerCase().includes('cancel') || message.toLowerCase().includes('dismiss')) {
+      return { ok: false, reason: 'cancelled' };
+    }
+    throw err;
+  }
 
   authLog('ssoFlow', 'startSSOFlowResult', {
     hasCreatedSessionId: !!createdSessionId,
     signInStatus: signIn?.status ?? null,
+    signUpStatus,
     hasSetActive: !!setActive,
   });
 

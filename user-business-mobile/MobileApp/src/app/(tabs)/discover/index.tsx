@@ -17,6 +17,11 @@ import { api } from '@/convex/_generated/api';
 import { USE_CONVEX_DATA } from '@/config/features';
 import { DISCOVER_CATEGORIES, DISCOVER_TABS } from '@/data/mockFeed';
 import { discoverLog } from '@/services/discoverFlowLogger';
+import {
+  trackViewItemList,
+  MixpanelEvents,
+  trackMixpanel,
+} from '@/services/analytics';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const TILE_GAP = 12;
@@ -52,6 +57,15 @@ export default function DiscoverIndex() {
       activeTab,
       categoryCount: categories.length,
       convexLoading: USE_CONVEX_DATA && convexCategories === undefined,
+    });
+    void trackViewItemList({
+      itemListName: 'discover_home',
+      persona: 'consumer',
+    });
+    void trackMixpanel(MixpanelEvents.DiscoverHomeViewed, {
+      persona: 'consumer',
+      category_count: categories.length,
+      active_tab: activeTab,
     });
   }, [activeTab, categories.length, convexCategories]);
 

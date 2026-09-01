@@ -1,4 +1,4 @@
-{
+﻿{
   "expo": {
     "name": "Aux",
     "slug": "Aux",
@@ -8,57 +8,33 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
-      "supportsTablet": true
+      "appleTeamId": "VNG3LN323R",
+      "bundleIdentifier": "com.galyvant.aux",
+      "buildNumber": "1",
+      "supportsTablet": true,
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": { "ITSAppUsesNonExemptEncryption": false }
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#000000"
-      },
+      "adaptiveIcon": { "foregroundImage": "./assets/adaptive-icon.png", "backgroundColor": "#000000" },
       "package": "com.ng4.RNAuth",
-      "navigationBar": {
-        "backgroundColor": "#000000"
-      },
-      "statusBar": {
-        "backgroundColor": "#000000",
-        "barStyle": "light-content"
-      }
+      "googleServicesFile": "./google-services.json",
+      "intentFilters": [{ "action": "VIEW", "autoVerify": true, "data": [{ "scheme": "aux" }], "category": ["BROWSABLE", "DEFAULT"] }],
+      "softwareKeyboardLayoutMode": "resize",
+      "navigationBar": { "backgroundColor": "#000000" },
+      "statusBar": { "backgroundColor": "#000000", "barStyle": "light-content" }
     },
-    "androidStatusBar": {
-      "backgroundColor": "#000000",
-      "barStyle": "light-content"
-    },
-    "web": {
-      "favicon": "./assets/favicon.png",
-      "bundler": "metro"
-    },
+    "androidStatusBar": { "backgroundColor": "#000000", "barStyle": "light-content" },
+    "web": { "favicon": "./assets/favicon.png", "bundler": "metro" },
     "plugins": [
-      "expo-router",
-      "expo-dev-client",
-      "expo-video",
-      "expo-font",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/splash-icon.png",
-          "resizeMode": "contain",
-          "backgroundColor": "#000000"
-        }
-      ],
-      [
-        "@stripe/stripe-react-native",
-        {
-          "merchantIdentifier": "merchant.com.ng4.aux",
-          "enableGooglePay": true
-        }
-      ],
-      "@react-native-community/datetimepicker"
+      "expo-router", "expo-dev-client", "expo-video", "expo-font",
+      ["expo-splash-screen", { "image": "./assets/splash-icon.png", "resizeMode": "contain", "backgroundColor": "#000000" }],
+      ["@stripe/stripe-react-native", { "merchantIdentifier": "merchant.com.galyvant.aux", "enableGooglePay": true }],
+      "@react-native-community/datetimepicker",
+      "@react-native-firebase/app",
+      ["@react-native-firebase/analytics", { "ios": { "withoutAdIdSupport": true } }],
+      ["expo-build-properties", { "ios": { "useFrameworks": "static" } }]
     ],
-    "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "83c8e834-27c8-4681-961c-a40b215cf9a2"
-      }
-    }
+    "extra": { "router": {}, "eas": { "projectId": "83c8e834-27c8-4681-961c-a40b215cf9a2" } }
   }
 }
