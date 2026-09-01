@@ -20,7 +20,7 @@ Short tracked context for Cursor agents. Verbose notes, recon, and session docs 
 | `.env.example`, `*.example` plist/json | `Podfile.lock` under a tracked ios tree |
 | Analytics, assistant, funnel `.ts`/`.tsx` | Anything under `.local/`, `logs/` |
 
-**Windows reserved name:** App display name is `"Aux"`. A committed prebuild folder `ios/Aux/` breaks `git pull` on Windows (`Aux` is a reserved device name). Slug is `aux-app` so EAS prebuild uses a safe native project name. Never re-add `ios/` or `android/` to the repo.
+**Windows reserved name:** App display name is `"Aux"`. A committed prebuild folder `ios/Aux/` breaks `git pull` on Windows (`Aux` is a reserved device name). **Never commit `ios/` or `android/`** — EAS prebuild runs on Mac/Linux workers where `ios/Aux/` is fine. Do not rename slug unless you also update the linked EAS project on expo.dev.
 
 ### Mobile — role split (build ownership)
 
@@ -49,7 +49,7 @@ Do not ask Windows agents to run `expo prebuild --platform ios`, commit `ios/`, 
 
 - iOS: `com.galyvant.aux` (team `VNG3LN323R`)
 - Android: `com.ng4.RNAuth`
-- Expo slug: `aux-app` (EAS projectId in `app.json` `extra.eas`)
+- Expo slug: `Aux` (must match EAS projectId `83c8e834-27c8-4681-961c-a40b215cf9a2` on expo.dev — do not rename slug without updating the EAS project)
 
 ## Discovery ingestion
 
