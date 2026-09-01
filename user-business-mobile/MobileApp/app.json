@@ -1,7 +1,7 @@
 ﻿{
   "expo": {
     "name": "Aux",
-    "slug": "Aux",
+    "slug": "aux-app",
     "scheme": "aux",
     "version": "1.0.0",
     "orientation": "portrait",

@@ -1,4 +1,13 @@
-﻿# iOS TestFlight handoff â€” AUX Mobile (`@ng4/Aux`)
+﻿# iOS TestFlight handoff — AUX Mobile (`@ng4/aux-app`)
+
+## Native folders (ios/ / android/)
+
+**Do not commit** `ios/` or `android/` — they are gitignored (same as Complete Farmer). EAS runs `expo prebuild` on build workers (Mac for iOS, Linux for Android).
+
+- **Windows devs:** `eas build --profile preview --platform android` — no local native tree needed.
+- **Mac helper (Rishay):** `eas build --profile preview-testflight --platform ios` — prebuild runs in EAS; never rely on a committed `ios/` folder.
+
+**Why:** Expo app name `"Aux"` creates an `ios/Aux/` target on prebuild. `Aux` is a **Windows reserved device name**, so checking out a committed `ios/Aux/` tree breaks `git pull` on Windows. Slug is `aux-app` so EAS prebuild uses a safe native project name.
 
 ## iOS helper (TestFlight)
 
@@ -16,7 +25,7 @@ Helper builds and submits iOS with **their own Apple Developer account**. You ke
 | System | Owner action | Helper needs |
 |--------|--------------|--------------|
 | **GitHub** | Add collaborator on repo with mobile app | Clone + push bundle ID change if needed |
-| **Expo** | Invite as **Developer** on [@ng4](https://expo.dev/accounts/ng4/settings/members) | `eas build` / `eas submit` for project `Aux` |
+| **Expo** | Invite as **Developer** on [@ng4](https://expo.dev/accounts/ng4/settings/members) | `eas build` / `eas submit` for project `aux-app` (EAS projectId unchanged) |
 | **Convex** | Optional â€” only if changing env vars | Not required for build (`FIREWORKS_API_KEY` already on Convex) |
 | **Clerk** | Not needed | Publishable key is in `eas.json` |
 | **Apple** | Not needed from owner | Helper's own Apple Developer Program ($99/yr) |
@@ -47,14 +56,12 @@ Or from repo root:
 
 ## Bundle ID
 
-Current in `app.json`: `com.ng4.RNAuth` (iOS + Android).
+Current in `app.json`:
 
-Helper should either:
+- **iOS:** `com.galyvant.aux` (Apple team `VNG3LN323R`)
+- **Android:** `com.ng4.RNAuth`
 
-- Register **`com.galyvant.aux`** on their Apple team if still available, or
-- Change to their org prefix (e.g. `com.galyvant.aux`) in `app.json` before the first iOS build.
-
----
+Helper uses the committed bundle IDs unless registering a new App Store app on their team.
 
 ## Helper runbook
 
@@ -66,9 +73,9 @@ npm ci
 
 # 2. Expo (must be invited to @ng4)
 eas login
-eas whoami   # should show access to @ng4/Aux
+eas whoami   # should show access to @ng4/aux-app
 
-# 3. Build for TestFlight (interactive â€” helper's Apple ID)
+# 3. Build for TestFlight (EAS prebuild on Mac worker — no committed ios/ required)
 eas build --profile preview-testflight --platform ios
 
 # 4. Submit to App Store Connect / TestFlight
@@ -119,9 +126,9 @@ Header should show **Gemma (FW) Â· Agent**. First Fireworks request after idle
 
 | File | Purpose |
 |------|---------|
-| `eas.json` | `preview` (Android APK), `preview-testflight` (iOS store), `submit.preview-testflight` (empty â€” helper fills via `eas submit` prompts) |
-| `.env.example` | Local Metro env vars (EAS builds use `eas.json` env) |
-| `app.json` | Bundle ID, EAS projectId `83c8e834-27c8-4681-961c-a40b215cf9a2` |
+| `eas.json` | `preview` (Android APK + prebuild), `preview-testflight` (iOS store + prebuild), `submit.preview-testflight` |
+| `.gitignore` | `ios/`, `android/` — native code generated at build time only |
+| `app.json` | Slug `aux-app`, bundle IDs, EAS projectId `83c8e834-27c8-4681-961c-a40b215cf9a2` |
 
 Do **not** commit: `.env`, Apple credentials, Fireworks secret key, Convex deploy keys.
 

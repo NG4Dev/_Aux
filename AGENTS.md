@@ -4,9 +4,52 @@ Short tracked context for Cursor agents. Verbose notes, recon, and session docs 
 
 ## Commit policy
 
-- **Mobile app (`user-business-mobile/MobileApp/`)** — commit **code only**: `.ts`, `.tsx`, config (`app.json`, `metro.config.js`, `package.json`), and runnable scripts. Do **not** commit `docs/*.md` (except `docs/README.md`), `logs/`, `.expo-tmp-check/`, or anything under `.local/`.
+- **Mobile app (`user-business-mobile/MobileApp/`)** — commit **code only**: `.ts`, `.tsx`, config (`app.json`, `metro.config.js`, `package.json`, `eas.json`), and runnable scripts under `scripts/`. Do **not** commit `docs/*.md` (except `docs/README.md`), `logs/`, `.expo-tmp-check/`, or anything under `.local/`.
 - **Discovery ingestion** — commit pipeline **source** (`src/`, `scripts/`, tests, `.env.example`). Do **not** commit `agent-docs/`, `recon/`, or `.local/`.
 - **Never commit** secrets (`.env`), session logs, or agent-generated markdown snapshots.
+
+### Mobile — do NOT commit native folders
+
+`ios/` and `android/` are **gitignored** (same pattern as Complete Farmer). EAS runs `expo prebuild` on build workers — native projects are generated at build time, not stored in git.
+
+| Do commit | Do not commit |
+|-----------|----------------|
+| `app.json`, `eas.json`, `package.json` | `ios/` (entire tree) |
+| `src/**`, Convex client wiring | `android/` (entire tree) |
+| `scripts/*.ps1`, `scripts/HANDOFF-IOS.md` | `google-services.json`, `GoogleService-Info.plist` (real Firebase files) |
+| `.env.example`, `*.example` plist/json | `Podfile.lock` under a tracked ios tree |
+| Analytics, assistant, funnel `.ts`/`.tsx` | Anything under `.local/`, `logs/` |
+
+**Windows reserved name:** App display name is `"Aux"`. A committed prebuild folder `ios/Aux/` breaks `git pull` on Windows (`Aux` is a reserved device name). Slug is `aux-app` so EAS prebuild uses a safe native project name. Never re-add `ios/` or `android/` to the repo.
+
+### Mobile — role split (build ownership)
+
+| Who | Machine | Owns |
+|-----|---------|------|
+| Owner (NG4Dev) | Windows | JS/TS, Convex, web analytics, mobile analytics wiring, **Android EAS** (`preview` APK) |
+| Rishay | Mac | **iOS EAS / TestFlight** (`preview-testflight`), Apple signing |
+
+**Owner (Windows):**
+
+```powershell
+cd user-business-mobile/MobileApp
+eas build --profile preview --platform android
+```
+
+**iOS helper (Mac only)** — see `user-business-mobile/MobileApp/scripts/HANDOFF-IOS.md`:
+
+```powershell
+eas build --profile preview-testflight --platform ios
+eas submit --profile preview-testflight --platform ios --latest
+```
+
+Do not ask Windows agents to run `expo prebuild --platform ios`, commit `ios/`, or merge branches that require checking out `ios/Aux/` locally. Merge on GitHub or on Mac.
+
+**Bundle IDs (do not change without coordination):**
+
+- iOS: `com.galyvant.aux` (team `VNG3LN323R`)
+- Android: `com.ng4.RNAuth`
+- Expo slug: `aux-app` (EAS projectId in `app.json` `extra.eas`)
 
 ## Discovery ingestion
 
