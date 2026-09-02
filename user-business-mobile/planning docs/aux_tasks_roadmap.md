@@ -1,4 +1,4 @@
-# Aux Project Roadmap & Tasks
+﻿# Aux Project Roadmap & Tasks
 
 This roadmap is based on voice transcripts from March 10-11, 2026, outlining the enhancements and features for the Aux application.
 
