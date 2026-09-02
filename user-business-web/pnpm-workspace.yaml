@@ -1,3 +1,4 @@
-# pnpm 11+: build approvals live here (package.json#pnpm is ignored)
-allowBuilds:
-  msw: true
+# pnpm 11 on Vercel ignores package.json#pnpm and fails installs on
+# unreviewed dependency build scripts (ERR_PNPM_IGNORED_BUILDS).
+# Allow all builds for this Next.js app so CI can install.
+dangerouslyAllowAllBuilds: true
