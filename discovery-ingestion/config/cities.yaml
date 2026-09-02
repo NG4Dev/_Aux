@@ -1,0 +1,40 @@
+cities:
+  johannesburg:
+    slug: johannesburg
+    name: Johannesburg
+    country: ZA
+    timezone: Africa/Johannesburg
+    lat: -26.2041
+    lng: 28.0473
+    bandsintown_location: Johannesburg,South+Africa
+    google_query_suffix: "Johannesburg, South Africa"
+
+  cape-town:
+    slug: cape-town
+    name: Cape Town
+    country: ZA
+    timezone: Africa/Johannesburg
+    lat: -33.9249
+    lng: 18.4241
+    bandsintown_location: Cape+Town,South+Africa
+    google_query_suffix: "Cape Town, South Africa"
+
+  durban:
+    slug: durban
+    name: Durban
+    country: ZA
+    timezone: Africa/Johannesburg
+    lat: -29.8587
+    lng: 31.0218
+    bandsintown_location: Durban,South+Africa
+    google_query_suffix: "Durban, South Africa"
+
+  pretoria:
+    slug: pretoria
+    name: Pretoria
+    country: ZA
+    timezone: Africa/Johannesburg
+    lat: -25.7479
+    lng: 28.2293
+    bandsintown_location: Pretoria,South+Africa
+    google_query_suffix: "Pretoria, South Africa"

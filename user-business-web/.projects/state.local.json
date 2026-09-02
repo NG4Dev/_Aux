@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "project": {
+    "initializedAt": "2026-05-23T17:15:36.952Z",
+    "merchantDisplayName": null,
+    "merchantId": "acct_1RH00203n6RN6QTR",
+    "projectId": "project_61Ujh6VY3SxYz2sWX16SQNxO0UE9C6RyvFtfsgHsGOe0",
+    "projectName": "ycago"
+  },
+  "providers": {
+    "clerk": {
+      "accountRequestId": "facctrq_61Ujh84YdApu1W91316SQNxO0UE9C6RyvFtfsgHsG10y",
+      "configuration": {},
+      "linkedAt": "2026-05-23T17:17:16.492Z",
+      "providerId": "prvdr_61UGOeSW4e0T9Etwn537w",
+      "providerName": "Clerk",
+      "redirectUrl": null,
+      "requestedAt": "2026-05-23T17:17:16.492Z",
+      "status": "complete"
+    }
+  },
+  "resources": {
+    "clerk-plan": {
+      "configuration": {},
+      "createdAt": "2026-05-23T17:17:23.870Z",
+      "lastRevealedAt": "2026-05-23T17:17:26.222Z",
+      "lastStatus": "complete",
+      "name": "clerk-plan",
+      "providerId": "prvdr_61UGOeSW4e0T9Etwn537w",
+      "providerName": "Clerk",
+      "resourceId": "fres_61Ujh8AzO7pNQJ9UM16SQNxO0UE9C6RyvFtfsgHsG4Lw",
+      "serviceId": "hobby"
+    },
+    "ycago": {
+      "configuration": {
+        "app_name": "ycago"
+      },
+      "createdAt": "2026-05-23T17:25:58.241Z",
+      "lastRevealedAt": "2026-05-23T17:26:00.763Z",
+      "lastStatus": "complete",
+      "name": "ycago",
+      "providerId": "prvdr_61UGOeSW4e0T9Etwn537w",
+      "providerName": "Clerk",
+      "resourceId": "fres_61UjhGRgDLEYQG5Jz16SQNxO0UE9C6RyvFtfsgHsG5Cq",
+      "serviceId": "auth"
+    }
+  }
+}

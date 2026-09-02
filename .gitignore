@@ -1,4 +1,4 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+﻿# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
 # dependencies
 node_modules/
@@ -42,14 +42,11 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-# Reference material
-onboarding apple invites style/
-photo gallery for places-products-events/
-photo gallery for menu-product items/
-apple wallet style animations/
+# Reference apps (local experiments and upstream snapshots)
+user-business-mobile/reference apps/
+user-business-web/reference apps/
 
-# Local experiments (not part of the app)
-stable date picker/
-
-# AI Chat Reference
-ai chat interface/
+# Local agent workspaces and session artifacts
+**/.local/
+**/logs/*.log
+**/.expo-tmp-check/
