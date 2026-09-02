@@ -19,6 +19,9 @@ Short tracked context for Cursor agents. Verbose notes, recon, and session docs 
 | `scripts/*.ps1`, `scripts/HANDOFF-IOS.md` | `google-services.json`, `GoogleService-Info.plist` (real Firebase files) |
 | `.env.example`, `*.example` plist/json | `Podfile.lock` under a tracked ios tree |
 | Analytics, assistant, funnel `.ts`/`.tsx` | Anything under `.local/`, `logs/` |
+| `app.config.js` (conditional Firebase) | Real `google-services.json` / `GoogleService-Info.plist` in git |
+
+**Firebase on EAS:** Config files stay gitignored. Upload them as EAS **file** environment variables (or place locally for Mac/Windows prebuild). `app.config.js` enables `@react-native-firebase/*` only when those files exist — preview Android builds must not require them in git.
 
 **Windows reserved name:** App display name is `"Aux"`. A committed prebuild folder `ios/Aux/` breaks `git pull` on Windows (`Aux` is a reserved device name). **Never commit `ios/` or `android/`** — EAS prebuild runs on Mac/Linux workers where `ios/Aux/` is fine. Do not rename slug unless you also update the linked EAS project on expo.dev.
 
