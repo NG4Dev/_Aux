@@ -1,0 +1,54 @@
+# Map external source categories/tags → Discover home tile slugs
+category_map:
+  quicket:
+    music: live-music
+    comedy: comedy
+    food: food-drink
+    sport: sports
+    festival: festivals
+    theatre: theatre
+    default: events
+
+  computicket:
+    Concerts: live-music
+    Comedy: comedy
+    Sport: sports
+    Theatre: theatre
+    default: events
+
+  howler:
+    default: events
+
+  webtickets:
+    default: events
+
+  fever:
+    default: experiences
+
+  bandsintown:
+    default: live-music
+
+  fomosa:
+    default: experiences
+
+  hyperli:
+    default: deals
+
+  google_places:
+    restaurant: restaurants
+    bar: bars
+    cafe: cafes
+    night_club: nightlife
+    default: places
+
+entity_type_defaults:
+  quicket: event
+  computicket: event
+  howler: event
+  webtickets: event
+  fever: event
+  airdosh: event
+  bandsintown: event
+  fomosa: deal
+  hyperli: deal
+  google_places: place

@@ -1,0 +1,2 @@
+﻿# Mobile repo — inherits workspace ignores from root .gitignore
+reference apps/

@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+
+# Local env & secrets
+.env
+
+# Runtime data
+data/
+output/
+
+# Probe/debug dumps
+scripts/*.html
+
+# Local agent workspace (templates, recon notes, dated snapshots)
+.local/
+agent-docs/
+recon/

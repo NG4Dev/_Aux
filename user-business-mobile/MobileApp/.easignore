@@ -1,0 +1,6 @@
+android/
+ios/
+.expo/
+.expo-tmp-check/
+logs/
+.local/
