@@ -1,9 +1,3 @@
+# pnpm 11+: build approvals live here (package.json#pnpm is ignored)
 allowBuilds:
-  "@clerk/shared": true
-  esbuild: true
-  msw: set this to true or false
-  sharp: true
-  unrs-resolver: true
-ignoredBuiltDependencies:
-  - sharp
-  - unrs-resolver
+  msw: true
