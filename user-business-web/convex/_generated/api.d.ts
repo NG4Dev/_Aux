@@ -16,6 +16,7 @@ import type * as admin_events from "../admin/events.js";
 import type * as admin_merchants from "../admin/merchants.js";
 import type * as admin_orders from "../admin/orders.js";
 import type * as admin_products from "../admin/products.js";
+import type * as analytics from "../analytics.js";
 import type * as assistant from "../assistant.js";
 import type * as assistantTools from "../assistantTools.js";
 import type * as categories from "../categories.js";
@@ -70,6 +71,7 @@ declare const fullApi: ApiFromModules<{
   "admin/merchants": typeof admin_merchants;
   "admin/orders": typeof admin_orders;
   "admin/products": typeof admin_products;
+  analytics: typeof analytics;
   assistant: typeof assistant;
   assistantTools: typeof assistantTools;
   categories: typeof categories;
