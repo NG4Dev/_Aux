@@ -113,7 +113,7 @@ module.exports = ({ config }) => {
   return {
     ...config,
     name: "Aux",
-    slug: "Aux",
+    slug: "aux",
     scheme: "aux",
     version: "1.0.0",
     orientation: "portrait",
@@ -129,8 +129,15 @@ module.exports = ({ config }) => {
     plugins,
     extra: {
       router: {},
-      eas: { projectId: "83c8e834-27c8-4681-961c-a40b215cf9a2" },
+      eas: { projectId: "3db21201-d159-475f-9a0c-82ca1b345f5c" },
       firebaseNativeEnabled: enableFirebase,
+      // Baked at config-eval time so preview APKs still gate-on even if Metro
+      // misses EXPO_PUBLIC_* inlining under EAS Environments.
+      analyticsEnabled:
+        process.env.EXPO_PUBLIC_ANALYTICS_ENABLED === "true",
+      analyticsAllowDev:
+        process.env.EXPO_PUBLIC_ANALYTICS_ALLOW_DEV === "true",
+      mixpanelToken: process.env.EXPO_PUBLIC_MIXPANEL_TOKEN ?? "",
     },
   };
 };

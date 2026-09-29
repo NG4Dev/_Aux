@@ -1,12 +1,15 @@
 import { useEffect, useRef } from "react";
 import { usePathname, useSegments } from "expo-router";
 import { useAuth, useUser } from "@clerk/clerk-expo";
+import Constants from "expo-constants";
 import {
+  hasFirebaseAnalyticsModule,
   setGa4UserId,
   trackScreenView,
 } from "@/services/analytics/ga4/mobile";
 import {
   identifyMixpanelUser,
+  isAnalyticsEnabled,
   trackMixpanel,
   MixpanelEvents,
 } from "@/services/analytics";
@@ -33,6 +36,25 @@ export default function MobileAnalyticsObserver() {
   useEffect(() => {
     if (!appOpenedRef.current) {
       appOpenedRef.current = true;
+      const extra = Constants.expoConfig?.extra as
+        | {
+            firebaseNativeEnabled?: boolean;
+            analyticsEnabled?: boolean;
+            mixpanelToken?: string;
+          }
+        | undefined;
+      console.warn("[AnalyticsBoot]", {
+        enabled: isAnalyticsEnabled(),
+        __DEV__,
+        envEnabled: process.env.EXPO_PUBLIC_ANALYTICS_ENABLED,
+        envAllowDev: process.env.EXPO_PUBLIC_ANALYTICS_ALLOW_DEV,
+        extraAnalyticsEnabled: extra?.analyticsEnabled === true,
+        firebaseNativeEnabled: extra?.firebaseNativeEnabled === true,
+        hasFirebaseAnalyticsModule: hasFirebaseAnalyticsModule(),
+        hasMixpanelToken: Boolean(
+          process.env.EXPO_PUBLIC_MIXPANEL_TOKEN || extra?.mixpanelToken,
+        ),
+      });
       void trackMixpanel(MixpanelEvents.AppOpened, {
         persona: "consumer",
         platform: "mobile",
