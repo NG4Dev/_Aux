@@ -15,39 +15,75 @@ import {
 
 type Params = Record<string, string | number | boolean | undefined>;
 
-type FirebaseAnalyticsModule = {
-  (): {
-    logEvent: (name: string, params?: Record<string, string | number>) => void;
-    logScreenView: (params: {
-      screen_name: string;
-      screen_class?: string;
-    }) => void;
-    setUserId: (id: string | null) => void;
-    setUserProperty: (name: string, value: string | null) => void;
-    setAnalyticsCollectionEnabled: (enabled: boolean) => Promise<void>;
-  };
+/** RN Firebase v22+ modular surface (no namespaced `.default()` export). */
+type AnalyticsInstance = object;
+
+type FirebaseAnalyticsMod = {
+  getAnalytics: () => AnalyticsInstance;
+  logEvent: (
+    analytics: AnalyticsInstance,
+    name: string,
+    params?: Record<string, string | number>,
+  ) => void | Promise<void>;
+  logScreenView: (
+    analytics: AnalyticsInstance,
+    params: { screen_name: string; screen_class?: string },
+  ) => void | Promise<void>;
+  setUserId: (
+    analytics: AnalyticsInstance,
+    id: string | null,
+  ) => void | Promise<void>;
+  setUserProperty: (
+    analytics: AnalyticsInstance,
+    name: string,
+    value: string | null,
+  ) => void | Promise<void>;
+  setAnalyticsCollectionEnabled: (
+    analytics: AnalyticsInstance,
+    enabled: boolean,
+  ) => void | Promise<void>;
 };
 
 let collectionConfigured = false;
 let currentUserId: string | null = null;
 
-function getFirebaseAnalytics(): FirebaseAnalyticsModule | null {
+function getFirebaseAnalyticsMod(): FirebaseAnalyticsMod | null {
   if (Platform.OS === "web") return null;
   try {
-    // Native module — requires dev client + google-services files after prebuild.
+    // Native module — requires google-services after prebuild.
+    // v26 is ESM/modular only: named exports, not `.default()`.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return require("@react-native-firebase/analytics").default;
+    const mod = require("@react-native-firebase/analytics") as
+      | FirebaseAnalyticsMod
+      | { default?: FirebaseAnalyticsMod };
+    if (mod && typeof (mod as FirebaseAnalyticsMod).getAnalytics === "function") {
+      return mod as FirebaseAnalyticsMod;
+    }
+    const nested = (mod as { default?: FirebaseAnalyticsMod }).default;
+    if (nested && typeof nested.getAnalytics === "function") {
+      return nested;
+    }
+    return null;
   } catch {
     return null;
   }
 }
 
-async function ensureCollectionEnabled() {
+/** Boot/diag: modular analytics JS module resolved (native bridge may still fail). */
+export const hasFirebaseAnalyticsModule = (): boolean =>
+  getFirebaseAnalyticsMod() !== null;
+
+async function ensureCollectionEnabled(mod: FirebaseAnalyticsMod) {
   if (collectionConfigured || !isAnalyticsEnabled()) return;
-  const analytics = getFirebaseAnalytics();
-  if (!analytics) return;
-  await analytics().setAnalyticsCollectionEnabled(true);
-  collectionConfigured = true;
+  try {
+    const analytics = mod.getAnalytics();
+    await Promise.resolve(mod.setAnalyticsCollectionEnabled(analytics, true));
+    collectionConfigured = true;
+  } catch (error) {
+    // Collection is usually already on via google-services; don't block events.
+    console.warn("Firebase setAnalyticsCollectionEnabled failed", error);
+    collectionConfigured = true;
+  }
 }
 
 function sanitizeParams(params: Params): Record<string, string | number> {
@@ -68,9 +104,11 @@ function sanitizeParams(params: Params): Record<string, string | number> {
 
 async function sendGa4Event(name: string, params: Params = {}) {
   if (!isAnalyticsEnabled()) return;
-  await ensureCollectionEnabled();
-  const analytics = getFirebaseAnalytics();
-  if (!analytics) return;
+  const mod = getFirebaseAnalyticsMod();
+  if (!mod) return;
+
+  await ensureCollectionEnabled(mod);
+  const analytics = mod.getAnalytics();
 
   const payload = sanitizeParams({
     ...params,
@@ -79,12 +117,15 @@ async function sendGa4Event(name: string, params: Params = {}) {
 
   try {
     if (name === Ga4Events.ScreenView && payload.screen_name) {
-      await analytics().logScreenView({
-        screen_name: String(payload.screen_name),
-        screen_class: String(payload.screen_name),
-      });
+      await Promise.resolve(
+        mod.logScreenView(analytics, {
+          screen_name: String(payload.screen_name),
+          screen_class: String(payload.screen_name),
+        }),
+      );
+      return;
     }
-    await analytics().logEvent(name, payload);
+    await Promise.resolve(mod.logEvent(analytics, name, payload));
   } catch (error) {
     console.warn("Firebase Analytics logEvent failed", error);
   }
@@ -126,8 +167,8 @@ export const setGa4UserId = (
 ) => {
   currentUserId = userId;
   if (!isAnalyticsEnabled()) return;
-  const analytics = getFirebaseAnalytics();
-  if (!analytics) return;
+  const mod = getFirebaseAnalyticsMod();
+  if (!mod) return;
 
   const classified =
     userType ?? (emailAddress ? classifyUserType(emailAddress) : undefined);
@@ -135,10 +176,13 @@ export const setGa4UserId = (
     ? toAnalyticsUserType(classified)
     : undefined;
 
-  void ensureCollectionEnabled().then(() => {
-    analytics().setUserId(userId);
+  void ensureCollectionEnabled(mod).then(() => {
+    const analytics = mod.getAnalytics();
+    void Promise.resolve(mod.setUserId(analytics, userId));
     if (userTypeValue) {
-      analytics().setUserProperty("user_type", userTypeValue);
+      void Promise.resolve(
+        mod.setUserProperty(analytics, "user_type", userTypeValue),
+      );
     }
   });
 };

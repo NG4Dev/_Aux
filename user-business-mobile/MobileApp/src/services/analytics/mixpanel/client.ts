@@ -1,3 +1,4 @@
+import Constants from "expo-constants";
 import { isAnalyticsEnabled } from "@/services/analytics/analyticsEnabled";
 import {
   classifyUserType,
@@ -7,7 +8,14 @@ import {
 
 type Props = Record<string, string | number | boolean | undefined | null>;
 
-const token = () => process.env.EXPO_PUBLIC_MIXPANEL_TOKEN;
+const token = () => {
+  const fromEnv = process.env.EXPO_PUBLIC_MIXPANEL_TOKEN;
+  if (fromEnv) return fromEnv;
+  const extra = Constants.expoConfig?.extra as
+    | { mixpanelToken?: string }
+    | undefined;
+  return extra?.mixpanelToken || undefined;
+};
 
 export const isMixpanelEnabled = () =>
   isAnalyticsEnabled() && !!token();

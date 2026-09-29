@@ -1,13 +1,21 @@
-# Monorepo: mobile EAS builds only need MobileApp (exclude sibling projects)
+# Root .easignore REPLACES .gitignore for EAS uploads — keep exclusions complete.
+# Mobile EAS runs from user-business-mobile/MobileApp but packs from git root.
+
+# Sibling / unrelated projects (major bloat — aux-amd-serving alone ~128MB)
+aux-amd-serving/**
 user-business-web/**
 discovery-ingestion/**
 DesignSystem/**
 future-plans/**
 scripts/**
+.cursor/**
+.vscode/**
 
 # Reference / docs (not part of the app bundle)
 user-business-mobile/reference apps/**
+user-business-web/reference apps/**
 *.md
+!user-business-mobile/MobileApp/docs/README.md
 
 # Never upload local native folders — EAS must prebuild on Linux
 user-business-mobile/MobileApp/android/**
@@ -19,6 +27,30 @@ user-business-mobile/MobileApp/ios/**
 **/android/build/**
 **/android/.gradle/**
 
-# Local secrets (use EAS env vars / secrets instead)
+# Expo / agent local artifacts
+**/.expo/**
+**/.expo-tmp-check/**
+**/logs/**
+**/.local/**
+
+# Local secrets (use EAS env / file secrets instead)
 **/.env
 **/.env.*
+**/google-services.json
+**/GoogleService-Info.plist
+
+# Misc from .gitignore
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.DS_Store
+*.pem
+*.tsbuildinfo
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+todo.md

@@ -2,19 +2,45 @@ const fs = require("fs");
 const path = require("path");
 
 /**
+ * Resolve Firebase config: EAS file env vars are absolute paths outside the
+ * project. Copy into MobileApp root so prebuild / googleServicesFile paths work.
+ * Local/dev already has gitignored files in place.
+ */
+function resolveGoogleServicesFile(envVarName, localFileName) {
+  const root = __dirname;
+  const localPath = path.join(root, localFileName);
+  const fromEnv = process.env[envVarName];
+
+  if (fromEnv && fs.existsSync(fromEnv)) {
+    if (path.resolve(fromEnv) !== path.resolve(localPath)) {
+      fs.copyFileSync(fromEnv, localPath);
+    }
+    return `./${localFileName}`;
+  }
+
+  if (fs.existsSync(localPath)) {
+    return `./${localFileName}`;
+  }
+
+  return null;
+}
+
+/**
  * Dynamic Expo config so EAS preview builds succeed without Firebase config
  * files in git. When google-services.json / GoogleService-Info.plist exist
- * (local or via EAS file env vars copied into the project), Firebase plugins
- * stay enabled. Otherwise they are omitted and GA4 no-ops at runtime.
+ * (local or via EAS file env vars), Firebase plugins stay enabled. Otherwise
+ * they are omitted and GA4 no-ops at runtime.
  */
 module.exports = ({ config }) => {
-  // Prefer static app.json fields when present; Expo merges config.
-  const root = __dirname;
-  const androidGs = path.join(root, "google-services.json");
-  const iosGs = path.join(root, "GoogleService-Info.plist");
-  const hasAndroidGs = fs.existsSync(androidGs);
-  const hasIosGs = fs.existsSync(iosGs);
-  const enableFirebase = hasAndroidGs || hasIosGs;
+  const androidGs = resolveGoogleServicesFile(
+    "GOOGLE_SERVICES_JSON",
+    "google-services.json"
+  );
+  const iosGs = resolveGoogleServicesFile(
+    "GOOGLE_SERVICES_PLIST",
+    "GoogleService-Info.plist"
+  );
+  const enableFirebase = Boolean(androidGs || iosGs);
 
   const plugins = [
     "expo-router",
@@ -58,8 +84,8 @@ module.exports = ({ config }) => {
     supportsTablet: true,
     infoPlist: { ITSAppUsesNonExemptEncryption: false },
   };
-  if (hasIosGs) {
-    ios.googleServicesFile = "./GoogleService-Info.plist";
+  if (iosGs) {
+    ios.googleServicesFile = iosGs;
   }
 
   const android = {
@@ -80,14 +106,14 @@ module.exports = ({ config }) => {
     navigationBar: { backgroundColor: "#000000" },
     statusBar: { backgroundColor: "#000000", barStyle: "light-content" },
   };
-  if (hasAndroidGs) {
-    android.googleServicesFile = "./google-services.json";
+  if (androidGs) {
+    android.googleServicesFile = androidGs;
   }
 
   return {
     ...config,
     name: "Aux",
-    slug: "Aux",
+    slug: "aux",
     scheme: "aux",
     version: "1.0.0",
     orientation: "portrait",
@@ -103,8 +129,15 @@ module.exports = ({ config }) => {
     plugins,
     extra: {
       router: {},
-      eas: { projectId: "83c8e834-27c8-4681-961c-a40b215cf9a2" },
+      eas: { projectId: "3db21201-d159-475f-9a0c-82ca1b345f5c" },
       firebaseNativeEnabled: enableFirebase,
+      // Baked at config-eval time so preview APKs still gate-on even if Metro
+      // misses EXPO_PUBLIC_* inlining under EAS Environments.
+      analyticsEnabled:
+        process.env.EXPO_PUBLIC_ANALYTICS_ENABLED === "true",
+      analyticsAllowDev:
+        process.env.EXPO_PUBLIC_ANALYTICS_ALLOW_DEV === "true",
+      mixpanelToken: process.env.EXPO_PUBLIC_MIXPANEL_TOKEN ?? "",
     },
   };
 };
