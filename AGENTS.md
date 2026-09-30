@@ -29,8 +29,8 @@ Short tracked context for Cursor agents. Verbose notes, recon, and session docs 
 
 | Who | Machine | Owns |
 |-----|---------|------|
-| Owner (NG4Dev) | Windows | JS/TS, Convex, web analytics, mobile analytics wiring, **Android EAS** (`preview` APK) |
-| Rishay | Mac | **iOS EAS / TestFlight** (`preview-testflight`), Apple signing |
+| Owner (NG4Dev) | Windows | JS/TS, Convex, web analytics, mobile analytics wiring, **Android EAS** (`preview` APK), Expo `@ng4corp/aux` secrets |
+| Rishay | Mac | **iOS TestFlight** — Path A default (local Xcode Archive); Path B optional after Expo invite (`eas build` / `eas submit` `preview-testflight`) |
 
 **Owner (Windows):**
 
@@ -39,20 +39,31 @@ cd user-business-mobile/MobileApp
 eas build --profile preview --platform android
 ```
 
-**iOS helper (Mac only)** — see `user-business-mobile/MobileApp/scripts/HANDOFF-IOS.md`:
+**iOS helper (Mac only)** — full runbook: `user-business-mobile/MobileApp/scripts/HANDOFF-IOS.md`
 
-```powershell
+Path A (default — local → TestFlight):
+
+```bash
+npx expo prebuild --platform ios --clean
+# Xcode Archive → App Store Connect / TestFlight — never commit ios/
+```
+
+Path B (optional — EAS iOS after invite to `@ng4corp`; project `@ng4corp/aux`):
+
+```bash
 eas build --profile preview-testflight --platform ios
 eas submit --profile preview-testflight --platform ios --latest
 ```
 
-Do not ask Windows agents to run `expo prebuild --platform ios`, commit `ios/`, or merge branches that require checking out `ios/Aux/` locally. Merge on GitHub or on Mac.
+Do not ask Windows agents to commit `ios/`, or merge branches that require checking out `ios/Aux/` locally. Merge on GitHub or on Mac. Local `ios/` on Mac disk is fine; never push it.
+
+**Collaborator Cursor setup** — install Expo/Clerk/Stripe/Convex skill packs and Chrome DevTools MCP with `--autoConnect` (live Chrome, not headless) so agents match the owner. Full commands: `user-business-mobile/MobileApp/scripts/HANDOFF-IOS.md`.
 
 **Bundle IDs (do not change without coordination):**
 
 - iOS: `com.galyvant.aux` (team `VNG3LN323R`)
 - Android: `com.ng4.RNAuth`
-- Expo slug: `Aux` (must match EAS projectId `83c8e834-27c8-4681-961c-a40b215cf9a2` on expo.dev — do not rename slug without updating the EAS project)
+- Expo: owner `ng4corp`, slug `aux`, projectId `3db21201-d159-475f-9a0c-82ca1b345f5c` — do not rename without updating the EAS project on expo.dev
 
 ## Discovery ingestion
 
