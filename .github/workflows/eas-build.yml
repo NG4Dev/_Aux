@@ -32,7 +32,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: user-business-mobile/MobileApp/package-lock.json
 
@@ -43,14 +43,15 @@ jobs:
         uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e # v8
         with:
           eas-version: latest
+          packager: npm
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Build Android preview
         run: eas build --profile preview --platform android --non-interactive
 
-  ios-staging:
-    name: iOS TestFlight (staging)
-    if: github.ref_name == 'staging'
+  ios-preview:
+    name: iOS TestFlight (${{ github.ref_name }})
+    if: github.ref_name == 'testing' || github.ref_name == 'staging'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     defaults:
@@ -63,7 +64,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: user-business-mobile/MobileApp/package-lock.json
 
@@ -74,6 +75,7 @@ jobs:
         uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e # v8
         with:
           eas-version: latest
+          packager: npm
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Build iOS preview-testflight
@@ -95,7 +97,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: user-business-mobile/MobileApp/package-lock.json
 
@@ -106,6 +108,7 @@ jobs:
         uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e # v8
         with:
           eas-version: latest
+          packager: npm
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Build production
