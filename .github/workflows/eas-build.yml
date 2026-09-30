@@ -8,6 +8,8 @@ on:
       - prod
     paths:
       - "user-business-mobile/MobileApp/**"
+      - "!user-business-mobile/MobileApp/**/*.md"
+      - "!user-business-mobile/MobileApp/docs/**"
       - ".github/workflows/eas-build.yml"
 
 concurrency:
@@ -18,15 +20,16 @@ jobs:
   eas-build:
     name: EAS (${{ github.ref_name }})
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     defaults:
       run:
         working-directory: user-business-mobile/MobileApp
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
           cache: npm
@@ -36,24 +39,24 @@ jobs:
         run: npm ci
 
       - name: Setup EAS
-        uses: expo/expo-github-action@v8
+        uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e # v8
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Build testing (Android preview)
         if: github.ref_name == 'testing'
-        run: eas build --profile preview --platform android --non-interactive --no-wait
+        run: eas build --profile preview --platform android --non-interactive
 
       - name: Build staging (Android preview)
         if: github.ref_name == 'staging'
-        run: eas build --profile preview --platform android --non-interactive --no-wait
+        run: eas build --profile preview --platform android --non-interactive
 
       - name: Build staging (iOS TestFlight profile)
         if: github.ref_name == 'staging'
         continue-on-error: true
-        run: eas build --profile preview-testflight --platform ios --non-interactive --no-wait
+        run: eas build --profile preview-testflight --platform ios --non-interactive
 
       - name: Build prod (production)
         if: github.ref_name == 'prod'
-        run: eas build --profile production --platform all --non-interactive --no-wait
+        run: eas build --profile production --platform all --non-interactive
