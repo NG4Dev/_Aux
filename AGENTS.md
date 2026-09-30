@@ -2,6 +2,29 @@
 
 Short tracked context for Cursor agents. Verbose notes, recon, and session docs stay in each project’s `.local/` folder (gitignored).
 
+## Git branches (env promotion)
+
+Default production tip is **`prod`** (not `main` — `main` was removed).
+
+```
+feature_branch ──PR + owner approve──► testing ──PR──► staging ──PR──► prod
+```
+
+| Branch | Purpose | Deploy |
+|--------|---------|--------|
+| Feature branches | Day-to-day work | Vercel Preview |
+| `testing` | Integration | Vercel Preview + EAS Android `preview` (CI) |
+| `staging` | Pre-release | Vercel Preview + EAS Android `preview` + iOS `preview-testflight` (CI; iOS may fail soft without Apple creds) |
+| `prod` | Production | Vercel Production + EAS `production` (CI) |
+
+**Rules**
+
+- Open feature PRs into **`testing` only** — never straight into `prod`.
+- Promote with PRs: `testing` → `staging` → `prod`. Owner (`@NG4Dev`) must approve; direct pushes to those three are blocked.
+- After clone: `git fetch --prune`, checkout `prod` or work from `testing`.
+- Never push secrets. Vercel/EAS env vars live in dashboards per environment. Convex prod vs preview URLs must be verified before going live on `prod`.
+- GitHub Actions: `.github/workflows/eas-build.yml` needs repo secret `EXPO_TOKEN` (Expo access token for `@ng4corp`).
+
 ## Commit policy
 
 - **Mobile app (`user-business-mobile/MobileApp/`)** — commit **code only**: `.ts`, `.tsx`, config (`app.json`, `metro.config.js`, `package.json`, `eas.json`), and runnable scripts under `scripts/`. Do **not** commit `docs/*.md` (except `docs/README.md`), `logs/`, `.expo-tmp-check/`, or anything under `.local/`.
