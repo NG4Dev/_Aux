@@ -34,29 +34,15 @@ Lesson from commit `8e001c` (`implemented ios build`): committing generated `ios
 
 ## Access checklist
 
-| System | Owner action | You need |
-|--------|--------------|----------|
-| **GitHub** | Collaborator on `NG4Dev/_Aux` | Clone / pull `main` |
-| **Expo** | Invite **Developer** on org [@ng4corp](https://expo.dev/accounts/ng4corp/settings/members) → `Rishayraj@gmail.com` | Path B: accept invite → `eas login` → access `@ng4corp/aux` |
-| **Apple** | Not required from owner | Your Apple Developer Program |
-| **Firebase** | Supplies `GoogleService-Info.plist` securely (Path A) | Place file locally (gitignored). Path B uses EAS file env `GOOGLE_SERVICES_PLIST` when configured |
+| System | Status | You need |
+|--------|--------|----------|
+| **GitHub** | Already a collaborator on `NG4Dev/_Aux` | Clone / pull `main` |
+| **Expo** | Developer invite on [@ng4corp](https://expo.dev/accounts/ng4corp/settings/members) → `Rishayraj@gmail.com` | Path B: accept invite → `eas login` → access `@ng4corp/aux` |
+| **Apple** | Your Developer Program | Signing for Path A / EAS iOS |
+| **Firebase** | Owner supplies `GoogleService-Info.plist` securely (Path A) | Place file locally (gitignored). Path B uses EAS file env `GOOGLE_SERVICES_PLIST` when configured |
 | **Convex / Clerk** | Keys already on project / `eas.json` | Not required to change for a normal TestFlight build |
 
-### Owner: invite (GitHub + Expo)
-
-```text
-GitHub username: RishayRajkumar
-Expo invite email: Rishayraj@gmail.com
-```
-
-```powershell
-# From repo root (GitHub)
-.\user-business-mobile\MobileApp\scripts\invite-ios-helper.ps1 -HelperGitHubUsername RishayRajkumar -HelperEmail Rishayraj@gmail.com
-```
-
-**Expo (Path B):** Invite **sent** on org [@ng4corp](https://expo.dev/accounts/ng4corp/settings/members) → **Developer** → **Rishayraj@gmail.com** (pending his acceptance as of 2026-09-30). Live project is **`@ng4corp/aux`** (transferred from `@ng4dev`; same projectId). After he accepts: `eas login` → `eas project:info` must show `@ng4corp/aux`.
-
-### You: confirm Expo access (Path B)
+**Expo (Path B):** Invite sent on `@ng4corp` as **Developer** (pending acceptance as of 2026-09-30). Live project is **`@ng4corp/aux`**. After you accept:
 
 ```bash
 eas login
