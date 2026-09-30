@@ -202,7 +202,7 @@ Owner verifies Mixpanel / GA4. You do not need to change analytics event names.
 
 Open a **small PR into `testing`**. Owner reviews. Never force-push `prod` / `staging` / `testing`. Before push: `git status` must **not** show `ios/` or `android/`.
 
-CI: merges to `testing` / `staging` / `prod` trigger EAS builds via `.github/workflows/eas-build.yml` (needs `EXPO_TOKEN`). Staging iOS may fail soft until Apple credentials are on EAS.
+CI: merges to `testing` / `staging` / `prod` trigger EAS builds via `.github/workflows/eas-build.yml` (needs `EXPO_TOKEN`). On `testing` and `staging`, Android `preview` and iOS `preview-testflight` both run for the same commit; iOS may fail soft until Apple credentials are on EAS.
 
 ---
 

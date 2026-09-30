@@ -13,7 +13,7 @@ feature_branch ──PR + owner approve──► testing ──PR──► stagi
 | Branch | Purpose | Deploy |
 |--------|---------|--------|
 | Feature branches | Day-to-day work | Vercel Preview |
-| `testing` | Integration | Vercel Preview + EAS Android `preview` (CI) |
+| `testing` | Integration | Vercel Preview + EAS Android `preview` + iOS `preview-testflight` (CI; iOS may fail soft without Apple creds) |
 | `staging` | Pre-release | Vercel Preview + EAS Android `preview` + iOS `preview-testflight` (CI; iOS may fail soft without Apple creds) |
 | `prod` | Production | Vercel Production + EAS `production` (CI) |
 
