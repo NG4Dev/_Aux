@@ -17,8 +17,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  eas-build:
-    name: EAS (${{ github.ref_name }})
+  android-preview:
+    name: Android preview (${{ github.ref_name }})
+    if: github.ref_name == 'testing' || github.ref_name == 'staging'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     defaults:
@@ -44,19 +45,68 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Build testing (Android preview)
-        if: github.ref_name == 'testing'
+      - name: Build Android preview
         run: eas build --profile preview --platform android --non-interactive
 
-      - name: Build staging (Android preview)
-        if: github.ref_name == 'staging'
-        run: eas build --profile preview --platform android --non-interactive
+  ios-staging:
+    name: iOS TestFlight (staging)
+    if: github.ref_name == 'staging'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: user-business-mobile/MobileApp
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - name: Build staging (iOS TestFlight profile)
-        if: github.ref_name == 'staging'
-        continue-on-error: true
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: user-business-mobile/MobileApp/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e # v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build iOS preview-testflight
         run: eas build --profile preview-testflight --platform ios --non-interactive
 
-      - name: Build prod (production)
-        if: github.ref_name == 'prod'
+  production:
+    name: Production (all platforms)
+    if: github.ref_name == 'prod'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    defaults:
+      run:
+        working-directory: user-business-mobile/MobileApp
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: user-business-mobile/MobileApp/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e # v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build production
         run: eas build --profile production --platform all --non-interactive
