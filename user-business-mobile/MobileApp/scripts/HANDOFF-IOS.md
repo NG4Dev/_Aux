@@ -1,6 +1,8 @@
 ﻿# iOS TestFlight handoff — AUX Mobile (`@ng4corp/aux`)
 
-Mac collaborator runbook for **Rishay**. Ship TestFlight from current `main` without committing native trees or changing Expo identity.
+Mac collaborator runbook for **Rishay**. Ship TestFlight from current **`prod`** / **`testing`** without committing native trees or changing Expo identity.
+
+**Branch flow:** feature → PR into `testing` → promote `testing` → `staging` → `prod` (owner approve). Do not push to `prod` directly. Day-to-day: branch off `testing` (or `prod` tip after fetch). `main` no longer exists.
 
 ## Roles
 
@@ -36,7 +38,7 @@ Lesson from commit `8e001c` (`implemented ios build`): committing generated `ios
 
 | System | Status | You need |
 |--------|--------|----------|
-| **GitHub** | Already a collaborator on `NG4Dev/_Aux` | Clone / pull `main` |
+| **GitHub** | Already a collaborator on `NG4Dev/_Aux` | Clone / pull `prod`; open PRs into `testing` |
 | **Expo** | Developer invite on [@ng4corp](https://expo.dev/accounts/ng4corp/settings/members) → `Rishayraj@gmail.com` | Path B: accept invite → `eas login` → access `@ng4corp/aux` |
 | **Apple** | Your Developer Program | Signing for Path A / EAS iOS |
 | **Firebase** | Owner supplies `GoogleService-Info.plist` securely (Path A) | Place file locally (gitignored). Path B uses EAS file env `GOOGLE_SERVICES_PLIST` when configured |
@@ -57,8 +59,11 @@ eas project:info   # must resolve Aux under @ng4corp/aux (projectId 3db21201-d15
 
 ```bash
 git clone https://github.com/NG4Dev/_Aux.git   # or fetch if already cloned
-cd _Aux/user-business-mobile/MobileApp
-git checkout main && git pull
+cd _Aux
+git fetch --prune
+git checkout testing && git pull   # day-to-day integration tip
+# or: git checkout prod && git pull   # production tip
+cd user-business-mobile/MobileApp
 npm ci
 ```
 
@@ -195,7 +200,9 @@ Owner verifies Mixpanel / GA4. You do not need to change analytics event names.
 
 ## If repo config must change
 
-Open a **small PR**. Owner reviews. Never force-push `main`. Before push: `git status` must **not** show `ios/` or `android/`.
+Open a **small PR into `testing`**. Owner reviews. Never force-push `prod` / `staging` / `testing`. Before push: `git status` must **not** show `ios/` or `android/`.
+
+CI: merges to `testing` / `staging` / `prod` trigger EAS builds via `.github/workflows/eas-build.yml` (needs `EXPO_TOKEN`). Staging iOS may fail soft until Apple credentials are on EAS.
 
 ---
 
