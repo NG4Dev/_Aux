@@ -53,7 +53,6 @@ jobs:
     if: github.ref_name == 'staging'
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    continue-on-error: true
     defaults:
       run:
         working-directory: user-business-mobile/MobileApp
@@ -78,6 +77,7 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Build iOS preview-testflight
+        continue-on-error: true
         run: eas build --profile preview-testflight --platform ios --non-interactive
 
   production:
